@@ -2,6 +2,24 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [1.5.0] - 2026-09-17
+
+### Added
+- Automated negative mutation and anti-regression testing suite in `evals/run_evals.py` verifying that leaky robots configurations, invalid schema prices, disconnected `@graph` entities, keyword-stuffed text, accepted fake stats, out-of-bounds scores, and unhandled eval IDs are reliably rejected.
+- Robust, fixed-width sentence splitting heuristic protecting numeric decimals (`1.84ms`) and abbreviations (`Dr.`, `Mr.`, `RFC`) from splitting errors.
+- Comprehensive English stopword filtering in keyword density validation to eliminate false positives on common connecting words.
+- Active validation of 100% of declared assertion keys (`score_ranges`, `graph_interconnected`, `no_multiple_scripts`, `robots_has_ai_crawlers`, `robots_disallow_leak_prevention`, `llms_txt_markers`, `contains_clusters`, `cluster_count`, `per_topic_requirements`, `fabricated_stats_unendorsed`).
+- Distinct author ORCID identifiers for multi-author Schema samples (`0000-0001-5432-9876` for Alex Mercer, `0000-0002-1825-0097` for Jane Doe).
+
+### Changed
+- Corrected Princeton KDD 2024 academic citations in `references/geo-framework.md` to Section 5.3 ("Analysis of Strategy Combinations"): Fluency Optimization + Statistics Addition delivers >5.5% relative gain over the best single individual strategy on the 200-query benchmark subset.
+- Removed speculative claims attributing sub-additivity to "attention mechanisms and overlapping token attribution" and unsupported "+35% to +44%" figures.
+- Restricted Democratization Effect claims strictly to Google top-5 candidates evaluated in Princeton paper Table 2 (Rank 1: -30.3%, Rank 5: +115.1%), eliminating unsupported "Rank 6-10" mentions.
+- Synchronized Google Search FAQ rich results policy across `SKILL.md`, `README.md`, `README.ru.md`, and `references/schema-templates.md` to document the May 7, 2026 complete discontinuation across all domains.
+- Harmonized mode taxonomy: clarified 5 operational user-facing modes (`audit`, `optimize`, `schema`, `ai-files`, `strategy`) + 1 internal evaluation harness mode (`safety_check`).
+- Fixed silent pass on unknown `eval_id`s in `run_evals.py`: now fails fast with an explicit error.
+- Bumped test suite version to 1.5.0.
+
 ## [1.4.0] - 2026-09-17
 
 ### Added

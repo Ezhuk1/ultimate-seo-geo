@@ -139,7 +139,7 @@ Transform vague, marketing-heavy prose into high-PAWC, citable passages followin
 Construct a production-grade, error-free unified `@graph` JSON-LD block placed in `<head>` (`[RECOMMENDATION]`).
 Architecture guidelines:
 - Preferred architecture: Connect `WebSite` -> `WebPage` -> `about` (`Service` / `Product` / `SoftwareApplication`) -> `publisher` (`Organization`) via stable `@id` URIs. (Separate scripts describing distinct entities are valid `[STANDARD]`).
-- Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity` (Note: Google Search restricted SERP rich snippets to gov/health sites in Aug 2023; FAQ schema is retained for LLM / GEO direct answer extraction `[HEURISTIC]`).
+- Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity` (Note: As of May 7, 2026, Google Search has completely discontinued FAQ rich results across all domains; FAQ schema is retained for LLM / GEO direct answer extraction `[HEURISTIC]`).
 - Link `HowTo` steps into `WebPage.hasPart` (optimized for generative procedural answers `[HEURISTIC]`).
 - Enhance authors (`Person`) with `sameAs` links to LinkedIn, GitHub, ORCID, or Wikidata `[RECOMMENDATION]`.
 - Provide `BreadcrumbList` with position indices `[STANDARD]`.

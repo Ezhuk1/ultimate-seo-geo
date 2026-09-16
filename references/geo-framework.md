@@ -64,20 +64,20 @@ Experiments measuring visibility improvements across generative search engines (
 
 > [!NOTE]
 > **Benchmark Scope & Generalization Disclaimer `[RESEARCH]`:**
-> These percentages reflect experimental findings on 200 synthetic test queries evaluated against specific generative engines under controlled benchmark conditions. They are **empirical benchmark observations, not universal ranking guarantees or deterministic multipliers** for production web ranking. Real-world generative search visibility depends on index coverage, domain trust, query intent, and multi-stage reranking pipelines.
+> These percentages reflect experimental findings across synthetic test queries evaluated against specific generative engines under controlled benchmark conditions (Aggarwal et al., 2024, Table 1). They are **empirical benchmark observations, not universal ranking guarantees or deterministic multipliers** for production web ranking. Real-world generative search visibility depends on index coverage, domain trust, query intent, and multi-stage reranking pipelines.
 
-**The Compound Champion:** **Fluency + Statistics** produces $\ge +35\%$ to $+44\%$ lift on the Princeton test subset, outperforming single isolated approaches.
-> *Scientific Note on Sub-Additivity:* As documented in Section 4.2 of the Princeton GEO paper, multi-technique combinations do not sum linearly ($28\% + 30\% \ne 58\%$). Due to diminishing marginal returns in the attention mechanism and overlapping token attribution, combining fluency with verified statistics yields an empirical compounded lift of $+35\%$ to $+44\%$.
+**Strategy Combination Analysis `[RESEARCH]`:** In Section 5.3 ("Analysis of Strategy Combinations") of the Princeton GEO paper, the authors evaluated pairing optimization strategies on a separate 200-query benchmark subset. The combination of **Fluency Optimization + Statistics Addition** emerged as the top-performing pair, outperforming the single best individual strategy by **>5.5%** in relative visibility.
+> *Scientific Note on Non-Linearity:* As documented in Section 5.3, combinations of optimization strategies do not sum linearly ($28\% + 30\% \ne 58\%$). While multiple optimizations improve performance over single interventions, gains exhibit diminishing marginal returns.
 
 ---
 
 ## 2. Democratization Effect (Punching Above Weight) `[RESEARCH]`
 
-Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) evaluated how source optimization affects candidates across Google SERP ranks (top-5):
+Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) evaluated how source optimization affects candidates across the top-5 Google SERP results (retrieval pool size $k=5$):
 * Specifically for the **Cite Sources** optimization:
   - **Rank-1 Google sites** experienced a **$-30.3\%$** relative visibility drop when competing against evidence-rich lower-ranked sites.
   - **Rank-5 Google sites** gained **$+115.1\%$** relative visibility when introducing authoritative primary citations and data.
-* *Takeaway:* Generative synthesis can elevate a lower-ranked search candidate (e.g. Rank-5) over an incumbent if the candidate provides clearer primary evidence and verifiable data. Traditional ranking secures entry into the candidate pool; GEO evidence density dictates synthesis share.
+* *Takeaway:* Generative synthesis can elevate a lower-ranked search candidate within the top-5 candidate pool (e.g. Rank-5) over an incumbent if the candidate provides clearer primary evidence and verifiable data. Traditional ranking secures entry into the candidate pool; GEO evidence density dictates synthesis share.
 
 ---
 

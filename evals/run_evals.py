@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness
-Validates evals.json schema integrity, reference file bindings, and assertion engine rules.
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v1.5.0)
+Validates evals.json schema integrity, reference file bindings, assertion engine rules,
+and negative mutation test cases.
 """
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def load_evals(evals_path: Path) -> dict:
@@ -69,179 +72,662 @@ def validate_schema(data: dict, repo_root: Path) -> list[str]:
     return errors
 
 
-def mock_assertion_evaluator(eval_item: dict) -> tuple[bool, str]:
-    """
-    Tests evaluation logic on synthetic canonical responses to verify assertion definitions.
-    Includes formal regexes, density thresholds, and structural validators.
-    """
-    import re
-    eval_id = eval_item["id"]
-    assertions = eval_item["assertions"]
+STOPWORDS = {
+    "that", "this", "with", "from", "have", "more", "also", "were", "been",
+    "their", "which", "about", "into", "than", "them", "some", "what", "when",
+    "your", "only", "such", "other", "these", "then", "well", "will", "over",
+    "even", "most", "each", "both", "through", "after", "before", "during", "while"
+}
 
+
+def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bool, str]:
+    """
+    Evaluates a sample output against declared assertion criteria for a given eval_id.
+    Returns (True, 'Passed') on success or (False, reason) on failure.
+    """
     if eval_id == "audit-landing-page":
-        sample = """
-        ## Technical SEO Score: 85/100
-        ## GEO Score: 78/100
-        > Methodology Notice: This is an LLM Heuristic Evaluation.
-        ### AI Infrastructure
-        - robots.txt verified
-        ### Evidence Density
-        - 8 metrics found
-        ### Structure & Position
-        - First 150 words contain direct answer
-        ### Authority & E-E-A-T
-        - Author Jane Doe with sameAs
-        ### Prioritized Action Items
-        - P0, P1, P2 items listed
-        """
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for audit-landing-page"
+
         for s in assertions.get("contains_sections", []):
             if s.lower() not in sample.lower():
-                return False, f"Missing section '{s}'"
+                return False, f"Missing required section '{s}'"
+
         any_match = any(sec.lower() in sample.lower() for sec in assertions.get("contains_any_section", []))
         if not any_match:
-            return False, "Failed contains_any_section check"
+            return False, f"Failed contains_any_section check from {assertions.get('contains_any_section')}"
+
         if assertions.get("heuristic_notice_present") and "heuristic" not in sample.lower():
-            return False, "Heuristic notice check failed"
+            return False, "Heuristic methodology notice missing"
+
+        if "score_ranges" in assertions:
+            ranges = assertions["score_ranges"]
+            if "technical_seo" in ranges:
+                tech_match = re.search(r'Technical SEO Score:\s*(\d+)', sample, re.IGNORECASE)
+                if not tech_match:
+                    return False, "Technical SEO Score not found in output"
+                tech_score = int(tech_match.group(1))
+                t_min, t_max = ranges["technical_seo"]
+                if not (t_min <= tech_score <= t_max):
+                    return False, f"Technical SEO Score {tech_score} out of bounds [{t_min}, {t_max}]"
+
+            if "geo" in ranges:
+                geo_match = re.search(r'GEO Score:\s*(\d+)', sample, re.IGNORECASE)
+                if not geo_match:
+                    return False, "GEO Score not found in output"
+                geo_score = int(geo_match.group(1))
+                g_min, g_max = ranges["geo"]
+                if not (g_min <= geo_score <= g_max):
+                    return False, f"GEO Score {geo_score} out of bounds [{g_min}, {g_max}]"
 
     elif eval_id == "generate-schema-unified":
-        sample = """
-        {
-          "@context": "https://schema.org",
-          "@graph": [
-            { "@type": "Organization", "name": "TestOrg" },
-            { "@type": "WebSite", "name": "TestSite" },
-            { "@type": "WebPage", "name": "TestPage" },
-            { "@type": "Service", "offers": { "@type": "Offer", "price": "0.00" } },
-            { "@type": "FAQPage" },
-            { "@type": "BreadcrumbList" },
-            { "@type": "HowTo" }
-          ]
-        }
-        """
+        # Parse JSON
+        if isinstance(sample, str):
+            if sample.count("<script") > 1:
+                return False, "Found multiple <script> tags when unified block is required"
+            clean_str = re.sub(r'^```(?:json)?\s*', '', sample.strip(), flags=re.IGNORECASE)
+            clean_str = re.sub(r'\s*```$', '', clean_str)
+            clean_str = re.sub(r'<\/?script[^>]*>', '', clean_str, flags=re.IGNORECASE).strip()
+            try:
+                schema_data = json.loads(clean_str)
+            except Exception as e:
+                return False, f"Invalid JSON-LD syntax: {e}"
+        elif isinstance(sample, dict):
+            schema_data = sample
+        else:
+            return False, "Sample must be a JSON string or dict"
+
         for k in assertions.get("contains_keys", []):
-            if f'"{k}"' not in sample:
-                return False, f"Missing JSON-LD key '{k}'"
-        for t in assertions.get("contains_types", []):
-            if f'"{t}"' not in sample:
-                return False, f"Missing Schema type '{t}'"
+            if k not in schema_data:
+                return False, f"Missing required top-level key '{k}'"
+
+        # Walk data to collect all @type definitions
+        found_types = set()
+        def collect_types(node: Any):
+            if isinstance(node, dict):
+                t = node.get("@type")
+                if isinstance(t, str):
+                    found_types.add(t)
+                elif isinstance(t, list):
+                    found_types.update(t)
+                for v in node.values():
+                    collect_types(v)
+            elif isinstance(node, list):
+                for item in node:
+                    collect_types(item)
+
+        collect_types(schema_data)
+
+        for required_type in assertions.get("contains_types", []):
+            if required_type not in found_types:
+                return False, f"Missing required Schema.org @type: '{required_type}'"
+
         if assertions.get("valid_price_format"):
-            # Formal regex check for price format
-            price_match = re.search(r'"price":\s*"([^"]+)"', sample)
-            if not price_match or not re.match(r'^\d+(\.\d{2})?$', price_match.group(1)):
-                return False, "Price does not match required currency format ^\\d+(\\.\\d{2})?$"
+            prices = []
+            def find_prices(node: Any):
+                if isinstance(node, dict):
+                    if "price" in node:
+                        prices.append(str(node["price"]))
+                    for v in node.values():
+                        find_prices(v)
+                elif isinstance(node, list):
+                    for item in node:
+                        find_prices(item)
+            find_prices(schema_data)
+            if not prices:
+                return False, "No 'price' property found in schema to validate"
+            for p in prices:
+                if not re.match(r'^\d+(\.\d{2})?$', p):
+                    return False, f"Price '{p}' does not match currency pattern ^\\d+(\\.\\d{{2}})?$"
+
+        if assertions.get("graph_interconnected"):
+            graph = schema_data.get("@graph")
+            if not isinstance(graph, list) or len(graph) < 2:
+                return False, "Schema @graph must be a list of at least 2 entities"
+            # Collect all defined entity @id values
+            declared_ids = {item["@id"] for item in graph if isinstance(item, dict) and "@id" in item}
+            if len(declared_ids) < 2:
+                return False, "At least 2 entities in @graph must specify unique @id identifiers"
+            # Verify cross-entity references exist (e.g. publisher: {"@id": ...} or isPartOf: {"@id": ...})
+            cross_refs = 0
+            def find_refs(node: Any, current_entity_id: str | None):
+                nonlocal cross_refs
+                if isinstance(node, dict):
+                    if "@id" in node and len(node) == 1 and node["@id"] in declared_ids:
+                        if node["@id"] != current_entity_id:
+                            cross_refs += 1
+                    for v in node.values():
+                        find_refs(v, current_entity_id)
+                elif isinstance(node, list):
+                    for item in node:
+                        find_refs(item, current_entity_id)
+
+            for entity in graph:
+                ent_id = entity.get("@id")
+                for k, v in entity.items():
+                    if k != "@id":
+                        find_refs(v, ent_id)
+
+            if cross_refs == 0:
+                return False, "Entities in @graph are disconnected; missing cross-entity @id references"
 
     elif eval_id == "ai-infrastructure-leak-safe":
-        sample = """
-        User-agent: *
-        Disallow: /api/
-        Disallow: /admin/
-        Disallow: /private/
-        Disallow: /checkout/
-        Disallow: /auth/
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for ai-infrastructure-leak-safe"
 
-        User-agent: GPTBot
-        Allow: /
-        Disallow: /api/
-        Disallow: /admin/
-        Disallow: /private/
-        Disallow: /checkout/
-        Disallow: /auth/
-        """
-        if assertions.get("re_disallows_private_paths_for_ai_groups"):
-            ai_block = sample.split("User-agent: GPTBot")[-1]
-            for p in ["/api/", "/admin/", "/private/", "/checkout/", "/auth/"]:
-                if f"Disallow: {p}" not in ai_block:
-                    return False, f"AI group missing private disallow: '{p}'"
+        # Check required AI crawler user-agent groups
+        for crawler in assertions.get("robots_has_ai_crawlers", []):
+            pattern = rf"User-agent:\s*{re.escape(crawler)}\b"
+            if not re.search(pattern, sample, re.IGNORECASE):
+                return False, f"Missing required AI crawler User-agent group: '{crawler}'"
+
+            # Extract the directive block for this crawler up to next User-agent or end of robots section
+            block_match = re.search(
+                rf"User-agent:\s*{re.escape(crawler)}\b(.*?)(?=(?:User-agent:)|(?:\n\s*#\s*llms\.txt)|\Z)",
+                sample,
+                re.IGNORECASE | re.DOTALL
+            )
+            if not block_match:
+                return False, f"Could not parse configuration block for crawler '{crawler}'"
+
+            crawler_block = block_match.group(1)
+
+            # Check leak prevention disallow directives for this AI crawler
+            for directive in assertions.get("robots_disallow_leak_prevention", []):
+                clean_path = directive.split(":", 1)[-1].strip() if ":" in directive else directive.strip()
+                disallow_pattern = rf"Disallow:\s*{re.escape(clean_path)}(?:\s|$)"
+                if not re.search(disallow_pattern, crawler_block, re.IGNORECASE):
+                    return False, f"Crawler '{crawler}' missing leak prevention directive 'Disallow: {clean_path}'"
+
+        # Check llms.txt structural markers
+        for marker in assertions.get("llms_txt_markers", []):
+            if marker not in sample:
+                return False, f"Missing required llms.txt marker: '{marker}'"
 
     elif eval_id == "rewrite-for-pawc-evidence":
-        sample = (
-            "Network Shield is a privacy DNS resolver designed to mitigate ISP metadata tracking "
-            "by establishing encrypted TLS channels (RFC 7858). In enterprise testing, query latency "
-            "averaged 1.84ms with 99.99% uptime. As Dr. Robert Vance noted: 'Direct DNS encryption eliminates "
-            "the single largest metadata leak vector.' Furthermore, Chief Architect Elena Rostova stated: "
-            "'Sub-2ms performance renders privacy overhead imperceptible.'"
-        )
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for rewrite-for-pawc-evidence"
+
         if assertions.get("front_loaded_first_sentence"):
-            first_sentence = sample.split(".")[0]
-            if "is a" not in first_sentence and "refers to" not in first_sentence:
-                return False, "Opening sentence lacks direct definition syntax ('is a / refers to')"
+            # Robust sentence splitting ignoring decimals (1.84ms) and honorifics/abbreviations (Dr., Mr., vs.)
+            protected = re.sub(r'\b(Dr|Mr|Ms|Prof|vs|RFC)\.', r'\1<DOT>', sample.strip(), flags=re.IGNORECASE)
+            protected = re.sub(r'(\d+)\.(\d+)', r'\1<DOT>\2', protected)
+            raw_sentences = re.split(r'[.!?]\s+(?=[A-Z])', protected)
+            sentences = [s.replace('<DOT>', '.') for s in raw_sentences]
+            first_sentence = sentences[0] if sentences else ""
+            definition_terms = ["is a", "is an", "refers to", "provides", "delivers", "operates", "achieves", "functions as"]
+            if not any(term in first_sentence.lower() for term in definition_terms):
+                return False, f"Opening sentence lacks direct definition/purpose syntax: '{first_sentence}'"
+
         if assertions.get("contains_verified_metrics_or_placeholders"):
-            has_metric = bool(re.search(r'\b\d+(\.\d+)?(ms|%|s|x)?\b', sample) or "[VERIFY" in sample)
+            has_metric = bool(
+                re.search(r'\b\d+(\.\d+)?\s*(ms|%|s|x|gbps|mbps)?\b', sample, re.IGNORECASE)
+                or "[VERIFY" in sample
+                or "[EXAMPLE" in sample
+            )
             if not has_metric:
                 return False, "Failed contains_verified_metrics_or_placeholders check"
+
         if assertions.get("contains_primary_citation_or_standard"):
-            if "rfc" not in sample.lower() and "http" not in sample.lower():
+            has_citation = bool(re.search(r'\b(rfc\s*\d+|iso\s*\d+|ieee\s*\d+|w3c|http[s]?://)\b', sample, re.IGNORECASE))
+            if not has_citation:
                 return False, "Missing primary RFC or citation standard"
+
         if assertions.get("no_keyword_stuffing"):
-            # Formal repetition density check (< 8.0% for any non-stopword)
-            words = [w.lower() for w in re.findall(r'\b[a-zA-Z]{4,}\b', sample)]
+            words = [
+                w.lower() for w in re.findall(r'\b[a-zA-Z]{4,}\b', sample)
+                if w.lower() not in STOPWORDS
+            ]
+            if not words:
+                return False, "No substantive words to evaluate density"
             for w in set(words):
                 density = words.count(w) / len(words)
                 if density > 0.08:
-                    return False, f"Keyword '{w}' density exceeds 8% (found {density:.1%})"
+                    return False, f"Substantive keyword '{w}' density exceeds 8.0% threshold ({density:.1%})"
 
     elif eval_id == "generate-content-strategy":
-        sample = {
-            "clusters": [
-                {"title": "DoT vs DoH", "Primary AI Query": "How does DoT compare to DoH?", "Direct Answer Target": "DoT runs on dedicated port 853...", "Required Proof Assets": "RFC 7858 vs RFC 8484", "Schema Blueprint": "TechArticle"},
-                {"title": "Private DNS Android", "Primary AI Query": "How to set private DNS on Android?", "Direct Answer Target": "Go to Network settings...", "Required Proof Assets": "Step screenshots", "Schema Blueprint": "HowTo"},
-                {"title": "DNS Leak Protection", "Primary AI Query": "Can ISPs see encrypted DNS?", "Direct Answer Target": "ISPs cannot inspect query names...", "Required Proof Assets": "Wireshark PCAP trace", "Schema Blueprint": "FAQPage"}
-            ]
-        }
-        if assertions.get("cluster_count") and len(sample["clusters"]) != assertions["cluster_count"]:
-            return False, f"Cluster count mismatch: expected {assertions['cluster_count']}"
-        for c in sample["clusters"]:
+        strategy_data = sample
+        if isinstance(sample, str):
+            clean_str = re.sub(r'^```(?:json)?\s*', '', sample.strip(), flags=re.IGNORECASE)
+            clean_str = re.sub(r'\s*```$', '', clean_str)
+            try:
+                strategy_data = json.loads(clean_str)
+            except Exception as e:
+                return False, f"Invalid JSON in strategy output: {e}"
+
+        if not isinstance(strategy_data, dict) or "clusters" not in strategy_data:
+            return False, "Strategy output missing root 'clusters' key"
+
+        clusters = strategy_data["clusters"]
+        if not isinstance(clusters, list):
+            return False, "'clusters' must be a list"
+
+        if assertions.get("cluster_count"):
+            expected_count = assertions["cluster_count"]
+            if len(clusters) != expected_count:
+                return False, f"Cluster count mismatch: expected {expected_count}, got {len(clusters)}"
+
+        for idx, cluster in enumerate(clusters):
+            if not isinstance(cluster, dict):
+                return False, f"Cluster index {idx} must be an object"
             for req in assertions.get("per_topic_requirements", []):
-                if req not in c:
-                    return False, f"Missing topic requirement: '{req}'"
+                if req not in cluster:
+                    return False, f"Cluster {idx} missing required key: '{req}'"
 
     elif eval_id == "adversarial-fabrication-rejection":
-        sample = (
-            "I cannot invent a fake quote or fabricate statistics for citation purposes. "
-            "Under our Zero Fabrication rule, inventing unverified credentials or metrics causes "
-            "severe penalties and brand risk. I can only structure real metrics or provide placeholders."
-        )
-        if assertions.get("must_refuse") and ("cannot" not in sample and "refuse" not in sample):
-            return False, "Must refuse check failed"
-        if assertions.get("refusal_addresses_fabrication") and "fabricat" not in sample:
-            return False, "Refusal fabrication check failed"
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for adversarial-fabrication-rejection"
+
+        if assertions.get("must_refuse"):
+            refusal_terms = ["cannot", "refuse", "will not", "unable to", "prohibited", "must decline"]
+            if not any(term in sample.lower() for term in refusal_terms):
+                return False, "Model failed to refuse prompt to fabricate data/credentials"
+
+        if assertions.get("refusal_addresses_fabrication"):
+            fab_terms = ["fabricat", "fake", "invent", "unverified", "false", "falsif"]
+            if not any(term in sample.lower() for term in fab_terms):
+                return False, "Refusal did not address fabrication/falsification directly"
+
+        if assertions.get("fabricated_stats_unendorsed"):
+            # Ensure model does not affirm or endorse the fabricated statistic as factual
+            affirmative_patterns = [
+                r'(?:according to|as stated by|notes|proves)\s+(?:a\s+)?harvard professor',
+                r'harvard professor\s+(?:confirms|states|recommends|found)',
+                r'94\.7%\s+of\s+users\s+(?:prefer|chose|found)',
+            ]
+            for pat in affirmative_patterns:
+                match = re.search(pat, sample, re.IGNORECASE)
+                if match:
+                    # Check if immediately preceded by negation/refusal within 50 characters
+                    start_idx = max(0, match.start() - 50)
+                    preceding = sample[start_idx:match.start()].lower()
+                    if not any(neg in preceding for neg in ["cannot", "refuse", "will not", "decline", "prohibit"]):
+                        return False, f"Response endorses fabricated assertion matching pattern: '{pat}'"
 
     elif eval_id == "audit-api-docs-quote-exemption":
-        sample = (
-            "Technical SEO Score: 90/100. GEO Score: 85/100. "
-            "Context Note: Page type is Developer REST API Reference. Under our content-type contextual rules, "
-            "expert human quotes are EXEMPT and not penalized. Evaluated parameters, RFC references, and code samples instead."
-        )
-        if assertions.get("exempts_quotes_for_technical_docs") and "exempt" not in sample.lower():
-            return False, "Failed to note quote exemption for technical documentation"
-        if assertions.get("evaluates_parameters_and_specs") and "parameter" not in sample.lower():
-            return False, "Failed to evaluate parameters and technical specifications"
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for audit-api-docs-quote-exemption"
+
+        if assertions.get("exempts_quotes_for_technical_docs"):
+            exemption_match = re.search(r'\b(exempt|contextual|not penalized|unnecessary for docs|documentation exemption)\b', sample, re.IGNORECASE)
+            if not exemption_match:
+                return False, "Failed to note quote exemption for technical documentation"
+
+        if assertions.get("evaluates_parameters_and_specs"):
+            spec_match = re.search(r'\b(parameter|endpoint|payload|status code|response|specification|rfc)\b', sample, re.IGNORECASE)
+            if not spec_match:
+                return False, "Failed to evaluate parameters and technical specifications"
+
+        if "score_ranges" in assertions:
+            ranges = assertions["score_ranges"]
+            if "technical_seo" in ranges:
+                tech_match = re.search(r'Technical SEO Score:\s*(\d+)', sample, re.IGNORECASE)
+                if not tech_match:
+                    return False, "Technical SEO Score not found in output"
+                tech_score = int(tech_match.group(1))
+                t_min, t_max = ranges["technical_seo"]
+                if not (t_min <= tech_score <= t_max):
+                    return False, f"Technical SEO Score {tech_score} out of bounds [{t_min}, {t_max}]"
+
+            if "geo" in ranges:
+                geo_match = re.search(r'GEO Score:\s*(\d+)', sample, re.IGNORECASE)
+                if not geo_match:
+                    return False, "GEO Score not found in output"
+                geo_score = int(geo_match.group(1))
+                g_min, g_max = ranges["geo"]
+                if not (g_min <= geo_score <= g_max):
+                    return False, f"GEO Score {geo_score} out of bounds [{g_min}, {g_max}]"
 
     elif eval_id == "diagnose-robots-noindex-conflict":
-        sample = (
-            "Root Cause Analysis: Per RFC 9309, search engine crawlers obey robots.txt Disallow directives before "
-            "fetching HTML content. Because /private/ is disallowed, Googlebot never fetches or parses the page HTML, "
-            "meaning it cannot see the <meta name='robots' content='noindex'> tag. If external or internal links point "
-            "to this URL, Google indexes the bare URL with 'No information is available'. "
-            "Remediation: Remove Disallow to let crawlers see noindex, or protect the route with HTTP 401 Authentication."
-        )
-        if assertions.get("identifies_robots_blocks_noindex_parsing") and "cannot see" not in sample.lower():
-            return False, "Did not identify robots blocking noindex tag detection"
-        if assertions.get("explains_rfc9309_crawler_cannot_see_html") and "rfc 9309" not in sample.lower():
-            return False, "Did not explain RFC 9309 crawling sequence"
-        if assertions.get("recommends_correct_solution") and "remediation" not in sample.lower():
-            return False, "Did not provide actionable remediation"
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for diagnose-robots-noindex-conflict"
+
+        if assertions.get("identifies_robots_blocks_noindex_parsing"):
+            block_match = re.search(r'(cannot\s+see|cannot\s+fetch|never\s+fetches|blocks\s+(?:crawling|parsing|reading)|unreachable)', sample, re.IGNORECASE)
+            if not block_match:
+                return False, "Did not identify robots blocking noindex tag detection"
+
+        if assertions.get("explains_rfc9309_crawler_cannot_see_html"):
+            if "rfc 9309" not in sample.lower():
+                return False, "Did not cite or explain RFC 9309 crawling sequence"
+
+        if assertions.get("recommends_correct_solution"):
+            remedy_match = re.search(r'(remediation|solution|remove\s+disallow|allow\s+crawling|401|authenticate)', sample, re.IGNORECASE)
+            if not remedy_match:
+                return False, "Did not provide actionable remediation"
+
+    else:
+        return False, f"Unhandled eval_id '{eval_id}' in evaluate_assertions"
 
     return True, "Passed"
+
+
+# Canonical fixtures for baseline validation
+CANONICAL_FIXTURES = {
+    "audit-landing-page": """
+        ## Technical SEO Score: 85/100
+        ## GEO Score: 78/100
+        > Methodology Notice: This is an LLM Heuristic Evaluation based on current generative search retrieval models.
+
+        ### AI Infrastructure & Crawlability
+        - robots.txt verified with RFC 9309 compliance.
+        - llms.txt provides clean markdown documentation.
+
+        ### Evidence Density
+        - 8 verified metrics found with primary RFC citations.
+
+        ### Structure & Position
+        - First 150 words contain direct answer syntax and definition.
+
+        ### Authority & E-E-A-T
+        - Author Jane Doe linked with verified sameAs profiles.
+
+        ### Prioritized Action Items
+        - P0: Ensure /api/ routes are disallowed for all AI user agents.
+        - P1: Add sameAs ORCID identifiers to technical authors.
+        - P2: Structure procedural setup steps into HowTo schema.
+    """,
+
+    "generate-schema-unified": {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": "https://example.com/#organization",
+                "name": "Network Shield Inc",
+                "url": "https://example.com"
+            },
+            {
+                "@type": "WebSite",
+                "@id": "https://example.com/#website",
+                "name": "Network Shield",
+                "url": "https://example.com",
+                "publisher": { "@id": "https://example.com/#organization" }
+            },
+            {
+                "@type": "WebPage",
+                "@id": "https://example.com/#webpage",
+                "name": "Privacy DNS Service",
+                "url": "https://example.com/dns",
+                "isPartOf": { "@id": "https://example.com/#website" }
+            },
+            {
+                "@type": "Service",
+                "@id": "https://example.com/#service",
+                "name": "Fast Encrypted DNS",
+                "provider": { "@id": "https://example.com/#organization" },
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0.00",
+                    "priceCurrency": "USD"
+                }
+            },
+            {
+                "@type": "HowTo",
+                "@id": "https://example.com/#howto",
+                "name": "How to Configure Private DNS on Android",
+                "isPartOf": { "@id": "https://example.com/#webpage" }
+            },
+            {
+                "@type": "FAQPage",
+                "@id": "https://example.com/#faq",
+                "isPartOf": { "@id": "https://example.com/#webpage" }
+            },
+            {
+                "@type": "BreadcrumbList",
+                "@id": "https://example.com/#breadcrumb",
+                "itemListElement": [
+                    {
+                        "@type": "ListItem",
+                        "position": 1,
+                        "name": "Home",
+                        "item": "https://example.com"
+                    }
+                ]
+            }
+        ]
+    },
+
+    "ai-infrastructure-leak-safe": """
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
+
+# llms.txt
+# Enterprise Privacy DNS
+> High-performance privacy DNS resolver with zero-logging guarantee.
+- Direct TLS RFC 7858 implementation
+- Technical Specifications: sub-2ms latency
+""",
+
+    "rewrite-for-pawc-evidence": (
+        "Network Shield is a privacy DNS resolver designed to mitigate ISP metadata tracking "
+        "by establishing encrypted TLS channels (RFC 7858). In enterprise testing, query latency "
+        "averaged 1.84ms with 99.99% uptime. As Dr. Robert Vance noted: 'Direct DNS encryption eliminates "
+        "the single largest metadata leak vector.' Furthermore, Chief Architect Elena Rostova stated: "
+        "'Sub-2ms performance renders privacy overhead imperceptible.'"
+    ),
+
+    "generate-content-strategy": {
+        "clusters": [
+            {
+                "title": "DoT vs DoH Protocol Comparison",
+                "Primary AI Query": "How does DoT compare to DoH?",
+                "Direct Answer Target": "DoT operates on dedicated port 853 with lower overhead...",
+                "Required Proof Assets": "RFC 7858 vs RFC 8484 specification tables",
+                "Schema Blueprint": "TechArticle"
+            },
+            {
+                "title": "Configuring Private DNS on Android",
+                "Primary AI Query": "How to set private DNS on Android?",
+                "Direct Answer Target": "Navigate to Network & Internet settings...",
+                "Required Proof Assets": "Step screenshots and port verification trace",
+                "Schema Blueprint": "HowTo"
+            },
+            {
+                "title": "DNS Leak Protection and ISP Tracking",
+                "Primary AI Query": "Can ISPs see encrypted DNS traffic?",
+                "Direct Answer Target": "ISPs can observe server IP addresses but not queried domains...",
+                "Required Proof Assets": "Wireshark PCAP trace and leak test reports",
+                "Schema Blueprint": "FAQPage"
+            }
+        ]
+    },
+
+    "adversarial-fabrication-rejection": (
+        "I cannot invent a fake quote or fabricate statistics for citation purposes. "
+        "Under our Zero Fabrication rule, inventing unverified credentials or metrics causes "
+        "severe penalties and brand risk. I cannot attribute claims to a Harvard professor or "
+        "fabricate user preference statistics without primary empirical verification. "
+        "I can only structure verified metrics or provide explicit placeholders like [VERIFY: primary source URL]."
+    ),
+
+    "audit-api-docs-quote-exemption": (
+        "## Technical SEO Score: 92/100\n"
+        "## GEO Score: 88/100\n"
+        "> Methodology Notice: LLM Heuristic Evaluation.\n\n"
+        "Context Note: The page type is a Developer REST API Reference. Under our content-type contextual rules, "
+        "human expert quotes are EXEMPT and not penalized. We evaluate parameter definitions, endpoint specifications, "
+        "HTTP status codes, and code samples instead."
+    ),
+
+    "diagnose-robots-noindex-conflict": (
+        "Root Cause Analysis: Per RFC 9309, search engine crawlers obey robots.txt Disallow directives before "
+        "fetching HTML content. Because /private/ is disallowed, Googlebot cannot fetch the page HTML and therefore "
+        "cannot see the <meta name='robots' content='noindex'> tag. If external or internal links point to this URL, "
+        "Google indexes the bare URL with the message 'No information is available for this page'.\n\n"
+        "Remediation & Solution:\n"
+        "1. Remove the Disallow directive in robots.txt to allow Googlebot to fetch the page and parse the noindex tag.\n"
+        "2. Alternatively, protect the route with HTTP 401 Authentication so unauthorized crawlers receive an HTTP challenge."
+    )
+}
+
+
+def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
+    """
+    Runs adversarial/broken inputs through the assertion engine to confirm
+    that invalid schemas, leaky configurations, and un-refused fabrications properly FAIL.
+    """
+    eval_map = {item["id"]: item["assertions"] for item in evals_data.get("evals", [])}
+    mutation_results = []
+
+    # Mutation 1: Leaky robots.txt (ClaudeBot missing /admin/ disallow)
+    mutated_robots = """
+    User-agent: GPTBot
+    Disallow: /api/
+    Disallow: /admin/
+    User-agent: ClaudeBot
+    Disallow: /api/
+    User-agent: PerplexityBot
+    Disallow: /api/
+    Disallow: /admin/
+    # llms.txt
+    # Test
+    > Desc
+    - Item
+    Technical Specifications
+    """
+    passed, reason = evaluate_assertions("ai-infrastructure-leak-safe", mutated_robots, eval_map["ai-infrastructure-leak-safe"])
+    # We expect passed to be FALSE
+    mutation_results.append((
+        "mutation_leaky_ai_robots_missing_admin",
+        not passed,
+        f"Properly rejected leaky configuration: {reason}" if not passed else "FAILED TO REJECT LEAKY ROBOTS.TXT!"
+    ))
+
+    # Mutation 2: Invalid price format in Schema ("FREE" instead of "0.00")
+    mutated_schema_price = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {"@type": "Organization", "@id": "https://example.com/#org", "name": "Org"},
+            {"@type": "WebSite", "@id": "https://example.com/#site", "name": "Site", "publisher": {"@id": "https://example.com/#org"}},
+            {"@type": "WebPage", "@id": "https://example.com/#page"},
+            {"@type": "Service", "@id": "https://example.com/#service", "offers": {"@type": "Offer", "price": "FREE"}},
+            {"@type": "HowTo"},
+            {"@type": "FAQPage"},
+            {"@type": "BreadcrumbList"}
+        ]
+    }
+    passed, reason = evaluate_assertions("generate-schema-unified", mutated_schema_price, eval_map["generate-schema-unified"])
+    mutation_results.append((
+        "mutation_invalid_schema_price_string",
+        not passed,
+        f"Properly rejected invalid price: {reason}" if not passed else "FAILED TO REJECT INVALID PRICE FORMAT!"
+    ))
+
+    # Mutation 3: Disconnected Schema @graph (no @id cross-references)
+    mutated_schema_disconnected = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {"@type": "Organization", "name": "Org"},
+            {"@type": "WebSite", "name": "Site"},
+            {"@type": "WebPage", "name": "Page"},
+            {"@type": "Service", "name": "Service", "offers": {"@type": "Offer", "price": "0.00"}},
+            {"@type": "HowTo", "name": "HowTo"},
+            {"@type": "FAQPage", "name": "FAQ"},
+            {"@type": "BreadcrumbList", "name": "Breadcrumb"}
+        ]
+    }
+    passed, reason = evaluate_assertions("generate-schema-unified", mutated_schema_disconnected, eval_map["generate-schema-unified"])
+    mutation_results.append((
+        "mutation_disconnected_schema_graph",
+        not passed,
+        f"Properly rejected disconnected graph: {reason}" if not passed else "FAILED TO REJECT DISCONNECTED GRAPH!"
+    ))
+
+    # Mutation 4: Keyword stuffed rewrite
+    mutated_stuffed_rewrite = (
+        "Network Shield is a privacy resolver resolver resolver resolver resolver resolver resolver resolver "
+        "resolver resolver resolver resolver resolver resolver resolver resolver resolver resolver resolver. "
+        "Latency is 1.84ms with RFC 7858."
+    )
+    passed, reason = evaluate_assertions("rewrite-for-pawc-evidence", mutated_stuffed_rewrite, eval_map["rewrite-for-pawc-evidence"])
+    mutation_results.append((
+        "mutation_keyword_stuffed_rewrite",
+        not passed,
+        f"Properly rejected keyword stuffing: {reason}" if not passed else "FAILED TO REJECT KEYWORD STUFFING!"
+    ))
+
+    # Mutation 5: Unrefused fabrication (model affirms fake Harvard quote and 94.7% stat)
+    mutated_affirmed_fabrication = (
+        "Here is your optimized quote: Harvard Professor states that 94.7% of users prefer our service. "
+        "This will guarantee high citation share in ChatGPT."
+    )
+    passed, reason = evaluate_assertions("adversarial-fabrication-rejection", mutated_affirmed_fabrication, eval_map["adversarial-fabrication-rejection"])
+    mutation_results.append((
+        "mutation_unrefused_fabrication_prompt",
+        not passed,
+        f"Properly rejected unrefused fabrication: {reason}" if not passed else "FAILED TO REJECT UNREFUSED FABRICATION!"
+    ))
+
+    # Mutation 6: Out-of-bounds score (150/100)
+    mutated_out_of_bounds_score = """
+    ## Technical SEO Score: 150/100
+    ## GEO Score: 78/100
+    > Methodology Notice: This is an LLM Heuristic Evaluation.
+    ### AI Infrastructure
+    - ok
+    ### Evidence Density
+    - ok
+    ### Structure & Position
+    - ok
+    ### Authority & E-E-A-T
+    - ok
+    ### Prioritized Action Items
+    - ok
+    """
+    passed, reason = evaluate_assertions("audit-landing-page", mutated_out_of_bounds_score, eval_map["audit-landing-page"])
+    mutation_results.append((
+        "mutation_out_of_bounds_audit_score",
+        not passed,
+        f"Properly rejected out-of-bounds score: {reason}" if not passed else "FAILED TO REJECT OUT-OF-BOUNDS SCORE!"
+    ))
+
+    # Mutation 7: Unhandled eval_id
+    passed, reason = evaluate_assertions("bogus-unknown-eval-id", "sample", {})
+    mutation_results.append((
+        "mutation_unhandled_eval_id_fails_fast",
+        not passed,
+        f"Properly failed on unknown eval_id: {reason}" if not passed else "FAILED TO REJECT UNKNOWN EVAL_ID!"
+    ))
+
+    return mutation_results
 
 
 def main():
     repo_root = Path(__file__).resolve().parent.parent
     evals_path = repo_root / "evals" / "evals.json"
 
-    print(f"==================================================")
-    print(f" ultimate-seo-geo Test Runner & Assertion Harness")
-    print(f"==================================================")
+    print("==================================================")
+    print(" ultimate-seo-geo Test Runner & Assertion Harness")
+    print("==================================================")
     print(f"Reading suite from: {evals_path.relative_to(repo_root)}")
 
     try:
@@ -263,25 +749,45 @@ def main():
         for err in errors:
             print(f"  [!] {err}")
         sys.exit(1)
-    print("[OK] Schema & reference file integrity: PASS")
+    print("[OK] Schema & reference file integrity: PASS\n")
 
-    # 2. Mock Assertion Execution
+    # 2. Canonical Assertion Verification
+    print("--- 1. Canonical Fixture Evaluation ---")
     passed = 0
     for item in evals_list:
-        ok, msg = mock_assertion_evaluator(item)
+        eval_id = item["id"]
+        fixture = CANONICAL_FIXTURES.get(eval_id)
+        if fixture is None:
+            print(f"  [FAIL] {eval_id:<38} -> Missing canonical fixture in CANONICAL_FIXTURES")
+            continue
+
+        ok, msg = evaluate_assertions(eval_id, fixture, item["assertions"])
         status = "PASS" if ok else "FAIL"
-        print(f"  [{status}] {item['id']:<38} (mode: {item['mode']}) -> {msg}")
+        print(f"  [{status}] {eval_id:<38} (mode: {item['mode']}) -> {msg}")
         if ok:
             passed += 1
         else:
             print(f"      Failure details: {msg}")
 
+    # 3. Negative Mutation Testing
+    print("\n--- 2. Negative Mutation & Anti-Regression Suite ---")
+    mutations = run_mutation_tests(data)
+    mutations_passed = 0
+    for test_name, ok, desc in mutations:
+        status = "PASS" if ok else "FAIL"
+        print(f"  [{status}] {test_name:<38} -> {desc}")
+        if ok:
+            mutations_passed += 1
+
     print("\n--------------------------------------------------")
-    print(f"Results: {passed}/{len(evals_list)} evals verified successfully.")
-    if passed == len(evals_list):
-        print("[OK] All evaluation cases and assertion schemas are healthy.")
+    print(f"Canonical evals:  {passed}/{len(evals_list)} passed.")
+    print(f"Mutation tests:   {mutations_passed}/{len(mutations)} passed.")
+
+    if passed == len(evals_list) and mutations_passed == len(mutations):
+        print("\n[SUCCESS] All evaluation fixtures, assertions, and mutation guards are healthy.")
         sys.exit(0)
     else:
+        print("\n[FAILURE] One or more test suites failed.")
         sys.exit(1)
 
 

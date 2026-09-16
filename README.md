@@ -19,7 +19,7 @@
 
 Modern AI Search combines **traditional retrieval** with **generative synthesis**:
 1. **The Two-Stage Pipeline:** Traditional SEO (crawling, technical indexability, PageRank) determines whether your page enters the top candidate search pool (e.g. Google's top-5 to top-10 results). Once candidates are retrieved, **GEO governs synthesis**: the LLM extracts and cites facts from candidates exhibiting the highest evidence density and structural clarity.
-2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) proved that lower-ranked search candidates (specifically Rank-5 Google results using the *Cite Sources* technique) gained **+115.1% in generative AI visibility**, demonstrating that superior evidence density can surpass higher-ranking incumbents in generated answers.
+2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) evaluated candidate retrieval within Google top-5 results, proving that Rank-5 Google results using the *Cite Sources* technique gained **+115.1% in generative AI visibility** (while Rank-1 sites dropped **-30.3%**), demonstrating that superior evidence density can surpass higher-ranking candidates within the synthesis pool.
 3. **Traditional keyword stuffing actively hurts** (causing an empirical **−8% penalty** in AI citation likelihood).
 4. **Position Matters Exponentially (The PAWC Metric):**  
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
@@ -35,9 +35,11 @@ Modern AI Search combines **traditional retrieval** with **generative synthesis*
 |---|---|---|
 | **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual scorecard: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
 | **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton KDD 2024 rewrite patterns. |
-| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction). |
+| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction; Note: Google completely discontinued FAQ rich results on May 7, 2026). |
 | **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates indexation-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
+
+*(Note: In addition to the 5 user-facing modes above, the skill includes the `safety_check` internal evaluation harness to prevent hallucination).*
 
 ---
 
@@ -102,9 +104,9 @@ Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech K
 └──────────────────────────────────────────────────────────────┘
 ```
 
-> **Benchmark Scope Note `[RESEARCH]`:** These percentages reflect experimental findings on 200 synthetic test queries in controlled benchmark environments. They represent empirical research observations, not universal ranking guarantees for production web ranking.
+> **Benchmark Scope Note `[RESEARCH]`:** These percentages reflect empirical observations from controlled benchmark environments across synthetic test queries (Aggarwal et al., 2024, Table 1), not universal guarantees for production web ranking.
 >
-> **The Compound Champion:** Combining **Fluency + Statistics** produces an empirical compounded lift of **+35% to +44%**, outperforming any single tactic while maintaining full human readability.
+> **Strategy Combination Lift:** In Section 5.3 of the Princeton study, combining **Fluency Optimization + Statistics Addition** outperformed the best individual strategy by **>5.5%** on the 200-query benchmark subset.
 
 ### 🔑 The 3 Modern GEO Principles (2025–2026 Research)
 

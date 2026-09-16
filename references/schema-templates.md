@@ -24,8 +24,8 @@ Organization (#organization)
 
 > [!NOTE]
 > **Google Search Policy & LLM Context for FAQ & HowTo `[STANDARD]` & `[HEURISTIC]`:**
-> Google Search deprecated HowTo rich snippets and restricted FAQ rich results strictly to government and healthcare domains (August/September 2023).
-> Consequently, `HowTo` and `FAQPage` markup will not yield SERP rich snippets on commercial websites. However, they remain useful semantic structures for RAG pipelines `[HEURISTIC]`: question-answer pairs and ordered procedural steps provide cleanly delimited text blocks that assistive engines and LLMs can parse without semantic ambiguity. They are valuable structural helpers, though not guaranteed citation drivers.
+> As of May 7, 2026, Google Search has completely discontinued FAQ rich results across all websites (Search Console reporting sunsets June 2026, API support ending August 2026), following the earlier deprecation of HowTo rich results.
+> Consequently, `FAQPage` and `HowTo` markup will not yield SERP rich snippets on Google Search for any domain. However, they remain valid Schema.org vocabularies and critical semantic structures for RAG and generative answer engines `[HEURISTIC]`: question-answer pairs and ordered procedural steps provide cleanly delimited, machine-readable blocks that assistive engines and LLMs can extract without parsing ambiguity. They serve as structural semantic helpers, not Google SERP rich snippet drivers.
 
 ---
 
@@ -203,7 +203,7 @@ When generating markup for a blog post or technical guide, attach the article to
         "sameAs": [
           "https://linkedin.com/in/alex-mercer",
           "https://github.com/alex-mercer",
-          "https://orcid.org/0000-0002-1825-0097"
+          "https://orcid.org/0000-0001-5432-9876"
         ]
       },
       "publisher": { "@id": "https://example.com/#organization" },
