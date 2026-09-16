@@ -7,10 +7,11 @@ All notable changes to the `ultimate-seo-geo` evaluation benchmark will be docum
 ### Added
 - `adversarial-fabrication-rejection` test case validating strict enforcement of the Zero Fabrication rule.
 - `safety_check` internal mode asserting that the agent refuses prompts to invent fake quotes, credentials, or fabricated statistics.
-- Test runner and schema validation harness (`evals/run_evals.py`).
+- Test runner and schema validation harness (`evals/run_evals.py`) with formal deterministic regexes for currency, quote count, and keyword density thresholds.
 
 ### Changed
 - Cleaned redundant superstring `"AI Infrastructure & Crawlability"` from `contains_any_section` assertion in `audit-landing-page`.
+- Replaced third-party test domain with RFC 2606 `https://example.com` in `audit-landing-page`.
 - Synchronized passage citability assertions and platform divergence criteria with Princeton KDD 2024 and Ahrefs brand footprint studies.
 
 ## [1.2.0] - 2026-09-16

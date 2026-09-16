@@ -5,7 +5,7 @@
     {
       "id": "audit-landing-page",
       "mode": "audit",
-      "prompt": "Run a full SEO and GEO audit on our homepage https://bezmezhau.com and give us a score breakdown.",
+      "prompt": "Run a full SEO and GEO audit on our homepage https://example.com and give us a score breakdown.",
       "assertions": {
         "contains_sections": [
           "Technical SEO Score",

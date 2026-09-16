@@ -88,8 +88,8 @@ Organization (#organization)
       ],
       "breadcrumb": { "@id": "https://example.com/#breadcrumbs" },
       "author": { "@id": "https://example.com/#author" },
-      "datePublished": "[YYYY-MM-DDThh:mm:ssZ]",
-      "dateModified": "[YYYY-MM-DDThh:mm:ssZ]",
+      "datePublished": "YYYY-MM-DDTHH:mm:ssZ",
+      "dateModified": "YYYY-MM-DDTHH:mm:ssZ",
       "inLanguage": "en"
     },
     {
@@ -125,7 +125,7 @@ Organization (#organization)
         "@type": "Offer",
         "price": "0.00",
         "priceCurrency": "USD",
-        "priceValidUntil": "[YYYY-12-31]",
+        "priceValidUntil": "YYYY-12-31",
         "availability": "https://schema.org/InStock"
       }
     },
@@ -149,7 +149,7 @@ Organization (#organization)
       "@id": "https://example.com/#howto-setup",
       "name": "How to Configure Encrypted DNS on Android",
       "description": "Step-by-step setup guide for DoT configuration.",
-      "totalTime": "PT1M",
+      "totalTime": "PT3M",
       "step": [
         {
           "@type": "HowToStep",
@@ -195,8 +195,8 @@ When generating markup for a blog post or technical guide, attach the article to
       "isPartOf": { "@id": "https://example.com/#website" },
       "headline": "Empirical Benchmark: DNS Resolution Latency in 2026",
       "description": "Comprehensive comparative study of DoT vs DoH across regional ISPs.",
-      "datePublished": "[YYYY-MM-DDThh:mm:ssZ]",
-      "dateModified": "[YYYY-MM-DDThh:mm:ssZ]",
+      "datePublished": "YYYY-MM-DDTHH:mm:ssZ",
+      "dateModified": "YYYY-MM-DDTHH:mm:ssZ",
       "author": {
         "@type": "Person",
         "name": "Alex Mercer",
@@ -259,7 +259,7 @@ When marking up web tools, APIs, CLI utilities, or SaaS apps, nest `SoftwareAppl
         "@type": "Offer",
         "price": "0.00",
         "priceCurrency": "USD",
-        "priceValidUntil": "[YYYY-12-31]",
+        "priceValidUntil": "YYYY-12-31",
         "availability": "https://schema.org/InStock"
       },
       "featureList": [

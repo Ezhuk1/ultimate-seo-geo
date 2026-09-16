@@ -18,8 +18,7 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **Perplexity-User** | Perplexity AI | Real-time user-driven query retrieval | Allow `/` |
 | **meta-externalagent** | Meta | Llama model training & ingestion (case-insensitive) | Allow `/` |
 | **meta-externalfetcher** | Meta | Real-time web retrieval & link previews | Allow `/` |
-| **cohere-ai** | Cohere | Enterprise RAG retrieval | Allow `/` |
-| **Bytespider** | ByteDance | Search & model retrieval | Conditional (Often rate-limited/blocked due to high fetch velocity) |
+| **Bytespider** | ByteDance | Search & TikTok/Doubao model retrieval | Recommended `Disallow: /` (unless targeting Chinese AI traffic, due to extreme fetch velocity & server load) |
 | *Google-Extended* | Google | *Control token* (evaluated by Googlebot for Gemini/Vertex training; does not crawl and does not affect AI Overviews) | Opt-out only (`Disallow: /`) |
 | *Applebot-Extended* | Apple | *Control token* (evaluated for Apple Intelligence model training; does not crawl and does not affect Siri/Spotlight search) | Opt-out only (`Disallow: /`) |
 
@@ -69,8 +68,11 @@ User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Optional: Add Bytespider if targeting ByteDance / Doubao search (omit if protecting against aggressive scrapers):
+# ByteDance Crawler Policy: To block aggressive scraping and conserve server bandwidth, disallow Bytespider:
 # User-agent: Bytespider
+# Disallow: /
+# (Or add "User-agent: Bytespider" above the Allow block if targeting Doubao search indexing)
+#
 # Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
 # They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
 # Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.

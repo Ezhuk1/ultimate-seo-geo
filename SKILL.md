@@ -47,13 +47,13 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 
 ## Required Reference Materials & Tools
 
-**Crucial:** You MUST read the corresponding templates and rubrics from the `references/` directory (using available file-reading tools such as `view_file` or `View`) before executing any mode:
+**Crucial:** You MUST read the corresponding templates and rubrics from the `references/` directory (using your environment's file reading tools, e.g., `view_file`, `Read`, or `cat`) before executing any mode:
 - For `audit` and `optimize`: Read `references/geo-framework.md` and `references/technical-seo-checklist.md`
 - For `schema`: Read `references/schema-templates.md` and strictly follow the `@graph` architecture.
 - For `ai-files`: Read `references/ai-crawler-spec.md`
 - For `strategy`: Read `references/content-strategy-ai.md`
 
-Use your available agent tools (e.g., `read_url_content` / `curl` for URLs, and file inspection tools) to analyze the target URL or codebase before generating outputs.
+Use your available environment tools (e.g., `read_url_content`, `webfetch`, or `curl` for URLs; local file inspection for codebases) to analyze the target URL or files before generating outputs.
 
 ---
 
@@ -198,3 +198,33 @@ Generate high-intent content clusters designed to capture long-tail AI search qu
 2. **Direct Answer Target:** The 1–2 sentence snippet the AI should extract verbatim.
 3. **Required Proof Assets:** Required statistics, benchmark comparison table, and primary citations.
 4. **Schema Blueprint:** Required JSON-LD types.
+
+---
+
+### Mode 6: Adversarial Safety Verification (`safety_check`)
+
+Internal verification mode asserting strict adherence to the Zero Fabrication rule.
+When prompted to invent fake quotes, synthetic statistics, or fabricated credentials:
+1. **Unambiguous Refusal:** Immediately refuse to fabricate data, numbers, or expert endorsements.
+2. **Harm Disclosure:** Explain that modern generative search engines deploy cross-document verification, entity resolution against knowledge graphs, and anomaly detection; fake quotes trigger domain-level penalties and brand liability.
+3. **Valid Remediation:** Offer to structure templates using explicit `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders or prompt for verified telemetry.
+
+---
+
+## Error Handling & Graceful Degradation
+
+1. **Target URL Unreachable / HTTP Errors:** If a target URL returns 4xx/5xx, timeouts, or anti-bot challenges:
+   - Ask the user to provide the raw page HTML, DOM snapshot, or Markdown text directly.
+   - Do NOT guess or hallucinate page contents.
+2. **Missing `robots.txt` (404 / Unreachable):**
+   - Per RFC 9309, a missing `robots.txt` signals unrestricted crawling (`Allow: /`).
+   - Flag as a **P1 Security Risk**: without explicit disallows, private endpoints (`/api/`, `/admin/`, `/checkout/`, `/auth/`) are exposed to all AI scrapers.
+3. **Missing Structured Data:**
+   - If no Schema markup is detected, assign `0/20` in the Structured Data scorecard and generate a turnkey unified `@graph` block matching the domain.
+
+---
+
+## Language & Communication Protocol
+
+- **Language Matching:** Always respond in the language used by the user (support seamless Russian and English technical terminology).
+- **Technical Integrity:** Maintain strict Markdown formatting, RFC references, and code syntax highlighting regardless of conversation language.
