@@ -72,37 +72,43 @@ Score the target (URL, HTML file, or full codebase) across two parallel scorecar
 5. **Social & Sharing (15%):** Open Graph (`og:title`, `og:description`, `og:image`, `og:url`), Twitter card tags.
 
 #### B. Generative Engine Optimization (GEO) Score (0–100) [Heuristic]
-Derived from Princeton/GA Tech (KDD 2024):
+Derived from Princeton/GA Tech (KDD 2024) and empirical AI retrieval research:
 1. **Evidence Density (35%):**
    - Numbers with units: >= 5 specific metrics per page (e.g., latency ms, percentage, pricing, uptime).
    - External citations: >= 1 reference per 500 words linking to primary sources, RFCs, or studies.
    - Named entities: Full human names, specific organizations, explicit technologies.
    - Direct quotes: >= 2 verbatim statements from named experts (minimum 1 to avoid veto penalty).
    - First-party telemetry/data: Proprietary benchmarks, case study metrics, or live telemetry.
-2. **Structure & Position / PAWC (25%):**
+2. **Structure & Position / Citability (25%):**
    - Direct answer front-loaded in the first 150 words (editorial heuristic for RAG chunking).
+   - Self-contained passage blocks: key answer passages tuned to 134–167 words with low pronoun density (< 2%).
+   - Clear definition syntax ("X is...", "X refers to...") opening high-intent query sections.
    - Summary / Key Takeaways box at the top.
    - Comparative data formatted in markdown or HTML `<table>` (high LLM extraction rate).
    - Sequential instructions formatted in ordered lists (`<ol>`).
-3. **Authority & E-E-A-T (25%):**
-   - Author byline with role and bio.
-   - Explicit `dateModified` and `<time>` tags (target freshness: <= 60 days; grace window: <= 90 days).
+3. **Authority, E-E-A-T & Brand Footprint (25%):**
+   - Author byline with real name, photo, title, and bio ($\ge 30$ words) + `sameAs` (LinkedIn, GitHub, ORCID).
+   - Off-page brand footprint: Presence & co-citations across AI-indexed platforms (YouTube ~0.737 correlation, Reddit, Wikipedia, GitHub).
+   - Explicit `dateModified` and `<time>` tags (target freshness: <= 60 days for Perplexity; <= 90 days general).
    - Methodology and technical limitations acknowledged (anti-hallucination signal).
 4. **AI Infrastructure (15%):**
    - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `meta-externalagent`, `meta-externalfetcher`).
    - Root `llms.txt` file present and formatted (community proposal).
 
-#### C. Prioritized Remediation Plan (P0 / P1 / P2)
-Structure action items into clear impact tiers:
-* **P0 (Critical / Blockers):** Security/leak risks (RFC 9309 crawler leak to `/api/` or `/admin/`), bot disallows, missing canonicals, unindexed pages.
-* **P1 (High Citation Impact):** Evidence deficit (< 5 metrics, 0 expert quotes), disconnected Schema `@graph`, missing `dateModified`, poor direct answer positioning.
+#### C. Prioritized Remediation Plan with Falsifiability Checks
+Structure all action items into actionable tiers accompanied by testable verification criteria:
+* **P0 (Critical / Blockers):** Security/leak risks (RFC 9309 crawler leak to `/api/` or `/admin/`), bot blockouts, missing canonicals, unindexed pages.
+  - *Leading Indicator:* Server log confirms 200 OK without 403/leak; immediate indexation recovery.
+* **P1 (High Citation Impact):** Evidence deficit (< 5 metrics, 0 expert quotes), disconnected Schema `@graph`, missing `dateModified`, poor direct answer positioning, pronoun ambiguity.
+  - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days.
 * **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, formatting polish.
+  - *Leading Indicator:* Clean social cards on preview; zero CLS warnings.
 
 ---
 
 ### Mode 2: Evidence-Dense Rewriting (`optimize`)
 
-Transform vague, marketing-heavy prose into high-PAWC, citable passages.
+Transform vague, marketing-heavy prose into high-PAWC, citable passages following the Princeton Lift Hierarchy and Passage Citability Rules:
 
 **The Princeton Lift Hierarchy:**
 1. Direct Expert Quotations (+41% citation lift)
@@ -110,6 +116,12 @@ Transform vague, marketing-heavy prose into high-PAWC, citable passages.
 3. Direct Primary Source Citations (+28% citation lift)
 4. High Fluency & Direct Answers (+28% citation lift)
 *Anti-Pattern: Keyword Stuffing (-8% citation penalty — actively damages ranking).*
+
+**Passage-Level Citability Rules (The 134–167 Word Standard):**
+* **Self-Containment:** Every citable excerpt must stand independently without relying on preceding text.
+* **Pronoun Ratio < 2%:** Never start answer blocks with ambiguous pronouns ("They", "This tool", "It"). Always explicitly state the entity and technology name.
+* **Definition Opening:** Place the direct answer formula in the first 40–60 words: `[Entity] is [category] designed to [outcome] by [mechanism]`.
+* **Compound Champion:** Pair fluency with numerical statistics and named source attribution for $\ge +35\%$ lift.
 
 **Rewrite Pattern (Front-Loading):**
 * *Before:* "In today's fast-paced digital world, choosing the right tool is essential for success. In this article, we will examine various options..."
@@ -121,8 +133,10 @@ Transform vague, marketing-heavy prose into high-PAWC, citable passages.
 
 Construct a production-grade, error-free unified `@graph` JSON-LD block placed in `<head>`.
 Mandatory architecture:
-- Connect `WebSite` -> `WebPage` -> `about` (`Service` / `Product`) -> `publisher` (`Organization`).
+- Connect `WebSite` -> `WebPage` -> `about` (`Service` / `Product` / `SoftwareApplication`) -> `publisher` (`Organization`).
 - Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity` (Note: Google Search restricted SERP rich snippets to gov/health sites in Aug 2023; FAQ schema is retained for LLM / GEO direct answer extraction).
+- Link `HowTo` steps into `WebPage.hasPart` (optimized for generative procedural answers).
+- Enhance authors (`Person`) with `sameAs` links to LinkedIn, GitHub, ORCID, or Wikidata.
 - Provide `BreadcrumbList` with position indices.
 - Technical authority: Link relevant RFCs, ISO standards, or whitepapers in `isBasedOn`.
 - All prices formatted with numerical values or standardized decimal strings (`0` or `"0.00"`).

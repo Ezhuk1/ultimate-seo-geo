@@ -96,6 +96,12 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 
 > **The Golden Rule:** **Fluency + Statistics** produces a combined lift exceeding **+35%**, outperforming any single tactic while maintaining 100% human readability.
 
+### 🔑 The 3 Modern GEO Principles (2025–2026 Research)
+
+1. **Brand Mentions > Backlinks:** A study of 75,000 brands (Ahrefs, Dec 2025) proved that unlinked brand mentions on **YouTube (~0.737 correlation)**, **Reddit**, and **Wikipedia** correlate **3× more strongly** with AI citations than traditional PageRank or Domain Rating.
+2. **Passage-Level Citability (134–167 Words):** AI RAG architectures extract discrete chunks. Self-contained answer blocks of 134–167 words with **low pronoun density (< 2%)** eliminate contextual ambiguity and maximize verbatim extraction probability.
+3. **Platform Divergence:** Only **11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries, requiring engine-specific tuning (Reddit/freshness for Perplexity; YouTube/tables for AI Overviews; Wikipedia/entities for ChatGPT).
+
 ---
 
 ## 🛠️ Installation & Setup

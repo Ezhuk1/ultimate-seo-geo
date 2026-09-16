@@ -52,21 +52,52 @@ Table 2 of the Princeton GEO paper demonstrated a striking asymmetry:
 
 ---
 
-## 3. Generative Engine Divergence Matrix
+## 3. Off-Page AI Brand Footprint (Brand Mentions > Backlinks)
 
-Generative search engines do not share the same retrieval corpus or weighting:
+A comprehensive empirical study of 75,000 brands (Ahrefs, December 2025) revealed that **unlinked brand mentions correlate 3× more strongly with AI engine citations than traditional PageRank / backlink metrics**:
 
-| Engine | Primary Retrieval Bias | Key Citation Factors | Freshness Boundary | Optimization Priority |
-|---|---|---|:---:|---|
-| **ChatGPT Search** | Wikipedia, major media, official docs | Entity verification, authoritative definitions | $\le 90$ days | Schema `Organization`, clear definitions, Wikipedia cross-reference |
-| **Perplexity AI** | Real-time web index, recent articles, Reddit | **Freshness**, primary news/blogs, clear headers | **$\le 60$ days** | Explicit `<time>` tags, `dateModified`, monthly updates |
-| **Google AI Overviews** | Google index top 10, featured snippets | Semantic header hierarchy, tables, FAQ schema* | $\le 90$ days | Strict H1→H2→H3, HTML `<table>`, JSON-LD `FAQPage` (*Note: Google SERP FAQ rich snippets restricted to gov/health in Aug 2023; retained here for LLM answer extraction) |
-| **Claude** | Primary academic sources, official docs | Deep reasoning, nuanced tradeoffs, methodology | $\le 90$ days | Disclosing technical limitations, citing RFCs/papers |
-| **Gemini** | Google Knowledge Graph, YouTube, forums | Entity recognition, structured step-by-step solutions | $\le 90$ days | YouTube video schema, `HowTo` schema, Knowledge Graph |
+| Signal / Platform | Correlation with AI Citation | Primary Engine Impact | Strategic Requirement |
+|---|:---:|---|---|
+| **YouTube Mentions & Channels** | **~0.737 (Strongest)** | Google AI Overviews, Gemini | Official channel, tutorials, product walkthroughs with transcripts |
+| **Reddit Discussions** | **High** | Perplexity AI, Google AI Overviews | Organic community discussions, AMA threads, troubleshooting advice |
+| **Wikipedia & Wikidata** | **High** | ChatGPT Search, OpenAI models | Structured entity definitions, independent media citations |
+| **GitHub / Technical Repos** | **Moderate–High** | Claude, Perplexity | Public repos, README documentation, code benchmarks |
+| **Traditional Domain Rating (DR)** | **~0.266 (Weak)** | Traditional Googlebot SERP | Backlink volume alone does NOT guarantee AI citations |
 
 ---
 
-## 4. The GEO Signal Stack (Scoring Rubric)
+## 4. Passage-Level Citability Architecture (The 134–167 Word Rule)
+
+AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages. Content that wins citation follows four micro-architectural rules:
+
+1. **Optimal Passage Length (134–167 words):**
+   - Chunks shorter than 80 words lack context; chunks exceeding 250 words are diluted or truncated by RAG context windows. The empirical sweet spot for excerpting is **134–167 words**.
+2. **Self-Containment & Low Pronoun Density:**
+   - **The Pronoun Penalty:** RAG extractors discard or misattribute passages with ambiguous pronouns (*"They developed...", "This software is..."*).
+   - **Rule:** Keep pronoun density below **2%**. Explicitly repeat the brand name, product name, and protocol in each standalone passage.
+3. **Definition Patterns (First 40–60 Words):**
+   - High-intent AI queries match formal definition patterns: `[Entity] is [category] designed to [outcome] by [mechanism]`.
+   - Formulate opening sentences with strict declarative syntax: avoid conversational throat-clearing (*"In this guide we will explore..."*).
+4. **Question-Based Heading Alignment:**
+   - H2 and H3 headings matching natural language search queries (*"How does encrypted DNS prevent ISP snooping?"*) receive up to **2× higher extraction priority** than generic headers (*"Overview"* or *"Details"*).
+
+---
+
+## 5. Generative Engine Divergence Matrix
+
+Only **11% of domains** are concurrently cited by both ChatGPT Search and Google AI Overviews for identical queries. Optimization must target engine-specific retrieval biases:
+
+| Engine | Primary Retrieval Bias | Key Citation Factors | Freshness Boundary | Platform-Specific Optimization Checklist |
+|---|---|---|:---:|---|
+| **ChatGPT Search** | Bing index, Wikipedia, major authoritative media | Entity grounding, clear definitions, brand verification | $\le 90$ days | Complete Schema `Organization.sameAs`, clear definition patterns, Wikipedia/Wikidata entity presence |
+| **Perplexity AI** | Real-time web index, Reddit, niche blogs | **Strict freshness**, modular headers, numerical data | **$\le 60$ days** | Explicit `<time>` and `dateModified` tags, Reddit co-citations, monthly content refresh |
+| **Google AI Overviews** | Google top 10 SERP, featured snippets | Semantic table markup, YouTube videos, E-E-A-T | $\le 90$ days | HTML `<table>`, embedded YouTube tutorials, Schema `@graph`, ranking within top 10 Google SERP |
+| **Claude** | Primary academic sources, official RFCs | Methodological rigor, tradeoffs, limitation disclosure | $\le 90$ days | Link IETF RFCs / whitepapers, disclose technical limitations, avoid promotional hyperbole |
+| **Gemini** | Google Knowledge Graph, YouTube transcripts | Structured step-by-step solutions, video entities | $\le 90$ days | `VideoObject` schema, `HowTo` schema (for AI reasoning), Knowledge Graph alignment |
+
+---
+
+## 6. The GEO Signal Stack (Scoring Rubric)
 
 > **Important:** The 0–100 GEO score is an **expert qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria. It models citation probability, not a deterministic browser performance metric.
 
@@ -78,15 +109,18 @@ Generative search engines do not share the same retrieval corpus or weighting:
 - [ ] $\ge 1$ proprietary benchmark, telemetry metric, or first-party test result.
 
 ### Pillar 2: Structure & Positioning (25% Weight)
-- [ ] Direct answer provided within the first 150 words.
+- [ ] Direct answer provided within the first 150 words (front-loading).
+- [ ] Self-contained passage blocks: key excerpts tuned to 134–167 words with low pronoun density (< 2%).
+- [ ] Clear definition syntax ("X is...", "X refers to...") opening high-intent query sections.
 - [ ] TL;DR / Key Takeaways callout box near the top.
 - [ ] Comparative data presented in clean markdown or HTML tables.
 - [ ] Procedural workflows presented in numbered ordered lists.
 - [ ] Paragraph lengths strictly capped at 2–4 sentences.
 
-### Pillar 3: Authority & E-E-A-T (25% Weight)
+### Pillar 3: Authority, E-E-A-T & Brand Footprint (25% Weight)
 - [ ] Author byline with real name, photo, title, and bio ($\ge 30$ words).
-- [ ] `author.sameAs` in JSON-LD linking to LinkedIn, GitHub, or academic profile.
+- [ ] `author.sameAs` in JSON-LD linking to LinkedIn, GitHub, ORCID, or Wikidata profile.
+- [ ] Off-page brand footprint: verified mentions or channels across YouTube, Reddit, Wikipedia, or GitHub.
 - [ ] Machine-readable `dateModified` timestamp updated within the last 60 days (hard cutoff: 90 days).
 - [ ] Methodology and sample criteria explicitly stated.
 - [ ] Known limitations and technical boundaries transparently acknowledged.
@@ -94,5 +128,5 @@ Generative search engines do not share the same retrieval corpus or weighting:
 ### Pillar 4: AI Infrastructure & Crawlability (15% Weight)
 - [ ] Full server-side rendering (SSR) of critical text and data.
 - [ ] `robots.txt` explicitly allows `GPTBot`, `ClaudeBot`, `PerplexityBot` without leaking private paths.
-- [ ] `llms.txt` deployed at domain root following the standardized specification.
-- [ ] Schema.org JSON-LD graph validates without errors in Google Rich Results Test.
+- [ ] `llms.txt` deployed at domain root following community guidelines.
+- [ ] Schema.org JSON-LD graph validates without syntax errors and interconnects entities.

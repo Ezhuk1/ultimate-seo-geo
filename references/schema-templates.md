@@ -189,10 +189,73 @@ When generating markup for a blog post or technical guide, attach the article to
         "@type": "Person",
         "name": "Alex Mercer",
         "jobTitle": "Lead Network Architect",
-        "sameAs": "https://linkedin.com/in/alex-mercer"
+        "sameAs": [
+          "https://linkedin.com/in/alex-mercer",
+          "https://github.com/alex-mercer",
+          "https://orcid.org/0000-0002-1825-0097"
+        ]
       },
       "publisher": { "@id": "https://example.com/#organization" },
       "mainEntityOfPage": "https://example.com/blog/benchmark-results"
+    }
+  ]
+}
+```
+
+---
+
+## 4. SaaS & Developer Tool Graph (`SoftwareApplication`)
+
+When marking up web tools, APIs, CLI utilities, or SaaS apps, nest `SoftwareApplication` directly into the unified graph:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://example.com/#organization",
+      "name": "SaaS Brand",
+      "url": "https://example.com",
+      "sameAs": [
+        "https://github.com/saasbrand",
+        "https://linkedin.com/company/saasbrand"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://example.com/#website",
+      "url": "https://example.com",
+      "publisher": { "@id": "https://example.com/#organization" }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://example.com/#webpage",
+      "url": "https://example.com",
+      "isPartOf": { "@id": "https://example.com/#website" },
+      "about": { "@id": "https://example.com/#software" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://example.com/#software",
+      "name": "Network Shield SaaS",
+      "operatingSystem": "Linux, macOS, Windows, Android, iOS",
+      "applicationCategory": "SecurityApplication, NetworkingApplication",
+      "softwareVersion": "2.4.0",
+      "author": { "@id": "https://example.com/#organization" },
+      "offers": {
+        "@type": "Offer",
+        "price": "0.00",
+        "priceCurrency": "USD",
+        "priceValidUntil": "2027-12-31",
+        "availability": "https://schema.org/InStock"
+      },
+      "featureList": [
+        "Encrypted DNS-over-TLS (RFC 7858)",
+        "Zero-log policy",
+        "Sub-2ms average query latency",
+        "Automated failover routing"
+      ]
     }
   ]
 }
