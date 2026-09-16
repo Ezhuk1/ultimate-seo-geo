@@ -213,9 +213,10 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
     for entity in result.entities:
         auth = entity.get("author")
         if isinstance(auth, dict):
-            authors.append(auth)
+            if not ("@id" in auth and len(auth) == 1):
+                authors.append(auth)
         elif isinstance(auth, list):
-            authors.extend([a for a in auth if isinstance(a, dict)])
+            authors.extend([a for a in auth if isinstance(a, dict) and not ("@id" in a and len(a) == 1)])
         if entity.get("@type") in ("Person", "Organization"):
             authors.append(entity)
 
