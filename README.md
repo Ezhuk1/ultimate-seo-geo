@@ -54,6 +54,8 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
 # Explicit AI Crawlers (With Inherited Private Disallows)
 User-agent: GPTBot
@@ -69,6 +71,8 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
 Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```
@@ -90,7 +94,8 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 │  5. Technical Entity Precision      +18%  ████████           │
 │  6. Easy-to-Understand Structure   +14%  ██████             │
 │  7. Authoritative Tone              +10%  ████               │
-│  8. Keyword Stuffing                -8%   ▼ PENALIZED        │
+│  8. Unique Vocabulary                +6%  ██                 │
+│  9. Keyword Stuffing                -8%   ▼ PENALIZED        │
 └──────────────────────────────────────────────────────────────┘
 ```
 

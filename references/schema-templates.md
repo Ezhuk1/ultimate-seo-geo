@@ -74,8 +74,8 @@ Organization (#organization)
         { "@id": "https://example.com/#howto-setup" }
       ],
       "breadcrumb": { "@id": "https://example.com/#breadcrumbs" },
-      "datePublished": "2024-01-01T00:00:00Z",
-      "dateModified": "2026-09-15T00:00:00Z",
+      "datePublished": "[YYYY-MM-DDThh:mm:ssZ]",
+      "dateModified": "[YYYY-MM-DDThh:mm:ssZ]",
       "inLanguage": "en"
     },
     {
@@ -183,8 +183,8 @@ When generating markup for a blog post or technical guide, attach the article to
       "isPartOf": { "@id": "https://example.com/#website" },
       "headline": "Empirical Benchmark: DNS Resolution Latency in 2026",
       "description": "Comprehensive comparative study of DoT vs DoH across regional ISPs.",
-      "datePublished": "2026-09-01T10:00:00Z",
-      "dateModified": "2026-09-15T12:00:00Z",
+      "datePublished": "[YYYY-MM-DDThh:mm:ssZ]",
+      "dateModified": "[YYYY-MM-DDThh:mm:ssZ]",
       "author": {
         "@type": "Person",
         "name": "Alex Mercer",
@@ -247,7 +247,7 @@ When marking up web tools, APIs, CLI utilities, or SaaS apps, nest `SoftwareAppl
         "@type": "Offer",
         "price": "0.00",
         "priceCurrency": "USD",
-        "priceValidUntil": "2027-12-31",
+        "priceValidUntil": "[YYYY-12-31]",
         "availability": "https://schema.org/InStock"
       },
       "featureList": [

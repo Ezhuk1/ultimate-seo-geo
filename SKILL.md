@@ -154,6 +154,8 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
 # Explicit AI Engine Permissions (With Strict Privacy Protection)
 User-agent: GPTBot
@@ -169,6 +171,8 @@ Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
 Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```

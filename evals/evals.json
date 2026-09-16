@@ -17,8 +17,7 @@
         ],
         "contains_any_section": [
           "AI Infrastructure",
-          "AI Crawlability",
-          "AI Infrastructure & Crawlability"
+          "AI Crawlability"
         ],
         "heuristic_notice_present": true,
         "score_ranges": {
