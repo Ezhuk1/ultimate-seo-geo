@@ -36,16 +36,21 @@ class DocumentParser(HTMLParser):
         # CSR / SPA Shell detection
         self.csr_mount_elements = []
         self.has_client_bundle = False
+        self.in_svg = False
+        self.title_captured = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
 
+        if tag == "svg":
+            self.in_svg = True
+
         tag_id = attr_dict.get("id", "").lower()
         if tag_id in ("root", "app", "__next", "__nuxt"):
             self.csr_mount_elements.append(f"{tag}#{tag_id}")
 
-        if tag == "title":
+        if tag == "title" and not self.in_svg and not self.title_captured:
             self.in_title = True
         elif tag == "style":
             self.in_style = True
@@ -100,8 +105,12 @@ class DocumentParser(HTMLParser):
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
-        if tag == "title":
+        if tag == "svg":
+            self.in_svg = False
+        elif tag == "title":
             self.in_title = False
+            if self.title.strip():
+                self.title_captured = True
         elif tag == "style":
             self.in_style = False
         elif tag == "script":
