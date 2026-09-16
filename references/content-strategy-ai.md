@@ -14,9 +14,9 @@ LLMs prioritize sources that add unique tokens and non-redundant insights to the
 
 ---
 
-## 2. The 3-Step Front-Loading Pattern
+## 2. The 3-Step Front-Loading Pattern `[HEURISTIC]`
 
-Due to the mathematical decay of Position-Adjusted Word Count (PAWC), the lead paragraph of any section must be structured with zero conversational filler:
+To maximize the probability that RAG chunkers extract a standalone factual assertion that populates early sentences in synthesized AI answers (aligning with the PAWC attention-decay heuristic), the lead sentences of any section should be structured with zero conversational filler:
 
 ```
 [Target Subject] provides [Specific Quantitative Outcome] across [Operating Environment] ([Authoritative Source / RFC], [Year]), resolving [Core Friction Point].

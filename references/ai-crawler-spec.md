@@ -24,10 +24,15 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 
 ---
 
-## 2. Security Warning: RFC 9309 Group Precedence & Data Leaks
+## 2. Crawl Governance: RFC 9309 Group Precedence & Indexation Exposure `[STANDARD]`
 
 > [!CAUTION]
-> **The Robots Exclusion Protocol (RFC 9309, Section 2.2.1) specifies that a crawler matches only the group corresponding to its product token. If a matching group exists, the crawler obeys ONLY that group and completely ignores the generic `*` group.**
+> **RFC 9309 is Crawl Control, NOT Access Control:**
+> Per RFC 9309 (Section 1), the Robots Exclusion Protocol does **not** provide authorization or security access control; it merely provides discoverability guidelines for compliant web crawlers. True security requires HTTP 401/403 authentication, WAF rules, and network ACLs.
+
+> [!WARNING]
+> **Group Precedence & Indexation Exposure (RFC 9309, Section 2.2.1):**
+> A crawler matches only the group corresponding to its product token. If a matching specific group exists, the crawler obeys **ONLY** that group and completely ignores the generic `*` group.
 > If your `robots.txt` specifies:
 > ```txt
 > User-agent: *
@@ -37,12 +42,12 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 > User-agent: GPTBot
 > Allow: /
 > ```
-> **`GPTBot` completely ignores the `*` group.** As a result, `/api/` and `/admin/` become fully crawlable by GPTBot.
-> **Rule:** Every private path, internal API, staging directory, and admin portal MUST be explicitly re-disallowed in any custom AI user-agent group.
+> **`GPTBot` completely ignores the `*` group.** As a result, `/api/` and `/admin/` become fully crawlable and indexable by GPTBot if external or internal links point to them.
+> **Rule:** Every private path, internal API, staging directory, and admin portal MUST be explicitly re-disallowed in any custom AI user-agent group to prevent unwanted public indexing.
 
 ---
 
-## 3. Production `robots.txt` Blueprint (Leak-Safe)
+## 3. Production `robots.txt` Blueprint (Indexation-Safe) `[STANDARD]`
 > [!NOTE]
 > Grouping multiple `User-agent:` lines into a single record is fully compliant with RFC 9309 (Section 2.2.1) and supported by all major modern search and AI crawlers.
 

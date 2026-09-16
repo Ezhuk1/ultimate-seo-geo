@@ -5,8 +5,8 @@ This reference provides production-ready, interconnected `@graph` schema templat
 ## 1. Architectural Rules (The Unified Graph)
 
 > [!TIP]
-> **Preferred Practice: Unified `@graph` Architecture**
-> While Google Search officially supports multiple `<script type="application/ld+json">` tags and individual items, unifying page entities under a single `@graph` array with stable `@id` URIs is strongly recommended. A connected graph provides explicit semantic relationships between `Organization`, `WebPage`, and `Service`, resolving entity disambiguation for both traditional search engines and AI knowledge graphs. If multiple scripts are used, ensure related entities cross-reference each other via `@id`.
+> **Preferred Practice: Unified `@graph` Architecture `[RECOMMENDATION]`**
+> While Google Search officially supports multiple `<script type="application/ld+json">` tags and individual items `[STANDARD]`, unifying page entities under a single `@graph` array with stable `@id` URIs is strongly recommended `[RECOMMENDATION]`. A connected graph provides explicit semantic relationships between `Organization`, `WebPage`, and `Service`, resolving entity disambiguation for both traditional search engines and AI knowledge graphs. If multiple scripts are used, ensure related entities cross-reference each other via `@id`. Do not report valid separate scripts describing independent entities as critical schema errors.
 
 ### Entity Relationship Hierarchy:
 ```
@@ -23,9 +23,9 @@ Organization (#organization)
 ```
 
 > [!NOTE]
-> **Google Search Policy & LLM Context for FAQ & HowTo:**
+> **Google Search Policy & LLM Context for FAQ & HowTo `[STANDARD]` & `[HEURISTIC]`:**
 > Google Search deprecated HowTo rich snippets and restricted FAQ rich results strictly to government and healthcare domains (August/September 2023).
-> Consequently, `HowTo` and `FAQPage` markup will not yield SERP rich snippets on commercial websites. However, they remain useful semantic structures for RAG pipelines: question-answer pairs and ordered procedural steps provide cleanly delimited text blocks that assistive engines and LLMs can parse without semantic ambiguity. They are valuable structural helpers, though not guaranteed citation drivers.
+> Consequently, `HowTo` and `FAQPage` markup will not yield SERP rich snippets on commercial websites. However, they remain useful semantic structures for RAG pipelines `[HEURISTIC]`: question-answer pairs and ordered procedural steps provide cleanly delimited text blocks that assistive engines and LLMs can parse without semantic ambiguity. They are valuable structural helpers, though not guaranteed citation drivers.
 
 ---
 
@@ -264,7 +264,7 @@ When marking up web tools, APIs, CLI utilities, or SaaS apps, nest `SoftwareAppl
       "featureList": [
         "Encrypted DNS-over-TLS (RFC 7858)",
         "Zero-log policy",
-        "Sub-2ms average query latency",
+        "[EXAMPLE — REPLACE WITH REAL BENCHMARK: Sub-2ms average query latency]",
         "Automated failover routing"
       ]
     }

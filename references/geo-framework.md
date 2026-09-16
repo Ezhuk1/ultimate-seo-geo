@@ -1,16 +1,31 @@
 # GEO Framework & Scientific Foundations
 
-This reference document synthesizes foundational research on Generative Engine Optimization (GEO) and Answer Engine Optimization (AEO) for engineering production web content.
+This reference document synthesizes peer-reviewed research, industry protocol standards, and engineering heuristics for Generative Engine Optimization (GEO) and Answer Engine Optimization (AEO).
+
+---
+
+## Epistemological Classification Matrix
+
+To ensure rigorous auditing and eliminate pseudo-scientific dogmatism, all criteria and guidelines are categorized into four epistemic tiers:
+
+| Badge | Classification | Basis & Authority | Examples |
+|---|---|---|---|
+| `[STANDARD]` | **Deterministic Protocol / Spec** | Official IETF, W3C, Schema.org, or Core Web Vitals specifications. | RFC 9309, HTTP status codes, Schema.org syntax, canonical tags, CWV (LCP/INP/CLS). |
+| `[RESEARCH]` | **Empirical Academic Study** | Controlled peer-reviewed benchmarks and large-scale observational studies. | Princeton KDD 2024 GEO paper (Aggarwal et al.), Ahrefs 75k brand study. |
+| `[HEURISTIC]` | **Engineering & Retrieval Best Practice** | Practical optimization rules derived from RAG chunking, vector embeddings, and LLM attention. | Passage coreference independence, direct answer front-loading, query-dependent freshness. |
+| `[RECOMMENDATION]` | **Architectural & Style Preference** | Best practices for clean semantic hierarchy, scannability, and maintainability. | Preferred unified `@graph` for related entities, single primary `<h1>` document outline. |
+
+---
 
 ## 1. The Core Scientific Baseline
 
-### A. Princeton / Georgia Tech Research (KDD 2024, [arXiv:2311.09735](https://arxiv.org/abs/2311.09735))
+### A. Princeton / Georgia Tech Research (KDD 2024, [arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) `[RESEARCH]`
 * **Title:** *GEO: Generative Engine Optimization* (Aggarwal et al., 2024)
-* **The Two-Stage Pipeline (How SEO and GEO Intersect):**
-  Generative search engines (ChatGPT Search, Perplexity, Google AI Overviews) are **two-stage systems**:
-  1. **Stage 1 (Retrieval):** The system searches its index using traditional web retrieval (keyword matching, BM25, semantic dense vectors). Traditional SEO, technical crawlability, and indexability determine whether a page enters the top candidate pool (in the Princeton paper, the top-5 Google results).
-  2. **Stage 2 (Generative Synthesis):** The retrieved candidate passages are placed into the LLM prompt. The generative model synthesizes the response, selecting facts and claims from the most extractable sources. Here, **GEO factors govern citation probability**.
-  *Takeaway:* Traditional SEO gets you into the candidate pool; GEO gets you quoted in the final answer.
+* **The Two-Stage Retrieval-Synthesis Pipeline:**
+  Generative search engines (ChatGPT Search, Perplexity, Google AI Overviews) operate as **two-stage systems**:
+  1. **Stage 1 (Candidate Retrieval):** The engine queries its index using traditional web retrieval (keyword matching, BM25, semantic dense vectors, PageRank). Traditional SEO, crawlability, and indexability determine whether a page enters the top candidate pool (in the Princeton benchmark, the top-5 Google results).
+  2. **Stage 2 (Generative Synthesis):** The retrieved candidate passages are injected into the LLM context. The model synthesizes the answer, selecting facts, definitions, and citations from the most extractable sources. Here, **GEO factors govern citation probability**.
+  *Takeaway:* Traditional SEO gets you into the candidate pool; GEO gets you cited in the final answer.
 
 * **The Rigorous PAWC Formulation (Position-Adjusted Word Count):**
   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
@@ -25,11 +40,14 @@ This reference document synthesizes foundational research on Generative Engine O
   * $N_r$: The total number of sentences in response $r$.
   * $\alpha$: The exponential position-decay factor (typically $\alpha \approx 1.0$).
 
-  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening of the generated answer ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the answer under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
+  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a citation in the opening sentence of the generated answer ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the answer under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
 
-  **Editorial Heuristic vs Metric Reality:** Note that $\text{pos}(s)$ is mathematically defined over sentence positions in the LLM's *generated response* $r$, not the source HTML page $c$. The "First 150 Words" guideline is a practical *editorial heuristic*: because RAG extractors chunk source text, placing the direct answer in the lead paragraph increases the probability that the chunk is retrieved and extracted into an early ($\text{pos}=0$) response sentence.
+  > [!IMPORTANT]
+  > **PAWC Scope vs Source Chunking Heuristic `[HEURISTIC]`:**
+  > $\text{pos}(s)$ is mathematically defined over sentence positions in the LLM's *generated response* $r$, **not** characters or words in the source HTML page $c$.
+  > Placing direct answers in the opening sentences of your source content is a practical **editorial and RAG chunking heuristic**: because retrieval systems extract discrete passages and sliding windows, placing answers upfront maximizes the likelihood that an extracted chunk contains a self-contained factual assertion, increasing its chance of being synthesized into an early ($\text{pos}=0$) answer sentence.
 
-### B. Empirical Method Ranking by Citation Lift
+### B. Empirical Method Ranking by Citation Lift `[RESEARCH]`
 Experiments measuring visibility improvements across generative search engines ([Princeton GEO study](https://arxiv.org/abs/2311.09735), Table 1):
 
 | Rank | Technique | Visibility / PAWC Lift | Implementation Rule |
@@ -44,12 +62,16 @@ Experiments measuring visibility improvements across generative search engines (
 | **8** | **Unique Vocabulary** | **+6%** | Distinctive, non-generic naming for proprietary frameworks. |
 | **9** | **Keyword Stuffing** | **−8% (Penalty)** | Repetitive keyword placement is penalized by generative models. |
 
-**The Compound Champion:** **Fluency + Statistics** produces $\ge +35\%$ to $+44\%$ lift on the Princeton test subset (200 queries), outperforming single isolated approaches.
+> [!NOTE]
+> **Benchmark Scope & Generalization Disclaimer `[RESEARCH]`:**
+> These percentages reflect experimental findings on 200 synthetic test queries evaluated against specific generative engines under controlled benchmark conditions. They are **empirical benchmark observations, not universal ranking guarantees or deterministic multipliers** for production web ranking. Real-world generative search visibility depends on index coverage, domain trust, query intent, and multi-stage reranking pipelines.
+
+**The Compound Champion:** **Fluency + Statistics** produces $\ge +35\%$ to $+44\%$ lift on the Princeton test subset, outperforming single isolated approaches.
 > *Scientific Note on Sub-Additivity:* As documented in Section 4.2 of the Princeton GEO paper, multi-technique combinations do not sum linearly ($28\% + 30\% \ne 58\%$). Due to diminishing marginal returns in the attention mechanism and overlapping token attribution, combining fluency with verified statistics yields an empirical compounded lift of $+35\%$ to $+44\%$.
 
 ---
 
-## 2. Democratization Effect (Punching Above Weight)
+## 2. Democratization Effect (Punching Above Weight) `[RESEARCH]`
 
 Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) evaluated how source optimization affects candidates across Google SERP ranks (top-5):
 * Specifically for the **Cite Sources** optimization:
@@ -59,9 +81,9 @@ Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/231
 
 ---
 
-## 3. Off-Page AI Brand Footprint (Brand Mentions > Backlinks)
+## 3. Off-Page AI Brand Footprint & Candidate Retrieval `[RESEARCH]`
 
-Empirical research across 75,000 brands (Ahrefs AI Overviews & Brand Mentions Study) demonstrated that **unlinked brand mentions correlate up to 3× more strongly with AI engine citations than traditional PageRank / backlink metrics**:
+Empirical research across 75,000 brands (Ahrefs AI Overviews & Brand Mentions Study) demonstrated that **unlinked brand mentions correlate strongly with generative AI citations among established brands**:
 
 | Signal / Platform | Correlation with AI Citation | Primary Engine Impact | Strategic Requirement |
 |---|:---:|---|---|
@@ -69,73 +91,86 @@ Empirical research across 75,000 brands (Ahrefs AI Overviews & Brand Mentions St
 | **Reddit Discussions** | **High** | Perplexity AI, Google AI Overviews | Organic community discussions, AMA threads, troubleshooting advice |
 | **Wikipedia & Wikidata** | **High** | ChatGPT Search, OpenAI models | Structured entity definitions, independent media citations |
 | **GitHub / Technical Repos** | **Moderate–High** | Claude, Perplexity | Public repos, README documentation, code benchmarks |
-| **Traditional Domain Rating (DR)** | **~0.266 (Weak)** | Traditional Googlebot SERP | Backlink volume alone does NOT guarantee AI citations |
+| **Traditional Domain Rating (DR)** | **~0.266 (Weak in isolation)** | Traditional Googlebot SERP | Backlink volume alone does NOT guarantee AI citations |
+
+> [!NOTE]
+> **Correlation vs Causation in Brand Studies `[RESEARCH]`:**
+> In the Ahrefs dataset, the analyzed cohort consisted primarily of established domains ($DR > 40$) where baseline crawlability and indexation were already satisfied. Brand mentions act as strong entity-reinforcing signals for LLM attention during Stage 2 synthesis. However, backlinks and technical crawlability remain foundational for **Stage 1 (Candidate Retrieval)**.
 
 ---
 
-## 4. Passage-Level Citability Architecture (The 134–167 Word Heuristic)
+## 4. Passage-Level Citability Architecture `[HEURISTIC]`
 
-AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages. The following targets represent **practical engineering heuristics** optimized for modern embedding windows and passage rerankers:
+Modern RAG pipelines retrieve and inject content in discrete passages. The following guidelines represent practical engineering heuristics:
 
-1. **Optimal Passage Length (134–167 words):**
-   - Chunks shorter than 80 words lack standalone context; chunks exceeding 250 words are diluted or truncated by RAG context windows. In dense retrieval benchmarks, self-contained paragraphs of **134–167 words** achieve optimal extraction density.
-2. **Self-Containment & Low Pronoun Density:**
-   - **The Pronoun Penalty:** RAG extractors discard or misattribute passages with ambiguous pronouns (*"They developed...", "This software is..."*).
-   - **Rule:** Keep pronoun density below **2%**. Explicitly repeat the brand name, product name, and protocol in each standalone passage.
-3. **Definition Patterns (First 40–60 Words):**
-   - High-intent AI queries match formal definition patterns: `[Entity] is [category] designed to [outcome] by [mechanism]`.
-   - Formulate opening sentences with strict declarative syntax: avoid conversational throat-clearing (*"In this guide we will explore..."*).
-4. **Query-Aligned Heading Structure (Best Practice Heuristic):**
+1. **Adaptive Passage Chunking `[HEURISTIC]` (Typically 100–200 words / 1–2 focused paragraphs):**
+   - Chunks shorter than 60–80 words often lack standalone context; chunks exceeding 250–300 words risk truncation or dilution in dense retrieval contexts.
+   - Self-contained passages of **100–200 words** cleanly align with standard 256- to 512-token embedding windows. (The 134–167 word range observed in specific benchmarks is an empirical reference point, not an immutable standard).
+2. **Entity Disambiguation & Coreference Independence `[HEURISTIC]`:**
+   - **The Coreference Problem:** When a passage is extracted as an isolated chunk, ambiguous pronouns (*"They developed...", "This software is..."*) break the entity reference chain, reducing embedding similarity and retrieval confidence.
+   - **Guideline:** Explicitly name the core product, protocol, or entity in primary factual statements rather than relying on ambiguous pronouns.
+3. **Direct Answer Definition Syntax `[HEURISTIC]` (Opening 40–60 Words):**
+   - High-intent conversational queries match definition patterns: `[Entity] is [category] designed to [outcome] by [mechanism]`.
+   - Avoid conversational throat-clearing (*"In this article we will discuss..."*).
+4. **Query-Aligned Headings `[RECOMMENDATION]`:**
    - Phrasing H2 and H3 headings as natural-language questions or descriptive intent statements (*"How does encrypted DNS prevent ISP snooping?"*) assists passage segmenters and dense retriever rerankers in mapping semantic chunks to conversational queries.
 
 ---
 
-## 5. Generative Engine Divergence Matrix
+## 5. Generative Engine Divergence Matrix `[RESEARCH]` & `[HEURISTIC]`
 
 Empirical cross-engine comparative studies (SE Ranking / BrightEdge AI Overviews research) show that only **~11% of domains** are concurrently cited by both ChatGPT Search and Google AI Overviews for identical queries. Optimization must target engine-specific retrieval biases:
 
-| Engine | Primary Retrieval Bias | Key Citation Factors | Freshness Boundary | Platform-Specific Optimization Checklist |
+| Engine | Primary Retrieval Bias | Key Citation Factors | Freshness Boundary `[HEURISTIC]` | Platform-Specific Optimization Checklist |
 |---|---|---|:---:|---|
-| **ChatGPT Search** | Bing index, Wikipedia, major authoritative media | Entity grounding, clear definitions, brand verification | $\le 90$ days | Complete Schema `Organization.sameAs`, clear definition patterns, Wikipedia/Wikidata entity presence |
-| **Perplexity AI** | Real-time web index, Reddit, niche blogs | **Strict freshness**, modular headers, numerical data | **$\le 60$ days** | Explicit `<time>` and `dateModified` tags, Reddit co-citations, monthly content refresh |
-| **Google AI Overviews** | Google top 10 SERP, featured snippets | Semantic table markup, YouTube videos, E-E-A-T | $\le 90$ days | HTML `<table>`, embedded YouTube tutorials, Schema `@graph`, ranking within top 10 Google SERP |
-| **Claude** | Primary academic sources, official RFCs | Methodological rigor, tradeoffs, limitation disclosure | $\le 90$ days | Link IETF RFCs / whitepapers, disclose technical limitations, avoid promotional hyperbole |
-| **Gemini** | Google Knowledge Graph, YouTube transcripts | Structured step-by-step solutions, video entities | $\le 90$ days | `VideoObject` schema, `HowTo` schema (for AI reasoning), Knowledge Graph alignment |
+| **ChatGPT Search** | Bing index, Wikipedia, major authoritative media | Entity grounding, clear definitions, brand verification | Volatile: $\le 90$ d<br>Evergreen: On spec change | Complete Schema `Organization.sameAs`, clear definition patterns, Wikipedia/Wikidata entity presence |
+| **Perplexity AI** | Real-time web index, Reddit, niche blogs | **Strict freshness**, modular headers, numerical data | Volatile: $\le 60$ d<br>Evergreen: On spec change | Explicit `<time>` and `dateModified` tags, Reddit co-citations, periodic verification |
+| **Google AI Overviews** | Google top 10 SERP, featured snippets | Semantic table markup, YouTube videos, E-E-A-T | Volatile: $\le 90$ d<br>Evergreen: On spec change | HTML `<table>`, embedded YouTube tutorials, Schema `@graph`, ranking within top 10 Google SERP |
+| **Claude** | Primary academic sources, official RFCs | Methodological rigor, tradeoffs, limitation disclosure | Volatile: $\le 90$ d<br>Evergreen: On spec change | Link IETF RFCs / whitepapers, disclose technical limitations, avoid promotional hyperbole |
+| **Gemini** | Google Knowledge Graph, YouTube transcripts | Structured step-by-step solutions, video entities | Volatile: $\le 90$ d<br>Evergreen: On spec change | `VideoObject` schema, `HowTo` schema (for AI reasoning), Knowledge Graph alignment |
+
+> [!TIP]
+> **Query-Dependent Freshness Principle `[HEURISTIC]`:**
+> Freshness expectations depend strictly on query intent and content volatility:
+> - **Time-Sensitive / Volatile Content** (pricing, software releases, comparative reviews, regulatory news): Target updates within **30–90 days** with verified `dateModified`.
+> - **Evergreen / Foundational Content** (RFC protocols, mathematical proofs, architectural principles): Maintain accuracy and update when underlying standards evolve. Arbitrary timestamp bumping without material change offers no genuine information gain.
 
 ---
 
-## 6. The 3-Tier Signal Stack (Methodology & Heuristic Rubric)
+## 6. The 3-Tier Signal Stack (Methodology & Epistemic Rubric)
 
-> **Methodological Notice:** The 0–100 scores generated in `audit` mode represent an **opinionated qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria and RAG architectural practices. They model citation probability rather than an automated deterministic standard.
+> **Methodological Notice:** The 0–100 scores generated in `audit` mode represent an **opinionated qualitative heuristic rubric** combining deterministic technical standards with probabilistic retrieval heuristics.
+> - **Technical SEO Score:** Evaluated with **HIGH confidence** against deterministic specifications (`[STANDARD]`).
+> - **GEO Score:** Evaluated with **MEDIUM confidence** as a qualitative modeling of citation likelihood (`[RESEARCH]` and `[HEURISTIC]`).
 
-### Tier 1: Observable Verified Signals (Objective / Binary)
-- [ ] **Canonical Consistency:** Canonical tag is present, valid, and matches the indexable URL.
-- [ ] **Crawler Permissions:** AI search bots (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) are permitted in `robots.txt`.
-- [ ] **Leak-Safe Directives:** Sensitive endpoints (`/api/`, `/admin/`, `/checkout/`, `/auth/`) are duplicated across all specific AI crawler groups per RFC 9309.
-- [ ] **Schema Parsability:** JSON-LD parses without syntax errors and correctly links entities with stable `@id` URIs.
-- [ ] **Indexability:** Page returns 200 OK, has a valid `<title>`, `<meta name="description">`, and single primary `<h1>`.
+### Tier 1: Observable Verified Signals (Objective / Binary) `[STANDARD]`
+- [ ] **Canonical Consistency `[STANDARD]`:** Canonical tag is present, valid, and matches the indexable URL.
+- [ ] **Crawler Permissions `[STANDARD]`:** AI search bots (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) are permitted in `robots.txt`.
+- [ ] **Crawl Group Integrity `[STANDARD]`:** Sensitive endpoints (`/api/`, `/admin/`, `/checkout/`, `/auth/`) are duplicated across all specific AI crawler groups per RFC 9309.
+- [ ] **Schema Parsability `[STANDARD]`:** JSON-LD parses without syntax errors and correctly links entities with stable `@id` URIs.
+- [ ] **Indexability `[STANDARD]`:** Page returns 200 OK, has a valid `<title>`, `<meta name="description">`, and single primary `<h1>` `[RECOMMENDATION]`.
 
-### Tier 2: Practical Heuristic Signals (Editorial Best Practice)
-- [ ] **Direct Answer Front-Loading:** The direct resolution or definition is placed in the opening sentences of the target section.
-- [ ] **Passage Self-Containment:** Core answer blocks stand alone without relying on ambiguous previous paragraphs.
-- [ ] **Explicit Entity Naming:** Entities, tools, protocols, and organizations are explicitly named rather than obscured with vague pronouns.
-- [ ] **Tabular Comparison:** Comparative metrics are formatted in Markdown or HTML `<table>` for unambiguous RAG table parsing.
-- [ ] **Structured Steps:** Multi-step procedural workflows are formatted in numbered lists (`<ol>`).
+### Tier 2: Practical Heuristic Signals (Editorial Best Practice) `[HEURISTIC]`
+- [ ] **Direct Answer Front-Loading `[HEURISTIC]`:** The direct resolution or definition is placed in the opening sentences of the target section.
+- [ ] **Passage Self-Containment `[HEURISTIC]`:** Core answer blocks stand alone without relying on ambiguous previous paragraphs.
+- [ ] **Entity Disambiguation `[HEURISTIC]`:** Entities, tools, protocols, and organizations are explicitly named rather than obscured with vague pronouns.
+- [ ] **Tabular Comparison `[HEURISTIC]`:** Comparative metrics are formatted in Markdown or HTML `<table>` for unambiguous RAG table parsing.
+- [ ] **Structured Steps `[HEURISTIC]`:** Multi-step procedural workflows are formatted in numbered lists (`<ol>`).
 
-### Tier 3: Context-Dependent Experimental Hypotheses
+### Tier 3: Context-Dependent Experimental Hypotheses `[RESEARCH]` & `[HEURISTIC]`
 These criteria model RAG chunking optimizations and must be evaluated **contextually based on page intent**:
 
 #### A. Content-Type Contextual Rules
 * **Editorial Articles & Guides:**
-  - Expect author bylines with verifiable credentials and `author.sameAs` in Schema.
-  - Direct expert quotation ($\ge 1$ named authority with institutional context) provides high citation lift.
+  - Expect author bylines with verifiable credentials and `author.sameAs` in Schema `[RECOMMENDATION]`.
+  - Direct expert quotation ($\ge 1$ named authority with institutional context) provides high citation lift `[RESEARCH]`.
 * **API References, Developer Documentation & Tools:**
-  - **EXEMPT FROM HUMAN QUOTES:** Personal quotes are not required or expected on technical documentation, calculators, or API endpoints. Zero penalty for omitting quotes.
+  - **EXEMPT FROM HUMAN QUOTES:** Personal quotes are not required or expected on technical documentation, calculators, or API endpoints. Zero penalty for omitting quotes `[HEURISTIC]`.
   - Instead, evaluate: parameter specifications, code examples, IETF RFC links, error codes, and benchmark telemetry.
 
 #### B. Target Heuristic Ranges (Editorial Content)
-- [ ] Passage length tuned to ~134–167 words (practical heuristic for 512-token dense embeddings).
-- [ ] Low pronoun density (< 2%) in high-priority answer blocks.
-- [ ] $\ge 5$ numbers with explicit units / verified metrics for analytical comparisons.
-- [ ] Primary citations linking directly to RFCs, benchmarks, or peer-reviewed papers.
-- [ ] Machine-readable `dateModified` timestamp updated within the last 60–90 days.
+- [ ] Passage length tuned to self-contained ~100–200 word blocks `[HEURISTIC]`.
+- [ ] Low reliance on ambiguous coreference pronouns in high-priority answer blocks `[HEURISTIC]`.
+- [ ] Verified metrics with explicit units for analytical comparisons `[RESEARCH]`.
+- [ ] Primary citations linking directly to RFCs, benchmarks, or peer-reviewed papers `[RESEARCH]`.
+- [ ] Context-appropriate `dateModified` timestamp matching content volatility `[HEURISTIC]`.

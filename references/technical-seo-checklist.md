@@ -2,7 +2,7 @@
 
 This reference details the core technical foundation required for modern search indexation and crawl optimization.
 
-## 1. Crawlability & Indexability
+## 1. Crawlability & Indexability `[STANDARD]`
 - **Robots.txt:**
   - Placed at root (`/robots.txt`), responds with HTTP 200.
   - Does not block critical CSS, JS, or image assets.
@@ -25,7 +25,7 @@ This reference details the core technical foundation required for modern search 
 
 ---
 
-## 2. On-Page Semantic Structure
+## 2. On-Page Semantic Structure `[RECOMMENDATION]` & `[HEURISTIC]`
 - **Title Tags:**
   - Display Guideline: ~50–60 characters (recommended target to prevent SERP truncation on desktop ~600px containers; longer titles are indexed and evaluated by Google, not penalized).
   - Format: `Primary Keyword - Secondary Benefit | Brand Name`.
@@ -44,7 +44,7 @@ This reference details the core technical foundation required for modern search 
 
 ---
 
-## 3. Core Web Vitals (CWV) Standards
+## 3. Core Web Vitals (CWV) Standards `[STANDARD]`
 
 | Metric | Target (Good) | Needs Improvement | Poor | Primary Root Causes |
 |---|:---:|:---:|:---:|---|
@@ -54,7 +54,7 @@ This reference details the core technical foundation required for modern search 
 
 ---
 
-## 4. Social Metadata (Open Graph & Twitter)
+## 4. Social Metadata (Open Graph & Twitter) `[STANDARD]`
 Ensure optimal link previews across messaging apps and social feeds:
 ```html
 <!-- Open Graph -->

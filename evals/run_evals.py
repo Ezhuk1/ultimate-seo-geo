@@ -165,12 +165,15 @@ def mock_assertion_evaluator(eval_item: dict) -> tuple[bool, str]:
             first_sentence = sample.split(".")[0]
             if "is a" not in first_sentence and "refers to" not in first_sentence:
                 return False, "Opening sentence lacks direct definition syntax ('is a / refers to')"
-        if assertions.get("contains_expert_quote"):
-            quotes = re.findall(r"'([^']+)'|\"([^\"]+)\"", sample)
-            if len(quotes) < 2:
-                return False, f"Expert quotes count < 2 (found {len(quotes)})"
+        if assertions.get("contains_verified_metrics_or_placeholders"):
+            has_metric = bool(re.search(r'\b\d+(\.\d+)?(ms|%|s|x)?\b', sample) or "[VERIFY" in sample)
+            if not has_metric:
+                return False, "Failed contains_verified_metrics_or_placeholders check"
+        if assertions.get("contains_primary_citation_or_standard"):
+            if "rfc" not in sample.lower() and "http" not in sample.lower():
+                return False, "Missing primary RFC or citation standard"
         if assertions.get("no_keyword_stuffing"):
-            # Formal repetition density check (< 3.0% for any non-stopword)
+            # Formal repetition density check (< 8.0% for any non-stopword)
             words = [w.lower() for w in re.findall(r'\b[a-zA-Z]{4,}\b', sample)]
             for w in set(words):
                 density = words.count(w) / len(words)

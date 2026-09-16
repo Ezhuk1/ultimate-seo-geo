@@ -21,11 +21,11 @@ Modern AI Search combines **traditional retrieval** with **generative synthesis*
 1. **The Two-Stage Pipeline:** Traditional SEO (crawling, technical indexability, PageRank) determines whether your page enters the top candidate search pool (e.g. Google's top-5 to top-10 results). Once candidates are retrieved, **GEO governs synthesis**: the LLM extracts and cites facts from candidates exhibiting the highest evidence density and structural clarity.
 2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) proved that lower-ranked search candidates (specifically Rank-5 Google results using the *Cite Sources* technique) gained **+115.1% in generative AI visibility**, demonstrating that superior evidence density can surpass higher-ranking incumbents in generated answers.
 3. **Traditional keyword stuffing actively hurts** (causing an empirical **−8% penalty** in AI citation likelihood).
-4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric:
+4. **Position Matters Exponentially (The PAWC Metric):**  
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because sentence extraction weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ under steeper regimes), front-loading answers in the lead paragraph serves as a practical editorial heuristic to maximize the likelihood that your facts populate the opening sentences ($\text{pos}(s)=0$) of synthesized AI responses.
+   Because sentence citation weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ under steeper regimes) across the *synthesized LLM response*, front-loading direct answers in source content serves as a practical RAG chunking heuristic: it maximizes the likelihood that an extracted passage contains a standalone factual assertion that populates opening answer sentences ($\text{pos}(s)=0$).
 
-> **Methodology Note:** The 0–100 scores provided in audit mode represent an **opinionated qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria and RAG architectural practices. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
+> **Methodology Note:** Dual scoring reflects differing certainty levels: Technical SEO Score is evaluated with **HIGH confidence** against deterministic web standards and protocols (`[STANDARD]`), while GEO Score is evaluated with **MEDIUM confidence** as an opinionated qualitative heuristic rubric (`[RESEARCH]` & `[HEURISTIC]`).
 
 ---
 
@@ -33,17 +33,17 @@ Modern AI Search combines **traditional retrieval** with **generative synthesis*
 
 | Mode | Trigger Phrases | Key Deliverables |
 |---|---|---|
-| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual qualitative scorecard: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 remediation steps. |
+| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual scorecard: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
 | **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton KDD 2024 rewrite patterns. |
 | **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction). |
-| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates leak-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
+| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates indexation-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
 
 ---
 
-## 🛡️ Security: Leak-Safe `robots.txt` Blueprint
+## 🛡️ Crawl Governance: Indexation-Safe `robots.txt` Blueprint
 
-Per **RFC 9309**, specific User-Agent blocks override the generic `*` group. If an AI group has `Allow: /` without explicit disallows, private paths are unintentionally exposed to AI bots. `ultimate-seo-geo` enforces the leak-safe pattern:
+Per **RFC 9309**, specific User-Agent blocks override the generic `*` group. If an AI group has `Allow: /` without explicit disallows, private paths are unintentionally exposed to AI crawler indexing. *(Note: Per RFC 9309 §1, robots exclusion is crawl control, NOT access security; true protection requires HTTP 401/403 authentication, WAF rules, and network ACLs).* `ultimate-seo-geo` enforces the indexation-safe pattern:
 
 ```txt
 # Standard Crawlers
@@ -55,7 +55,7 @@ Disallow: /private/
 Disallow: /checkout/
 Disallow: /auth/
 
-# Explicit AI Crawlers (With Inherited Private Disallows per RFC 9309)
+# Explicit AI Crawlers (With Duplicate Disallows per RFC 9309)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
@@ -102,13 +102,15 @@ Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech K
 └──────────────────────────────────────────────────────────────┘
 ```
 
-> **The Golden Rule:** **Fluency + Statistics** produces a combined lift exceeding **+35%**, outperforming any single tactic while maintaining 100% human readability.
+> **Benchmark Scope Note `[RESEARCH]`:** These percentages reflect experimental findings on 200 synthetic test queries in controlled benchmark environments. They represent empirical research observations, not universal ranking guarantees for production web ranking.
+>
+> **The Compound Champion:** Combining **Fluency + Statistics** produces an empirical compounded lift of **+35% to +44%**, outperforming any single tactic while maintaining full human readability.
 
 ### 🔑 The 3 Modern GEO Principles (2025–2026 Research)
 
-1. **Brand Mentions > Backlinks:** Empirical research across 75,000 brands (Ahrefs AI Overviews study) demonstrated that unlinked brand mentions on **YouTube (~0.737 correlation)**, **Reddit**, and **Wikipedia** correlate up to **3× more strongly** with AI citations than traditional PageRank or Domain Rating.
-2. **Passage-Level Citability (134–167 Words):** Practical RAG engineering heuristic. Discrete self-contained answer blocks of 134–167 words with **low pronoun density (< 2%)** eliminate contextual ambiguity and maximize verbatim extraction probability.
-3. **Platform Divergence:** Cross-engine comparative studies indicate that only **~11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries, requiring engine-specific tuning (Reddit/freshness for Perplexity; YouTube/tables for AI Overviews; Wikipedia/entities for ChatGPT).
+1. **Off-Page Brand Footprint & Candidate Retrieval `[RESEARCH]`:** In observational studies across 75,000 established brands ($DR > 40$, Ahrefs), unlinked brand mentions on conversational platforms (**YouTube ~0.737 correlation**, Reddit, Wikipedia) showed high correlation with generative engine citations, reinforcing entity grounding in Stage 2 synthesis. Traditional backlinks remain essential for Stage 1 candidate retrieval.
+2. **Passage-Level Citability & Coreference Independence `[HEURISTIC]`:** Practical RAG engineering heuristic. Self-contained answer blocks (~100–200 words) with explicit entity naming rather than ambiguous pronouns eliminate reference ambiguity and maximize verbatim extraction probability.
+3. **Platform Divergence & Query-Dependent Freshness `[RESEARCH]` & `[HEURISTIC]`:** Cross-engine comparative studies indicate that only **~11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries. Optimization requires tuning for platform biases and query volatility (volatile/pricing vs evergreen/RFC specifications).
 
 ---
 
