@@ -19,22 +19,39 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **cohere-ai** | Cohere | Enterprise RAG retrieval | Allow `/` |
 | **Bytespider** | ByteDance | Search & model retrieval | Allow `/` |
 
-### Hard Rule
-Never block AI crawlers on public marketing, documentation, or blog content. Blocking these user agents eliminates your brand from generative AI answer pools and citations.
+---
+
+## 2. Security Warning: RFC 9309 Group Precedence & Data Leaks
+
+> [!CAUTION]
+> **The Robots Exclusion Protocol (RFC 9309, Section 2.2.1) specifies that a crawler only parses the SINGLE most specific group of directives matching its User-Agent.**
+> If your `robots.txt` specifies:
+> ```txt
+> User-agent: *
+> Disallow: /api/
+> Disallow: /admin/
+>
+> User-agent: GPTBot
+> Allow: /
+> ```
+> **`GPTBot` completely ignores the `*` group.** As a result, `/api/` and `/admin/` become fully crawlable by GPTBot.
+> **Rule:** Every private path, internal API, staging directory, and admin portal MUST be explicitly re-disallowed in any custom AI user-agent group.
 
 ---
 
-## 2. Production `robots.txt` Blueprint
+## 3. Production `robots.txt` Blueprint (Leak-Safe)
 
 ```txt
-# Standard Search Engines
+# Standard Web Crawlers
 User-agent: *
 Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
-# Explicit AI Engine Permissions
+# Explicit AI Engine Permissions (With Duplicate Disallows)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
@@ -45,14 +62,19 @@ User-agent: Google-Extended
 User-agent: meta-externalagent
 User-agent: cohere-ai
 Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /checkout/
+Disallow: /auth/
 
-# Sitemaps and AI Descriptors
+# Sitemaps
 Sitemap: https://yourdomain.com/sitemap.xml
 ```
 
 ---
 
-## 3. The `llms.txt` Standard
+## 4. The `llms.txt` Standard
 
 The `llms.txt` file (placed at root: `https://yourdomain.com/llms.txt`) serves as a markdown-based manifest for Large Language Models. It tells AI models what your site does, who it serves, and which pages contain authoritative data.
 

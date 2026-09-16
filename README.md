@@ -5,7 +5,7 @@
 [![Language](https://img.shields.io/badge/Language-English%20%7C%20Русский-purple.svg)](#language--язык)
 
 > **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.**  
-> Audits technical SEO, maximizes AI citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), builds unified Schema.org JSON-LD graphs, configures AI crawler protocols (`robots.txt` & `llms.txt`), and produces evidence-driven content plans.
+> Audits technical SEO, maximizes AI citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), builds unified Schema.org JSON-LD graphs, configures leak-safe AI crawler protocols (`robots.txt` & `llms.txt`), and produces evidence-driven content plans.
 
 ---
 
@@ -21,11 +21,13 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 **Generative AI Search (GEO / AEO) operates on completely different principles:**
 
 1. **LLMs do not use PageRank to formulate answers.** They extract the most authoritative, structurally dense, and verifiable sentences in the retrieved context window.
-2. **The Princeton GEO Paper (KDD 2024)** proved that weaker domains (Rank-5 to Rank-10) gained **+115% in generative AI visibility** simply by incorporating high-density evidence and structured quotations.
+2. **The Princeton GEO Paper (KDD 2024)** proved that weaker domains (Rank-5 to Rank-10) gained **+115% in generative AI visibility** simply by incorporating high-density evidence, quotations, and verified metrics.
 3. **Traditional keyword stuffing actively hurts** (causing a **−8% penalty** in AI citation likelihood).
-4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric, the first 150 words of an article carry **~5× more extraction weight** than trailing paragraphs.
+4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric:
+   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
+   Because of exponential decay, the first 150 words of an article carry **~5× more extraction weight** than trailing paragraphs.
 
-`ultimate-seo-geo` combines cutting-edge AI citation science with rigorous technical on-page SEO into a single, cohesive workflow.
+> **Methodology Note:** The 0–100 scores provided in audit mode represent **expert qualitative heuristic evaluations** based on the Princeton & AutoGEO rubrics. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
 
 ---
 
@@ -33,11 +35,43 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 
 | Mode | Trigger Phrases | Key Deliverables |
 |---|---|---|
-| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Parallel scorecard: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 remediation steps. |
+| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual qualitative scorecard: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 remediation steps. |
 | **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton + AutoGEO rewrite patterns. |
-| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, Service/Product, FAQ, and HowTo. |
-| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates clean `robots.txt` explicitly permitting AI search bots + structured `llms.txt` manifest at site root. |
+| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo. |
+| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates leak-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest. |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
+
+---
+
+## 🛡️ Security: Leak-Safe `robots.txt` Blueprint
+
+Per **RFC 9309**, specific User-Agent blocks override the generic `*` group. If an AI group has `Allow: /` without explicit disallows, private paths are unintentionally exposed to AI bots. `ultimate-seo-geo` enforces the leak-safe pattern:
+
+```txt
+# Standard Crawlers
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+
+# Explicit AI Crawlers (With Inherited Private Disallows)
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Google-Extended
+User-agent: meta-externalagent
+User-agent: cohere-ai
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+
+Sitemap: https://yourdomain.com/sitemap.xml
+```
 
 ---
 
@@ -49,7 +83,7 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 ┌──────────────────────────────────────────────────────────────┐
 │  TECHNIQUE                          CITATION LIFT (PAWC)     │
 ├──────────────────────────────────────────────────────────────┤
-│  1. Direct Expert Quotation         +41%  ██████████████████ │
+│  1. Direct Expert Quotation (≥2)    +41%  ██████████████████ │
 │  2. Specific Statistics Addition    +30%  █████████████      │
 │  3. Primary Source Citation         +28%  ████████████       │
 │  4. Fluency & Direct Answers        +28%  ████████████       │
@@ -67,8 +101,6 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 ## 🛠️ Installation & Setup
 
 ### Option A: Install in Google Antigravity (Global)
-Clone or copy the directory directly into your global skills config:
-
 ```bash
 # Windows PowerShell
 git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemini\config\skills\ultimate-seo-geo"
@@ -78,46 +110,9 @@ git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/config/skills
 ```
 
 ### Option B: Project-Level Installation (.agents/skills)
-If you want the skill committed directly into your repository:
-
 ```bash
 mkdir -p .agents/skills
 git clone https://github.com/Ezhuk1/ultimate-seo-geo.git .agents/skills/ultimate-seo-geo
-```
-
-### Option C: Claude Code / Cursor / Codex
-Because `ultimate-seo-geo` follows the universal `SKILL.md` specification, simply copy the directory into your local agent skills folder:
-
-```bash
-# Claude Code
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.claude/skills/ultimate-seo-geo
-
-# Cursor
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.cursor/skills/ultimate-seo-geo
-```
-
----
-
-## 🎯 Example Prompts
-
-### 1. Running a Complete Audit
-```text
-Please run a full SEO and GEO audit on our landing page https://bezmezhau.com and give us a prioritized action plan.
-```
-
-### 2. Rewriting Content for High PAWC
-```text
-Rewrite the hero section and value proposition of my SaaS page to maximize citation in Perplexity AI and ChatGPT Search. Front-load the core answer in the first 150 words.
-```
-
-### 3. Generating Unified Schema.org JSON-LD
-```text
-Generate a unified Schema.org JSON-LD graph for our website with Organization, Service, FAQ, and HowTo step-by-step instructions. Link to RFC 7858 as the technical standard.
-```
-
-### 4. Deploying AI Infrastructure Files
-```text
-Generate a robots.txt file that allows GPTBot, ClaudeBot, and PerplexityBot, and construct a complete llms.txt file for our root domain.
 ```
 
 ---
@@ -132,13 +127,13 @@ ultimate-seo-geo/
 ├── LICENSE                           # MIT License
 ├── .gitignore                        # Git ignore rules
 ├── references/
-│   ├── geo-framework.md              # Princeton KDD 2024, AutoGEO, PAWC formulas & engine matrix
+│   ├── geo-framework.md              # Princeton KDD 2024, AutoGEO, rigorous PAWC math & engine matrix
 │   ├── technical-seo-checklist.md    # Crawlability, Core Web Vitals, metadata, canonicals
-│   ├── schema-templates.md           # Production-ready unified @graph JSON-LD templates
-│   ├── ai-crawler-spec.md            # AI User-Agent taxonomy & llms.txt standard
+│   ├── schema-templates.md           # Unified @graph JSON-LD master templates (WebPage, Service, FAQ, HowTo)
+│   ├── ai-crawler-spec.md            # RFC 9309 leak prevention & llms.txt standard
 │   └── content-strategy-ai.md        # Information Gain, front-loading, evidence hunting
 └── evals/
-    └── evals.json                    # Deterministic test cases and evaluation assertions
+    └── evals.json                    # Deterministic test cases with negative safety checks
 ```
 
 ---
