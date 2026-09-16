@@ -16,8 +16,8 @@ from typing import List, Dict, Any, Optional
 
 
 DEFINITION_PATTERNS = [
-    re.compile(r"\b(is|are|refers to|is defined as|means|consists of)\b", re.IGNORECASE),
-    re.compile(r"^[A-Z][^—–\-:]+[—–\-:]\s+[a-z]", re.MULTILINE),
+    re.compile(r"\b(is|are|refers to|is defined as|means|consists of|гэта|это|является|з['’]?яўляецца|уяўляе сабой|представляет собой)\b", re.IGNORECASE),
+    re.compile(r"^[A-Za-zА-Яа-яЁёІіЎўЇїЄє][^—–\-:]+[—–\-:]\s+[A-Za-zА-Яа-яЁёІіЎўЇїЄє]", re.MULTILINE),
 ]
 
 FLUFF_INTRO_PATTERNS = [

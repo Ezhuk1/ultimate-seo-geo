@@ -95,8 +95,13 @@ def run_inspection(
     schema_data = analyze_json_ld(html_data["json_ld_raw_blocks"])
 
     # 4. Content & GEO Inspection
+    content_text = (
+        html_data.get("main_text")
+        if html_data.get("main_text") and len(html_data["main_text"].split()) >= 30
+        else html_data.get("visible_text", html_data.get("visible_text_preview", ""))
+    )
     content_data = analyze_content(
-        html_data.get("visible_text", html_data.get("visible_text_preview", "")),
+        content_text,
         headings=html_data["headings"].get("outline", [])
     )
 
@@ -423,7 +428,12 @@ def run_inspection(
             impact_estimate="Rich snippets degradation and failure of Knowledge Graph entity linking."
         )
 
-    if not schema_data.findings and schema_data.entities:
+    has_graph_defect = any(
+        sf.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"
+        for sf in schema_data.findings
+        if sf.severity in (STATUS_CRITICAL, STATUS_WARNING)
+    )
+    if not has_graph_defect and schema_data.entities:
         builder.add_evidence(
             rule_id="SCHEMA-GRAPH-INTERCONNECT-002",
             category="schema",

@@ -38,12 +38,16 @@ class DocumentParser(HTMLParser):
         self.has_client_bundle = False
         self.in_svg = False
         self.title_captured = False
+        self.in_main = False
+        self.main_text_parts = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
 
-        if tag == "svg":
+        if tag == "main":
+            self.in_main = True
+        elif tag == "svg":
             self.in_svg = True
 
         tag_id = attr_dict.get("id", "").lower()
@@ -105,7 +109,9 @@ class DocumentParser(HTMLParser):
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
-        if tag == "svg":
+        if tag == "main":
+            self.in_main = False
+        elif tag == "svg":
             self.in_svg = False
         elif tag == "title":
             self.in_title = False
@@ -132,6 +138,8 @@ class DocumentParser(HTMLParser):
         elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main"):
             if self.visible_text_parts and self.visible_text_parts[-1] != "\n\n":
                 self.visible_text_parts.append("\n\n")
+            if self.in_main and self.main_text_parts and self.main_text_parts[-1] != "\n\n":
+                self.main_text_parts.append("\n\n")
 
     def handle_data(self, data: str):
         if self.in_title:
@@ -144,6 +152,8 @@ class DocumentParser(HTMLParser):
             cleaned = data.strip()
             if cleaned:
                 self.visible_text_parts.append(cleaned)
+                if self.in_main:
+                    self.main_text_parts.append(cleaned)
 
 
 def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]:
@@ -189,6 +199,16 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             full_text_chunks.append(part)
     full_text = "".join(full_text_chunks)
 
+    main_text_chunks = []
+    for part in parser.main_text_parts:
+        if part == "\n\n":
+            main_text_chunks.append("\n\n")
+        else:
+            if main_text_chunks and main_text_chunks[-1] != "\n\n":
+                main_text_chunks.append(" ")
+            main_text_chunks.append(part)
+    main_text = "".join(main_text_chunks)
+
     return {
         "title": {
             "value": title_clean,
@@ -233,6 +253,7 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "visible_text": full_text,
         "visible_text_preview": full_text[:1000] if full_text else "",
         "word_count": len(full_text.split()),
+        "main_text": main_text,
         "csr_detection": {
             "is_csr_shell": (bool(parser.csr_mount_elements) and len(full_text.split()) < 35) or (parser.has_client_bundle and len(full_text.split()) < 25),
             "mount_elements": parser.csr_mount_elements,
