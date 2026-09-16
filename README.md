@@ -1,11 +1,13 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
+[![Version: 2.1.0](https://img.shields.io/badge/Version-2.1.0-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
 [![Language](https://img.shields.io/badge/Language-English%20%7C%20Русский-purple.svg)](#language--язык)
 
-> **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.**  
-> Audits technical SEO, maximizes AI citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), builds unified Schema.org JSON-LD graphs, configures leak-safe AI crawler protocols (`robots.txt` & `llms.txt`), and produces evidence-driven content plans.
+> **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) system for AI agents & CLI pipelines.**  
+> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, <50ms) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), validates unified Schema.org `@graph` ASTs, configures leak-safe crawler protocols (`robots.txt` & `llms.txt`), and produces evidence-grounded content plans.
 
 ---
 
@@ -15,68 +17,121 @@
 
 ---
 
-## 💡 Why This Skill Exists: Evidence-Driven Architecture
+## 💡 Architecture: The Two-Stage Retrieval & Synthesis Model
 
-Modern AI Search combines **traditional retrieval** with **generative synthesis**:
-1. **The Two-Stage Pipeline:** Traditional SEO (crawling, technical indexability, PageRank) determines whether your page enters the top candidate search pool (e.g. Google's top-5 to top-10 results). Once candidates are retrieved, **GEO governs synthesis**: the LLM extracts and cites facts from candidates exhibiting the highest evidence density and structural clarity.
-2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) evaluated candidate retrieval within Google top-5 results, proving that Rank-5 Google results using the *Cite Sources* technique gained **+115.1% in generative AI visibility** (while Rank-1 sites dropped **-30.3%**), demonstrating that superior evidence density can surpass higher-ranking candidates within the synthesis pool.
-3. **Position Matters Exponentially (The PAWC Metric):**  
-   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because sentence citation weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$) across the *synthesized LLM response*, front-loading direct answers serves as an editorial RAG chunking heuristic: it maximizes the likelihood that an extracted passage contains a standalone assertion that populates opening answer sentences ($\text{pos}(s)=0$).
+Modern AI Search operates in **two interconnected stages**:
 
 ```
-                 TARGET
-                   │
-                   ▼
-             ┌───────────┐
-             │ DISCOVERY │ (URL, HTML, Codebase)
-             └─────┬─────┘
-                   ↓
-        ┌─────────────────────┐
-        │ OBSERVABLE SIGNALS  │ (DOM selectors, HTTP status, headers, robots, schema)
-        └──────────┬──────────┘
-                   ↓
-        ┌─────────────────────┐
-        │ EVIDENCE LEDGER     │ (Finding ID, Selector, Raw Value, PASS/FAIL/UNKNOWN, Tier)
-        └──────────┬──────────┘
-                   ↓
-        ┌─────────────────────┐
-        │ 6-TIER RULE ENGINE  │ (Tier A Standards to Tier F Hypotheses)
-        └──────────┬──────────┘
-                   ↓
-        ┌─────────────────────┐
-        │ CONFIDENCE ENGINE   │ (Observable Score vs Observation Coverage %)
-        └──────────┬──────────┘
-                   ↓
-             FINAL REPORT
+                       ┌─────────────────────────────────────────────────────────┐
+                       │                       TARGET URL                        │
+                       └────────────────────────────┬────────────────────────────┘
+                                                    │
+                                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: CANDIDATE RETRIEVAL (Traditional Technical SEO)                                                        │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ • Crawlability & Indexability (RFC 9309 robots.txt, HTTP 200, clean redirects)                                  │
+│ • Canonicalization (RFC 6596) & Document Outline (Single H1, semantic H2-H6)                                   │
+│ • Server-Side Rendering (SSR/SSG): Detection of empty CSR shells (div#root) that blind fast AI scrapers         │
+│ • Domain Authority, PageRank & Brand Entity Grounding (Wikipedia, Wikidata, YouTube, Reddit)                    │
+│ ──► Result: Entry into the top candidate pool (e.g., Google Top-5 or Perplexity Retrieval Context Window)       │
+└───────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: GENERATIVE SYNTHESIS (Generative Engine Optimization / GEO)                                            │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ • Exponential Decay of Citations (PAWC Metric): Direct answer frontloaded in opening 60 words                   │
+│ • Empirical Citation Lift (Princeton KDD 2024): Direct expert quotes (+41%), specific statistics (+30%)        │
+│ • RAG Extractability: Adaptive chunking (~100-200 words) & Coreference Independence (explicit named entities)  │
+│ • Knowledge Graph Grounding: Interconnected Schema.org @graph with valid ISO dates and @id cross-references     │
+│ ──► Result: Generative synthesis preferentially quotes, cites, and links your content in the final AI answer     │
+└───────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┘
+                                                    │
+                                                    ▼
+                       ┌─────────────────────────────────────────────────────────┐
+                       │         EVIDENCE LEDGER REPORT & SCORECARD              │
+                       │   (Observable Score 0-100, Coverage %, GEO Index 0-100) │
+                       └─────────────────────────────────────────────────────────┘
 ```
 
-> **The Evidence Ledger & Scoring Invariant:**
-> 1. **Evidence Ledger Protocol:** Audits do not output subjective impressions. Every finding must record an exact DOM selector or HTTP header, observed value, and epistemic tier (`Tier A` through `Tier F`).
-> 2. **"Unknown $\ne$ Failure":** When field data (CrUX telemetry, server logs, backlink index) is unobservable, it is marked `UNKNOWN` and does **not** penalize the score. Reports disclose:
->    - **Observable Technical Score (0–100):** Evaluated solely over verifiable signals (High Confidence).
->    - **Observation Coverage (%):** Percentage of total criteria observable from available inputs.
->    - **GEO Readiness Index (0–100):** Qualitative heuristic model (Medium Confidence).
+### Key Research Foundations:
+1. **The Democratization Effect (Princeton KDD 2024, Table 2):** Within candidate retrieval pools (Google Top-5), Rank-5 results optimizing evidence density (*Cite Sources*) gained **+115.1% in generative visibility**, while Rank-1 dropped **-30.3%**, proving that superior evidence density can win synthesis over higher-ranked candidates.
+2. **Exponential Citation Weight Decay (The PAWC Metric):**  
+   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$  
+   Sentence citation weight decays exponentially ($\sim 2.7\times$ under $\alpha = 1.0$) across the *synthesized LLM response*. Front-loading definitions and facts maximizes placement in lead sentences ($\text{pos}(s)=0$).
+3. **The "Unknown $\ne$ Failure" Invariant:** Unobservable criteria (real-user CrUX field data without API keys, internal server access logs) are recorded as `UNKNOWN` with **0 penalty**, segregated from verified defects.
+
+---
+
+## 🖥️ Autonomous Inspection Engine CLI (`engine/`)
+
+The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library) and runs in **<50ms**:
+
+```bash
+# 1. Audit a live website with AI bot access simulation & CSR shell detection
+python -m engine.inspector https://example.com
+
+# 2. Audit a local HTML build artifact or template file
+python -m engine.inspector path/to/page.html
+
+# 3. Validate standalone Schema.org JSON-LD before deployment
+python -m engine.inspector --validate-schema path/to/schema.json
+
+# 4. Validate Schema.org via pipe in CI/CD pipelines
+cat schema.json | python -m engine.inspector --validate-schema
+
+# 5. Output machine-readable JSON with full Evidence Ledger & Provenance SHA-256
+python -m engine.inspector https://example.com --format json --output audit.json
+
+# 6. Test crawl rules against a custom robots.txt
+python -m engine.inspector https://example.com --robots path/to/custom-robots.txt
+```
+
+### Deterministic Capabilities
+- **Client-Side Rendering (CSR) Empty Shell Detection (`TECH-CSR-SHELL-008`):** Detects empty mounts (`div#root`, `div#app`, `div#__next`) lacking server-rendered text. Fast AI crawlers (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `CCBot`) do not execute client-side JavaScript; empty CSR shells cause complete de-indexing from AI search.
+- **Standalone Schema.org AST Validator (`--validate-schema`):** Pre-flight validation testing broken `@id` cross-references (`SCHEMA-BROKEN-REF-005`), ISO 8601 date formats (`SCHEMA-DATE-FORMAT-006`), and Google Merchant price formats (`SCHEMA-PRICE-FORMAT-003`).
+- **RFC 9309 Robots Access Simulator:** Full AST parser implementing User-agent grouping, wildcards `*` and `$`, longest-match precedence, and Allow-over-Disallow ties for `GPTBot`, `ClaudeBot`, `PerplexityBot`, and `Google-Extended`.
+- **4-Layer Evidence Ledger:** Structured pipeline (`RAW` $\to$ `SIGNAL` $\to$ `EVIDENCE` $\to$ `FINDING`) with immutable SHA-256 provenance hashes.
+- **Content & GEO Readiness Analyzer:** Quantifies opening direct answer frontloading, detects conversational fluff patterns, analyzes passage chunking distributions, and checks coreference independence.
 
 ---
 
 ## ⚡ The 5 Operating Modes
 
+When using as an AI Agent Skill (in Antigravity, Claude Code, Cursor, Codex), the skill routes requests into 5 specialized operational modes:
+
 | Mode | Trigger Phrases | Key Deliverables |
 |---|---|---|
-| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Evidence Ledger table, Observable Technical Score (0–100, High Confidence), Observation Coverage %, and GEO Readiness Index (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
-| **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton KDD 2024 rewrite patterns. |
-| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction; Note: Google completely discontinued FAQ rich results on May 7, 2026). |
-| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates indexation-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
+| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Deterministic CLI inspection, Evidence Ledger, Observable Technical Score (0–100, High Confidence), Observation Coverage %, and GEO Readiness Index (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
+| **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using Princeton KDD 2024 rewrite patterns. |
+| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (with pre-flight verification via `--validate-schema`). |
+| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates indexation-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest. |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
 
-*(Note: In addition to the 5 user-facing modes above, the skill includes the `safety_check` internal evaluation harness to prevent hallucination).*
+*(Note: The internal `safety_check` evaluation harness enforces strict rejection of data/credential fabrication prompts).*
+
+---
+
+## 📚 Strict Just-In-Time (JIT) Reference Loading
+
+To guard against context window bloat (40,000+ tokens) and prevent **"lost in the middle"** degradation during AI agent pairing, `SKILL.md` enforces **Strict JIT Reference Loading**:
+
+| Active Mode | Document Loaded into Context | Content & Purpose |
+|---|---|---|
+| **`audit`** | `references/technical-seo-checklist.md` + `references/geo-framework.md` | *Note:* If CLI engine is executed, reference documents are not loaded into context at all! |
+| **`optimize`** | `references/geo-framework.md` | Princeton KDD lift table, PAWC formulation, chunking heuristics |
+| **`schema`** | `references/schema-templates.md` | Master `@graph` templates (WebSite, WebPage, Service, HowTo, FAQ) |
+| **`ai-files`** | `references/ai-crawler-spec.md` | RFC 9309 crawler specs, leak prevention blueprints, `llms.txt` spec |
+| **`strategy`** | `references/content-strategy-ai.md` | Information Gain, search intent mapping, source attribution rules |
+
+> **Context Protection Rule:** Eager parallel loading of uninvoked reference files is strictly prohibited.
 
 ---
 
 ## 🛡️ Crawl Governance: Indexation-Safe `robots.txt` Blueprint
 
-Per **RFC 9309**, specific User-Agent blocks override the generic `*` group. If an AI group has `Allow: /` without explicit disallows, private paths are unintentionally exposed to AI crawler indexing. *(Note: Per RFC 9309 §1, robots exclusion is crawl control, NOT access security; true protection requires HTTP 401/403 authentication, WAF rules, and network ACLs).* `ultimate-seo-geo` enforces the indexation-safe pattern:
+Per **RFC 9309**, specific User-Agent blocks override the generic `*` group. If an AI group has `Allow: /` without explicit disallows, private paths are unintentionally exposed to AI crawler indexing:
 
 ```txt
 # Standard Crawlers
@@ -100,9 +155,8 @@ User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
+# Note: Google-Extended and Applebot-Extended are opt-out tokens for model training, NOT HTTP fetchers.
 # They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
-# Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -135,46 +189,14 @@ Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech K
 └──────────────────────────────────────────────────────────────┘
 ```
 
-> **Benchmark Scope Note `[RESEARCH]`:** These percentages reflect empirical observations from controlled benchmark environments across synthetic test queries (Aggarwal et al., 2024, Table 1), not universal guarantees for production web ranking.
->
-> **Strategy Combination Lift:** In Section 5.3 of the Princeton study, combining **Fluency Optimization + Statistics Addition** outperformed the best individual strategy by **>5.5%** on the 200-query benchmark subset.
-
-### 🔑 The 3 Modern GEO Principles (2025–2026 Research)
-
-1. **Off-Page Brand Footprint & Candidate Retrieval `[RESEARCH]`:** In observational studies across 75,000 established brands ($DR > 40$, Ahrefs), unlinked brand mentions on conversational platforms (**YouTube ~0.737 correlation**, Reddit, Wikipedia) showed high correlation with generative engine citations, reinforcing entity grounding in Stage 2 synthesis. Traditional backlinks remain essential for Stage 1 candidate retrieval.
-2. **Passage-Level Citability & Coreference Independence `[HEURISTIC]`:** Practical RAG engineering heuristic. Self-contained answer blocks (~100–200 words) with explicit entity naming rather than ambiguous pronouns eliminate reference ambiguity and maximize verbatim extraction probability.
-3. **Platform Divergence & Query-Dependent Freshness `[RESEARCH]` & `[HEURISTIC]`:** Cross-engine comparative studies indicate that only **~11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries. Optimization requires tuning for platform biases and query volatility (volatile/pricing vs evergreen/RFC specifications).
-
----
-
-## 🖥️ Autonomous Inspection Engine CLI (v2.1.0)
-
-`ultimate-seo-geo` includes a built-in, autonomous deterministic inspection engine with **zero external dependencies** (pure Python 3.10+ standard library). It inspects targets in <500ms and compiles a cryptographically hashed Evidence Ledger:
-
-```bash
-# Audit a live website with AI bot simulation & CSR shell detection
-python -m engine.inspector https://example.com
-
-# Audit a local HTML build artifact or template
-python -m engine.inspector path/to/page.html
-
-# Validate standalone Schema.org JSON-LD before deployment
-python -m engine.inspector --validate-schema path/to/schema.json
-
-# Output machine-readable JSON for CI/CD quality gates
-python -m engine.inspector https://example.com --format json --output audit-report.json
-
-# Test against a custom robots.txt configuration
-python -m engine.inspector https://example.com --robots path/to/custom-robots.txt
-```
-
-### Deterministic Engine Capabilities
-- **Client-Side Rendering (CSR) Empty Shell Detection (`TECH-CSR-SHELL-008`):** Flags empty mounts (`<div id="root">`, `<div id="app">`, `<div id="__next">`) that lack server-rendered text. AI search bots (`GPTBot`, `ClaudeBot`, `PerplexityBot`) do not execute JavaScript; CSR shells render pages completely invisible to LLM retrieval.
-- **Standalone Schema.org AST Validator (`--validate-schema`):** Pre-flight validation of JSON-LD snippets checking for broken `@id` cross-references, ISO 8601 date formats (`datePublished`, `dateModified`), and Google Merchant offer price formats.
-- **RFC 9309 AI Crawler Access Simulator:** Parses robots.txt AST and computes deterministic access rights for `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, and search bots using longest-match and Allow-precedence rules.
-- **Content & GEO Readiness Analyzer:** Quantifies direct answer frontloading in the opening block, detects conversational fluff, analyzes passage chunking distributions, and checks coreference independence.
-- **Evidence Ledger Protocol:** Enforces the 4-layer pipeline (`RAW` -> `SIGNAL` -> `EVIDENCE` -> `FINDING`) with SHA-256 payload provenance.
-- **Strict "Unknown != Failure" Invariant:** Unobserved signals (e.g., real-user CrUX field data when API keys are absent) are recorded with 0 penalty and segregated from verified defects.
+### The 6-Tier Epistemic Hierarchy
+Findings in the Evidence Ledger are classified by epistemic certainty:
+- **Tier A:** Official Protocol Standards (RFC 9309, RFC 6596, Schema.org W3C).
+- **Tier B:** Peer-Reviewed Academic Research (Princeton KDD 2024).
+- **Tier C:** Large-Scale Industry Empirical Datasets (Ahrefs 75k brands, CrUX).
+- **Tier D:** Reproducible Controlled Experiments (Ablation tests, A/B ranking tests).
+- **Tier E:** Practitioner Engineering Heuristics (RAG chunking ~100-200 words, direct answer frontloading, coreference independence).
+- **Tier F:** Working Hypotheses & Edge Observations.
 
 ---
 
@@ -187,8 +209,6 @@ git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemi
 
 # macOS / Linux
 git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/antigravity/skills/ultimate-seo-geo
-
-# (Legacy global path: ~/.gemini/config/skills/ultimate-seo-geo)
 ```
 
 ### Option B: Project-Level Installation (.agents/skills)
@@ -199,30 +219,62 @@ git clone https://github.com/Ezhuk1/ultimate-seo-geo.git .agents/skills/ultimate
 
 ---
 
+## 🧪 Verification & Quality Benchmarks
+
+Run the complete evaluation suite, assertion harness, mutation guards, and engine tests:
+```bash
+python evals/run_evals.py
+```
+
+Expected output:
+```text
+==================================================
+ ultimate-seo-geo Test Runner & Assertion Harness
+==================================================
+Suite: ultimate-seo-geo-evals (v2.1.0) - 10 test cases
+
+[OK] Schema & reference file integrity: PASS
+--- 1. Canonical Fixture Evaluation ---
+  [PASS] 10/10 canonical evals passed
+--- 2. Negative Mutation & Anti-Regression Suite ---
+  [PASS] 9/9 negative mutation guards passed
+--- 3. Autonomous Inspection Engine (v2.1.0) Integration Suite ---
+  [PASS] test_clean_page_inspection             -> Deterministic assertion passed
+  [PASS] test_defective_page_detection          -> Deterministic assertion passed
+  [PASS] test_robots_simulator_rfc9309          -> Deterministic assertion passed
+  [PASS] test_unknown_signal_invariant          -> Deterministic assertion passed
+  [PASS] test_csr_shell_detection               -> Deterministic assertion passed
+  [PASS] test_schema_standalone_validator       -> Deterministic assertion passed
+
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.1.0 tests are healthy.
+```
+
+---
+
 ## 📁 Repository Structure
 
 ```
 ultimate-seo-geo/
-├── SKILL.md                          # Master agent skill definition & mode routing
+├── SKILL.md                          # Master agent skill definition, mode routing & JIT loading rules
 ├── README.md                         # English documentation (this file)
 ├── README.ru.md                      # Полная русскоязычная документация
 ├── LICENSE                           # MIT License
-├── .gitignore                        # Git ignore rules
+├── .gitignore                        # Git ignore rules (with Python cache filters)
 ├── engine/                           # Autonomous Deterministic Inspection Engine (Python stdlib)
-│   ├── inspector.py                  # CLI runner & Markdown/JSON report generator
+│   ├── inspector.py                  # CLI runner, --validate-schema & Markdown/JSON generator
 │   ├── ledger.py                     # 4-Layer Evidence Ledger Protocol & SHA-256 provenance
 │   ├── scoring.py                    # Multi-dimensional score engine & Invariant guards
 │   └── analyzers/
 │       ├── http_analyzer.py          # HTTP/HTTPS & local file payload observer
-│       ├── html_analyzer.py          # HTML parser for canonical, meta, headings, links
+│       ├── html_analyzer.py          # HTML parser for canonical, CSR shell, meta, headings, links
 │       ├── robots_simulator.py       # RFC 9309 AST parser & AI crawler simulator
-│       ├── schema_analyzer.py        # Schema.org AST, @graph & price validator
+│       ├── schema_analyzer.py        # Schema.org AST, @graph, broken @id & ISO date validator
 │       └── content_analyzer.py       # Direct answer, chunking & coreference analyzer
 ├── rules/                            # Declarative rule contracts
-│   ├── technical_rules.json          # Canonical, robots, title, meta, H1 contracts
-│   ├── schema_rules.json             # Syntax, graph interconnect, price format contracts
+│   ├── technical_rules.json          # Canonical, robots, CSR shell, title, meta, H1 contracts
+│   ├── schema_rules.json             # Syntax, graph interconnect, broken @id, price & date contracts
 │   └── geo_rules.json                # Direct answer, chunking, coreference contracts
-├── references/
+├── references/                       # Domain manuals loaded strictly Just-In-Time
 │   ├── geo-framework.md              # Princeton KDD 2024, rigorous PAWC math & engine matrix
 │   ├── technical-seo-checklist.md    # Crawlability, Core Web Vitals, metadata, canonicals
 │   ├── schema-templates.md           # Unified @graph JSON-LD master templates
@@ -240,4 +292,3 @@ ultimate-seo-geo/
 ## 🛡️ License
 
 Released under the [MIT License](LICENSE). Free for open-source, commercial, and enterprise applications.
-
