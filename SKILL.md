@@ -64,41 +64,36 @@ Use your available environment tools (e.g., `read_url_content`, `webfetch`, or `
 
 ## Detailed Execution Workflows
 
-### Mode 1: Comprehensive Dual Audit (`audit`)
+### Mode 1: Comprehensive Evidence-Driven Audit (`audit`)
 
-Score the target (URL, HTML file, or full codebase) across two parallel scorecards:
+Perform an autonomous, falsifiable inspection of the target (URL, HTML file, or codebase) across two parallel assessment dimensions, compiled into an **Evidence Ledger**:
 
-#### A. Technical SEO Score (0–100) [Confidence: HIGH — Deterministic Standards]
-1. **Crawl & Indexability (25%) `[STANDARD]`:** Canonical consistency (matching target, no loops/drift), robots.txt status, XML sitemap presence, hreflang validity.
-2. **Metadata & Semantic Hierarchy (25%) `[RECOMMENDATION]`:** Distinct `<title>` (~50–60 chars display guideline), `<meta name="description">` (~140–160 chars display guideline), single primary `<h1>` for document outline, logical heading structure (`h1` → `h2` → `h3`) for accessibility.
-3. **Structured Data (20%) `[STANDARD]` & `[RECOMMENDATION]`:** Schema.org validation, interconnected entities via `@id` (`Organization`, `WebSite`, `WebPage`, `Service` / `Product`, `BreadcrumbList`).
-4. **Performance & UX (15%) `[STANDARD]`:** SSR vs CSR visibility, responsive viewport, Core Web Vitals indicators (image dimensions, font loading).
-5. **Social & Sharing (15%) `[STANDARD]`:** Open Graph (`og:title`, `og:description`, `og:image`, `og:url`), Twitter card tags.
+#### A. The Evidence Ledger Protocol `[STANDARD]`
+Every audit MUST compile a structured Evidence Ledger table providing deterministic proof for each evaluation finding:
+```markdown
+| Finding ID | Target / Selector | Observed Evidence | Status | Epistemic Tier | Confidence | Impact | Remediation |
+|---|---|---|:---:|:---:|:---:|:---:|---|
+| `TECH-CANONICAL-001` | `link[rel='canonical']` | `https://example.com/page` | PASS | Tier A (RFC 6596) | HIGH | — | None. |
+| `TECH-ROBOTS-002` | `/robots.txt` AI blocks | Missing `Disallow: /admin/` in ClaudeBot block | FAIL | Tier A (RFC 9309) | HIGH | P0 | Duplicate `/admin/` disallow into ClaudeBot. |
+| `PERF-CWV-FIELD-003` | CrUX API / Field Telemetry | Unobserved (no CrUX API key provided) | UNKNOWN | Tier C (CrUX Data) | LOW | P2 | Inspect field LCP/INP via PageSpeed API. |
+| `GEO-DEFINITION-004` | First 60 words of lead section | Direct answer formula present | PASS | Tier E (Heuristic) | MEDIUM | — | None. |
+```
 
-#### B. Generative Engine Optimization (GEO) Score (0–100) [Confidence: MEDIUM — Qualitative Heuristic]
-Evaluated across the **3-Tier Signal Stack** with **Content-Type Contextual Rules**:
-
-1. **Evidence Density & Authority (35%) `[RESEARCH]`:**
-   - **Content-Type Contextual Rule:**
-     - *Editorial / Informational Content:* Expect named entities, $\ge 1$ verified external citation per 500 words, and direct expert quotation ($\ge 1-2$ named quotes with institutional affiliation).
-     - *Technical Documentation / API Reference / SaaS Tool Pages:* **EXEMPT FROM HUMAN QUOTES**. Evaluate parameter specifications, RFC links, code snippets, benchmark latency, and error codes instead `[HEURISTIC]`.
-   - Specific numbers with units: latency ms, percentage, pricing, sample sizes.
-   - First-party telemetry/data: Proprietary benchmarks, telemetry, or transparent methodology.
-2. **Structure & Citability (25%) `[HEURISTIC]`:**
-   - Direct answer front-loaded in opening sentences (minimizes contextual hop count).
-   - Self-contained passage blocks: key excerpts tuned to ~100–200 words with coreference independence (explicit entity naming rather than ambiguous pronouns).
-   - Clear definition syntax ("X is...", "X refers to...") opening high-intent query sections.
-   - Summary / Key Takeaways box near the top.
-   - Comparative data formatted in markdown or HTML `<table>` (high LLM extraction rate).
-   - Sequential instructions formatted in ordered lists (`<ol>`).
-3. **E-E-A-T & Brand Footprint (25%) `[RESEARCH]` & `[HEURISTIC]`:**
-   - Author byline with real name, photo, title, and bio ($\ge 30$ words) + `sameAs` (LinkedIn, GitHub, ORCID) where applicable `[RECOMMENDATION]`.
-   - Off-page brand footprint: Presence & co-citations across AI-indexed platforms (YouTube channel & transcripts, Reddit, Wikipedia, GitHub) complementing Stage 1 backlink retrieval.
-   - Machine-readable timestamps matching content volatility (target freshness: <= 60 days for volatile/Perplexity; evergreen updated on spec change) `[HEURISTIC]`.
-   - Methodology and technical limitations acknowledged (anti-hallucination signal).
-4. **AI Infrastructure (15%) `[STANDARD]`:**
-   - Indexation-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`, `Perplexity-User`, `meta-externalagent`, `meta-externalfetcher`, `cohere-ai`).
-   - Root `llms.txt` file present and formatted (community proposal).
+#### B. Observation Coverage & Dual Scoring Engine
+Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
+1. **Observable Technical SEO Score (0–100) [Confidence: HIGH — Deterministic Standards (Tier A)]:**
+   - Calculated strictly over observed signals: $N_{\text{PASS}} / (N_{\text{PASS}} + N_{\text{FAIL}})$.
+   - Evaluates: Canonical consistency, robots.txt crawl control, XML sitemap, schema valid syntax, viewport, `<title>`, `<meta name="description">`, single primary `<h1>` document outline.
+2. **Observation Coverage Ratio (%) [Completeness Indicator]:**
+   - Discloses the percentage of total audit criteria actually verifiable from available inputs:
+     $$\text{Observation Coverage} = \frac{N_{\text{PASS}} + N_{\text{FAIL}}}{N_{\text{Total Criteria}}} \times 100\%$$
+   - Unobserved criteria (e.g., real-user CrUX field data, server access logs, backlink graphs) are classified as `UNKNOWN` and do **NOT** depress the Observable Score.
+3. **GEO Readiness Index (0–100) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier B)]:**
+   - Evaluated across the **3-Tier Signal Stack** with **Content-Type Contextual Rules**:
+     - *Evidence Density (35%):* Verified numbers with units, primary citations, author credentials. (API / Developer docs are **EXEMPT** from human quotes `[HEURISTIC]`).
+     - *Structure & Citability (25%):* Direct answer front-loading, ~100–200 word adaptive chunking, coreference independence (no ambiguous pronouns), tables and ordered lists.
+     - *Brand Footprint & Freshness (25%):* Multi-platform brand presence, query-dependent freshness (volatile $\le 60$d; evergreen updated on spec change).
+     - *AI Infrastructure (15%):* AI crawler permissions in `robots.txt`, valid `llms.txt`.
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
 Structure all action items into actionable tiers accompanied by testable verification criteria:
@@ -106,7 +101,7 @@ Structure all action items into actionable tiers accompanied by testable verific
   - *Leading Indicator:* Server log confirms 200 OK without crawl exposure; immediate indexation recovery.
 * **P1 (High Citation Impact):** Evidence deficit (missing metrics, zero citations on research articles, disconnected Schema `@graph`), missing `dateModified`, poor direct answer positioning, pronoun ambiguity. (Note: Lack of quotes on documentation/API pages is NOT a P1 issue).
   - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days.
-* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, formatting polish.
+* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, unobserved field metrics.
   - *Leading Indicator:* Clean social cards on preview; zero CLS warnings.
 
 ---

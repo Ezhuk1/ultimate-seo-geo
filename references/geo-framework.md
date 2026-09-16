@@ -4,16 +4,25 @@ This reference document synthesizes peer-reviewed research, industry protocol st
 
 ---
 
-## Epistemological Classification Matrix
+## The 6-Tier Evidence Hierarchy
 
-To ensure rigorous auditing and eliminate pseudo-scientific dogmatism, all criteria and guidelines are categorized into four epistemic tiers:
+To ensure scientific rigor, eliminate pseudo-scientific dogmatism, and guide autonomous agent reasoning, all claims, audit findings, and optimization recommendations are classified into a formal 6-tier epistemic hierarchy:
 
-| Badge | Classification | Basis & Authority | Examples |
-|---|---|---|---|
-| `[STANDARD]` | **Deterministic Protocol / Spec** | Official IETF, W3C, Schema.org, or Core Web Vitals specifications. | RFC 9309, HTTP status codes, Schema.org syntax, canonical tags, CWV (LCP/INP/CLS). |
-| `[RESEARCH]` | **Empirical Academic Study** | Controlled peer-reviewed benchmarks and large-scale observational studies. | Princeton KDD 2024 GEO paper (Aggarwal et al.), Ahrefs 75k brand study. |
-| `[HEURISTIC]` | **Engineering & Retrieval Best Practice** | Practical optimization rules derived from RAG chunking, vector embeddings, and LLM attention. | Passage coreference independence, direct answer front-loading, query-dependent freshness. |
-| `[RECOMMENDATION]` | **Architectural & Style Preference** | Best practices for clean semantic hierarchy, scannability, and maintainability. | Preferred unified `@graph` for related entities, single primary `<h1>` document outline. |
+| Tier | Epistemic Basis | Authority & Foundation | Examples | Audit Verification |
+|---|---|---|---|:---:|
+| **Tier A** | **Official Protocol Standards** | Deterministic specifications ratified by IETF, W3C, Schema.org, WHATWG. | RFC 9309 (robots.txt), RFC 9110 (HTTP 200/401/403), canonical tags (RFC 6596), Schema.org JSON-LD syntax. | Deterministic (PASS / FAIL) |
+| **Tier B** | **Peer-Reviewed Academic Research** | Formal empirical studies published at peer-reviewed computer science conferences (ACM KDD, SIGIR, ACL). | Princeton KDD 2024 GEO benchmark (Aggarwal et al.), PAWC mathematical formulation, Section 5.3 synergy. | Empirical Benchmark |
+| **Tier C** | **Large-Scale Industry Datasets** | Large-scale empirical field data across thousands of production domains. | Ahrefs 75k brand study, HTTP Archive web trends, Chrome User Experience Report (CrUX real-user metrics). | Observational Correlation |
+| **Tier D** | **Reproducible Controlled Experiments** | First-party or in-house controlled A/B testing with disclosed methodology, sample size ($n \ge 100$), and test query sets. | In-house retrieval ablation studies, vector chunking recall tests, crawler log access verification. | Empirical Test |
+| **Tier E** | **Practitioner Engineering Heuristics** | Battle-tested information retrieval, vector search, and RAG chunking rules of thumb. | Testable passage-length heuristics (~100–200 words), direct answer front-loading, coreference independence. | Probabilistic Guideline |
+| **Tier F** | **Working Hypotheses & Edge Observations** | Qualitative observations, single-domain case studies, or reverse-engineered engine behaviors. | Speculative Perplexity rank-flipping theories, unannounced Gemini context window adjustments. | Hypothesis (Requires Verification) |
+
+> [!CAUTION]
+> **The Epistemic Promotion Invariant:**
+> AI agents, auditors, and optimizers are **strictly prohibited from promoting lower-tier claims to higher-tier status**.
+> - **Never represent Tier E/F heuristics as Tier A standards or Tier B research.** (e.g., Never claim that "Google requires 134–167 words" or that "pronoun density <2% is an official RFC/Google algorithm rule").
+> - Always disclose the tier of any audit finding in the Evidence Ledger.
+> - An unobserved factor (e.g., lack of CrUX API credentials or server logs) must be recorded as `UNKNOWN` rather than penalized as a failure.
 
 ---
 
@@ -103,9 +112,10 @@ Empirical research across 75,000 brands (Ahrefs AI Overviews & Brand Mentions St
 
 Modern RAG pipelines retrieve and inject content in discrete passages. The following guidelines represent practical engineering heuristics:
 
-1. **Adaptive Passage Chunking `[HEURISTIC]` (Typically 100–200 words / 1–2 focused paragraphs):**
-   - Chunks shorter than 60–80 words often lack standalone context; chunks exceeding 250–300 words risk truncation or dilution in dense retrieval contexts.
-   - Self-contained passages of **100–200 words** cleanly align with standard 256- to 512-token embedding windows. (The 134–167 word range observed in specific benchmarks is an empirical reference point, not an immutable standard).
+1. **Adaptive Passage Chunking `[TIER_E_HEURISTIC]` (Typically 100–200 words / 1–2 focused paragraphs):**
+   - **Testable Retrieval Hypothesis:** Optimal passage length is not an intrinsic engine constant; it depends on the target retrieval pipeline's embedding model, tokenizer, reranker, and context budget.
+   - Chunks shorter than 60–80 words frequently lack standalone semantic context; chunks exceeding 250–300 words risk truncation or dilution in dense retrieval contexts.
+   - Self-contained passages of **100–200 words** cleanly align with standard 256- to 512-token dense embedding windows. The 134–167 word range observed in specific benchmarks is an empirical reference point, not an immutable standard or universal ranking requirement.
 2. **Entity Disambiguation & Coreference Independence `[HEURISTIC]`:**
    - **The Coreference Problem:** When a passage is extracted as an isolated chunk, ambiguous pronouns (*"They developed...", "This software is..."*) break the entity reference chain, reducing embedding similarity and retrieval confidence.
    - **Guideline:** Explicitly name the core product, protocol, or entity in primary factual statements rather than relying on ambiguous pronouns.

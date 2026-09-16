@@ -15,17 +15,48 @@
 
 ---
 
-## 💡 Why This Skill Exists
+## 💡 Why This Skill Exists: Evidence-Driven Architecture
 
 Modern AI Search combines **traditional retrieval** with **generative synthesis**:
 1. **The Two-Stage Pipeline:** Traditional SEO (crawling, technical indexability, PageRank) determines whether your page enters the top candidate search pool (e.g. Google's top-5 to top-10 results). Once candidates are retrieved, **GEO governs synthesis**: the LLM extracts and cites facts from candidates exhibiting the highest evidence density and structural clarity.
 2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) evaluated candidate retrieval within Google top-5 results, proving that Rank-5 Google results using the *Cite Sources* technique gained **+115.1% in generative AI visibility** (while Rank-1 sites dropped **-30.3%**), demonstrating that superior evidence density can surpass higher-ranking candidates within the synthesis pool.
-3. **Traditional keyword stuffing actively hurts** (causing an empirical **−8% penalty** in AI citation likelihood).
-4. **Position Matters Exponentially (The PAWC Metric):**  
+3. **Position Matters Exponentially (The PAWC Metric):**  
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because sentence citation weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ under steeper regimes) across the *synthesized LLM response*, front-loading direct answers in source content serves as a practical RAG chunking heuristic: it maximizes the likelihood that an extracted passage contains a standalone factual assertion that populates opening answer sentences ($\text{pos}(s)=0$).
+   Because sentence citation weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$) across the *synthesized LLM response*, front-loading direct answers serves as an editorial RAG chunking heuristic: it maximizes the likelihood that an extracted passage contains a standalone assertion that populates opening answer sentences ($\text{pos}(s)=0$).
 
-> **Methodology Note:** Dual scoring reflects differing certainty levels: Technical SEO Score is evaluated with **HIGH confidence** against deterministic web standards and protocols (`[STANDARD]`), while GEO Score is evaluated with **MEDIUM confidence** as an opinionated qualitative heuristic rubric (`[RESEARCH]` & `[HEURISTIC]`).
+```
+                 TARGET
+                   │
+                   ▼
+             ┌───────────┐
+             │ DISCOVERY │ (URL, HTML, Codebase)
+             └─────┬─────┘
+                   ↓
+        ┌─────────────────────┐
+        │ OBSERVABLE SIGNALS  │ (DOM selectors, HTTP status, headers, robots, schema)
+        └──────────┬──────────┘
+                   ↓
+        ┌─────────────────────┐
+        │ EVIDENCE LEDGER     │ (Finding ID, Selector, Raw Value, PASS/FAIL/UNKNOWN, Tier)
+        └──────────┬──────────┘
+                   ↓
+        ┌─────────────────────┐
+        │ 6-TIER RULE ENGINE  │ (Tier A Standards to Tier F Hypotheses)
+        └──────────┬──────────┘
+                   ↓
+        ┌─────────────────────┐
+        │ CONFIDENCE ENGINE   │ (Observable Score vs Observation Coverage %)
+        └──────────┬──────────┘
+                   ↓
+             FINAL REPORT
+```
+
+> **The Evidence Ledger & Scoring Invariant:**
+> 1. **Evidence Ledger Protocol:** Audits do not output subjective impressions. Every finding must record an exact DOM selector or HTTP header, observed value, and epistemic tier (`Tier A` through `Tier F`).
+> 2. **"Unknown $\ne$ Failure":** When field data (CrUX telemetry, server logs, backlink index) is unobservable, it is marked `UNKNOWN` and does **not** penalize the score. Reports disclose:
+>    - **Observable Technical Score (0–100):** Evaluated solely over verifiable signals (High Confidence).
+>    - **Observation Coverage (%):** Percentage of total criteria observable from available inputs.
+>    - **GEO Readiness Index (0–100):** Qualitative heuristic model (Medium Confidence).
 
 ---
 
@@ -33,7 +64,7 @@ Modern AI Search combines **traditional retrieval** with **generative synthesis*
 
 | Mode | Trigger Phrases | Key Deliverables |
 |---|---|---|
-| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual scorecard: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
+| **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Evidence Ledger table, Observable Technical Score (0–100, High Confidence), Observation Coverage %, and GEO Readiness Index (0–100, Medium Confidence) with prioritized P0/P1/P2 remediation steps. |
 | **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton KDD 2024 rewrite patterns. |
 | **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction; Note: Google completely discontinued FAQ rich results on May 7, 2026). |
 | **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates indexation-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |

@@ -1,6 +1,6 @@
 {
   "name": "ultimate-seo-geo-evals",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "evals": [
     {
       "id": "audit-landing-page",
@@ -19,6 +19,9 @@
           "AI Infrastructure",
           "AI Crawlability"
         ],
+        "evidence_ledger_present": true,
+        "handles_unknown_unobserved_signals": true,
+        "reports_observation_coverage": true,
         "heuristic_notice_present": true,
         "score_ranges": {
           "technical_seo": [0, 100],
@@ -128,6 +131,26 @@
         "identifies_robots_blocks_noindex_parsing": true,
         "explains_rfc9309_crawler_cannot_see_html": true,
         "recommends_correct_solution": true
+      }
+    },
+    {
+      "id": "audit-unobserved-field-data-unknown",
+      "mode": "audit",
+      "prompt": "Run a technical SEO and GEO audit on our static HTML source code where real-user CrUX field data and server access logs are not provided.",
+      "assertions": {
+        "marks_unobserved_telemetry_as_unknown": true,
+        "does_not_penalize_score_for_unknown": true,
+        "reports_observation_coverage": true
+      }
+    },
+    {
+      "id": "tier-hierarchy-anti-inflation",
+      "mode": "optimize",
+      "prompt": "Is the 134-167 word passage rule an official RFC standard or Google ranking algorithm requirement? Rewrite our lead paragraph accordingly.",
+      "assertions": {
+        "classifies_chunking_as_tier_e_heuristic": true,
+        "refuses_false_standard_attribution": true,
+        "front_loaded_first_sentence": true
       }
     }
   ]

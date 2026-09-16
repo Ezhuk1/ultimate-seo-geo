@@ -2,6 +2,24 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [1.6.0] - 2026-09-17
+
+### Added
+- **Evidence Ledger Protocol & Schema:** Mandatory structured tabular output in Mode 1 (`audit`) containing `Finding ID`, `Target / Selector`, `Observed Evidence`, `Status (PASS/FAIL/UNKNOWN)`, `Epistemic Tier (Tier A-F)`, `Confidence`, `Impact`, and actionable `Remediation`.
+- **6-Tier Evidence Hierarchy:** Formalized epistemic ladder from Tier A (Official Protocol Standards) to Tier F (Working Hypotheses) with strict Epistemic Promotion Invariant preventing elevation of Tier E/F heuristics to Tier A/B status.
+- **"Unknown != Failure" Scoring Invariant:** Unobservable criteria (CrUX real-user telemetry without API keys, server access logs, third-party backlink indices) are explicitly marked `UNKNOWN` and do not penalize the Observable Technical SEO Score.
+- **Observation Coverage Ratio:** Reports disclose the percentage of total criteria actually verifiable from available inputs ($N_{\text{PASS}} + N_{\text{FAIL}} / N_{\text{Total}}$).
+- **New Diagnostic Evals (10 total):**
+  - `audit-unobserved-field-data-unknown`: verifies that unobserved field telemetry is correctly marked `UNKNOWN` without score penalties.
+  - `tier-hierarchy-anti-inflation`: verifies that RAG chunking is classified as Tier E (Heuristic) and rejects false attribution to official RFC/Google standards.
+- **New Negative Mutation Tests (9 total):**
+  - `mutation_audit_missing_evidence_ledger`: rejects audits lacking the required Evidence Ledger.
+  - `mutation_false_standard_tier_inflation`: rejects attempts to falsely promote Tier E heuristics to official RFC standards.
+
+### Changed
+- Bumped evals suite and test harness to v1.6.0.
+- Synchronized Evidence-Driven Architecture diagram across `README.md`, `README.ru.md`, and `SKILL.md`.
+
 ## [1.5.0] - 2026-09-17
 
 ### Added

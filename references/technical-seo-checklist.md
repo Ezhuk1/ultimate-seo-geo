@@ -73,3 +73,37 @@ Ensure optimal link previews across messaging apps and social feeds:
 <meta name="twitter:description" content="Engaging summary of page content." />
 <meta name="twitter:image" content="https://domain.com/og-image.jpg" />
 ```
+
+---
+
+## 5. The Evidence Ledger Protocol & Schema `[STANDARD]`
+
+When conducting an audit, every finding must be recorded in an **Evidence Ledger** to ensure audit reproducibility, eliminate hallucinations, and provide deterministic proof.
+
+### Schema Fields:
+* **`id`**: Unique finding identifier (e.g. `TECH-CANONICAL-001`, `CRAWL-ROBOTS-002`, `GEO-HEADINGS-003`).
+* **`claim`**: Concise factual claim (e.g., "Canonical tag is missing or non-matching").
+* **`evidence`**:
+  - `source`: DOM element, HTTP response header, robots.txt directive, or Schema.org node.
+  - `selector_or_directive`: Concrete selector (e.g., `link[rel='canonical']`, `HTTP Status: 200`, `User-agent: GPTBot`).
+  - `observed_value`: Raw value extracted during inspection, or `null` / `not found`.
+* **`status`**:
+  - `PASS`: Requirement is fully satisfied.
+  - `FAIL`: Requirement is violated with observed counter-evidence.
+  - `UNKNOWN`: Signal cannot be observed from available inputs (e.g., CWV field data without CrUX API access, server logs without server credentials, backlink profiles without third-party crawler index).
+* **`tier`**: Epistemic tier from Tier A (Official Protocol Standard) to Tier F (Working Hypothesis).
+* **`confidence`**: `HIGH` (deterministic DOM/HTTP evidence), `MEDIUM` (heuristic extraction), or `LOW` (indirect inference).
+* **`impact`**: `P0` (Indexation blocker / crawler leak), `P1` (Citation deficit / architecture gap), or `P2` (Hygiene).
+* **`remediation`**: Exact code snippet or configuration change to resolve the issue.
+* **`verification_method`**: Concrete inspection command or tool (e.g., `curl -ILs https://...`, Schema Markup Validator).
+
+### Observation Coverage & Scoring Invariant:
+$$\text{Observation Coverage} = \frac{N_{\text{PASS}} + N_{\text{FAIL}}}{N_{\text{Total Criteria}}} \times 100\%$$
+
+> [!IMPORTANT]
+> **The "Unknown $\ne$ Failure" Invariant:**
+> Unobserved criteria (`status: UNKNOWN`) must **NEVER** reduce the Observable Technical SEO Score.
+> Audit reports must always disclose:
+> - **Observable Technical SEO Score (0–100):** Calculated strictly over evaluated signals ($N_{\text{PASS}} / (N_{\text{PASS}} + N_{\text{FAIL}})$).
+> - **Observation Coverage (%):** Percentage of total criteria actually observable in the audit environment.
+> - **GEO Readiness Index (0–100):** Qualitative heuristic model with MEDIUM confidence.

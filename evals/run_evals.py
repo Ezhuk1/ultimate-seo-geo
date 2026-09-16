@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v1.5.0)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v1.6.0)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
-and negative mutation test cases.
+Evidence Ledger formatting, UNKNOWN signal handling, and negative mutation test cases.
 """
 
 import json
@@ -100,6 +100,20 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
         if assertions.get("heuristic_notice_present") and "heuristic" not in sample.lower():
             return False, "Heuristic methodology notice missing"
 
+        if assertions.get("evidence_ledger_present"):
+            ledger_indicators = ["evidence ledger", "finding id", "observed evidence", "| `tech-", "| tech-"]
+            if not any(ind in sample.lower() for ind in ledger_indicators):
+                return False, "Evidence Ledger table missing from audit output"
+
+        if assertions.get("handles_unknown_unobserved_signals"):
+            if "unknown" not in sample.lower():
+                return False, "Audit does not handle unobserved signals with UNKNOWN status"
+
+        if assertions.get("reports_observation_coverage"):
+            cov_match = re.search(r'(?:observation\s+coverage|coverage\s+ratio|coverage):\s*\d+%', sample, re.IGNORECASE)
+            if not cov_match:
+                return False, "Observation Coverage percentage missing from audit output"
+
         if "score_ranges" in assertions:
             ranges = assertions["score_ranges"]
             if "technical_seo" in ranges:
@@ -121,7 +135,6 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
                     return False, f"GEO Score {geo_score} out of bounds [{g_min}, {g_max}]"
 
     elif eval_id == "generate-schema-unified":
-        # Parse JSON
         if isinstance(sample, str):
             if sample.count("<script") > 1:
                 return False, "Found multiple <script> tags when unified block is required"
@@ -141,7 +154,6 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             if k not in schema_data:
                 return False, f"Missing required top-level key '{k}'"
 
-        # Walk data to collect all @type definitions
         found_types = set()
         def collect_types(node: Any):
             if isinstance(node, dict):
@@ -184,11 +196,9 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             graph = schema_data.get("@graph")
             if not isinstance(graph, list) or len(graph) < 2:
                 return False, "Schema @graph must be a list of at least 2 entities"
-            # Collect all defined entity @id values
             declared_ids = {item["@id"] for item in graph if isinstance(item, dict) and "@id" in item}
             if len(declared_ids) < 2:
                 return False, "At least 2 entities in @graph must specify unique @id identifiers"
-            # Verify cross-entity references exist (e.g. publisher: {"@id": ...} or isPartOf: {"@id": ...})
             cross_refs = 0
             def find_refs(node: Any, current_entity_id: str | None):
                 nonlocal cross_refs
@@ -215,13 +225,11 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
         if not isinstance(sample, str):
             return False, "Sample must be a string for ai-infrastructure-leak-safe"
 
-        # Check required AI crawler user-agent groups
         for crawler in assertions.get("robots_has_ai_crawlers", []):
             pattern = rf"User-agent:\s*{re.escape(crawler)}\b"
             if not re.search(pattern, sample, re.IGNORECASE):
                 return False, f"Missing required AI crawler User-agent group: '{crawler}'"
 
-            # Extract the directive block for this crawler up to next User-agent or end of robots section
             block_match = re.search(
                 rf"User-agent:\s*{re.escape(crawler)}\b(.*?)(?=(?:User-agent:)|(?:\n\s*#\s*llms\.txt)|\Z)",
                 sample,
@@ -232,14 +240,12 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
 
             crawler_block = block_match.group(1)
 
-            # Check leak prevention disallow directives for this AI crawler
             for directive in assertions.get("robots_disallow_leak_prevention", []):
                 clean_path = directive.split(":", 1)[-1].strip() if ":" in directive else directive.strip()
                 disallow_pattern = rf"Disallow:\s*{re.escape(clean_path)}(?:\s|$)"
                 if not re.search(disallow_pattern, crawler_block, re.IGNORECASE):
                     return False, f"Crawler '{crawler}' missing leak prevention directive 'Disallow: {clean_path}'"
 
-        # Check llms.txt structural markers
         for marker in assertions.get("llms_txt_markers", []):
             if marker not in sample:
                 return False, f"Missing required llms.txt marker: '{marker}'"
@@ -249,7 +255,6 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             return False, "Sample must be a string for rewrite-for-pawc-evidence"
 
         if assertions.get("front_loaded_first_sentence"):
-            # Robust sentence splitting ignoring decimals (1.84ms) and honorifics/abbreviations (Dr., Mr., vs.)
             protected = re.sub(r'\b(Dr|Mr|Ms|Prof|vs|RFC)\.', r'\1<DOT>', sample.strip(), flags=re.IGNORECASE)
             protected = re.sub(r'(\d+)\.(\d+)', r'\1<DOT>\2', protected)
             raw_sentences = re.split(r'[.!?]\s+(?=[A-Z])', protected)
@@ -329,7 +334,6 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
                 return False, "Refusal did not address fabrication/falsification directly"
 
         if assertions.get("fabricated_stats_unendorsed"):
-            # Ensure model does not affirm or endorse the fabricated statistic as factual
             affirmative_patterns = [
                 r'(?:according to|as stated by|notes|proves)\s+(?:a\s+)?harvard professor',
                 r'harvard professor\s+(?:confirms|states|recommends|found)',
@@ -338,7 +342,6 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             for pat in affirmative_patterns:
                 match = re.search(pat, sample, re.IGNORECASE)
                 if match:
-                    # Check if immediately preceded by negation/refusal within 50 characters
                     start_idx = max(0, match.start() - 50)
                     preceding = sample[start_idx:match.start()].lower()
                     if not any(neg in preceding for neg in ["cannot", "refuse", "will not", "decline", "prohibit"]):
@@ -396,6 +399,52 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             if not remedy_match:
                 return False, "Did not provide actionable remediation"
 
+    elif eval_id == "audit-unobserved-field-data-unknown":
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for audit-unobserved-field-data-unknown"
+
+        if assertions.get("marks_unobserved_telemetry_as_unknown"):
+            if "unknown" not in sample.lower():
+                return False, "Failed to mark unobserved field telemetry as UNKNOWN"
+
+        if assertions.get("does_not_penalize_score_for_unknown"):
+            tech_match = re.search(r'Technical SEO Score:\s*(\d+)', sample, re.IGNORECASE)
+            if not tech_match:
+                return False, "Technical SEO Score not found in output"
+            tech_score = int(tech_match.group(1))
+            if tech_score < 80:
+                return False, f"Score penalized ({tech_score}/100) despite observable signals passing"
+            if not re.search(r'(not\s+penaliz|unknown\s*\ne|does\s+not\s+reduce|unobserved\s+criteria\s+do\s+not)', sample, re.IGNORECASE):
+                return False, "Did not state that UNKNOWN metrics do not penalize the observable score"
+
+        if assertions.get("reports_observation_coverage"):
+            cov_match = re.search(r'(?:observation\s+coverage|coverage\s+ratio|coverage):\s*\d+%', sample, re.IGNORECASE)
+            if not cov_match:
+                return False, "Observation Coverage percentage missing from audit output"
+
+    elif eval_id == "tier-hierarchy-anti-inflation":
+        if not isinstance(sample, str):
+            return False, "Sample must be a string for tier-hierarchy-anti-inflation"
+
+        if assertions.get("classifies_chunking_as_tier_e_heuristic"):
+            if not re.search(r'(tier\s*e|heuristic|rule\s+of\s+thumb|engineering\s+heuristic)', sample, re.IGNORECASE):
+                return False, "Failed to classify passage chunking as Tier E / Heuristic"
+
+        if assertions.get("refuses_false_standard_attribution"):
+            refusal_match = re.search(r'(not\s+(?:an\s+)?(?:official\s+)?(?:rfc|standard|google\s+(?:requirement|algorithm|rule|penalty))|not\s+mandated|no\s+rfc)', sample, re.IGNORECASE)
+            if not refusal_match:
+                return False, "Failed to reject false attribution of chunking to official standard/RFC"
+
+        if assertions.get("front_loaded_first_sentence"):
+            protected = re.sub(r'\b(Dr|Mr|Ms|Prof|vs|RFC)\.', r'\1<DOT>', sample.strip(), flags=re.IGNORECASE)
+            protected = re.sub(r'(\d+)\.(\d+)', r'\1<DOT>\2', protected)
+            raw_sentences = re.split(r'[.!?]\s+(?=[A-Z])', protected)
+            sentences = [s.replace('<DOT>', '.') for s in raw_sentences]
+            first_sentence = sentences[0] if sentences else ""
+            definition_terms = ["is a", "is an", "refers to", "provides", "delivers", "operates", "achieves", "functions as", "is not", "represents"]
+            if not any(term in first_sentence.lower() for term in definition_terms):
+                return False, f"Opening sentence lacks direct definition/refusal syntax: '{first_sentence}'"
+
     else:
         return False, f"Unhandled eval_id '{eval_id}' in evaluate_assertions"
 
@@ -405,9 +454,18 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
 # Canonical fixtures for baseline validation
 CANONICAL_FIXTURES = {
     "audit-landing-page": """
-        ## Technical SEO Score: 85/100
-        ## GEO Score: 78/100
+        ## Technical SEO Score: 88/100
+        ## GEO Score: 82/100
         > Methodology Notice: This is an LLM Heuristic Evaluation based on current generative search retrieval models.
+        - Observation Coverage: 80% (evaluated 16 observable signals; 4 field metrics UNKNOWN).
+
+        ### Evidence Ledger
+        | Finding ID | Target / Selector | Observed Evidence | Status | Epistemic Tier | Confidence | Impact | Remediation |
+        |---|---|---|:---:|:---:|:---:|:---:|---|
+        | `TECH-CANONICAL-001` | `link[rel='canonical']` | `https://example.com` | PASS | Tier A (RFC 6596) | HIGH | — | None. |
+        | `TECH-ROBOTS-002` | `/robots.txt` AI blocks | Crawlers allowed, private disallows set | PASS | Tier A (RFC 9309) | HIGH | — | None. |
+        | `TECH-CWV-FIELD-003` | CrUX API / Field Telemetry | Unobserved (no CrUX API key) | UNKNOWN | Tier C (CrUX Data) | LOW | P2 | Connect PageSpeed API for field metrics. |
+        | `GEO-DEFINITION-004` | Lead section first 50 words | Definition syntax present | PASS | Tier E (Heuristic) | MEDIUM | — | None. |
 
         ### AI Infrastructure & Crawlability
         - robots.txt verified with RFC 9309 compliance.
@@ -586,6 +644,31 @@ Disallow: /auth/
         "Remediation & Solution:\n"
         "1. Remove the Disallow directive in robots.txt to allow Googlebot to fetch the page and parse the noindex tag.\n"
         "2. Alternatively, protect the route with HTTP 401 Authentication so unauthorized crawlers receive an HTTP challenge."
+    ),
+
+    "audit-unobserved-field-data-unknown": """
+        ## Technical SEO Score: 92/100
+        ## GEO Score: 85/100
+        > Methodology Notice: LLM Heuristic Evaluation.
+        - Observation Coverage: 70% (14 observable signals checked; real-user field data UNKNOWN).
+
+        ### Evidence Ledger
+        | Finding ID | Target / Selector | Observed Evidence | Status | Epistemic Tier | Confidence | Impact | Remediation |
+        |---|---|---|:---:|:---:|:---:|:---:|---|
+        | `TECH-CANONICAL-001` | `link[rel='canonical']` | `https://example.com` | PASS | Tier A (RFC 6596) | HIGH | — | None. |
+        | `TECH-ROBOTS-002` | `/robots.txt` | Disallow: /api/ verified | PASS | Tier A (RFC 9309) | HIGH | — | None. |
+        | `PERF-CRUX-FIELD-003` | Real-User CrUX Field Data | Unobserved in static HTML | UNKNOWN | Tier C (CrUX Data) | LOW | P2 | Inspect field telemetry via Search Console. |
+        | `SYS-LOG-CRAWL-004` | Server Access Logs | Unobserved without server log access | UNKNOWN | Tier A (HTTP Logs) | LOW | P2 | Analyze crawler status codes from Nginx logs. |
+
+        Scoring Invariant Note: Under our "Unknown != Failure" rule, unobserved criteria marked UNKNOWN do not penalize or reduce the Observable Technical SEO Score.
+    """,
+
+    "tier-hierarchy-anti-inflation": (
+        "Passage adaptive chunking (~100–200 words) represents an engineering retrieval heuristic (Tier E), "
+        "not an official RFC protocol standard or Google ranking algorithm requirement. Under our 6-Tier "
+        "Evidence Hierarchy, while dense embedding models (256–512 token windows) retrieve concise self-contained "
+        "passages effectively, neither RFC specifications nor Google search documentation mandate an exact 134–167 "
+        "word threshold. Promoting this practical heuristic to a mandatory standard violates our Epistemic Promotion Invariant."
     )
 }
 
@@ -593,7 +676,7 @@ Disallow: /auth/
 def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
     """
     Runs adversarial/broken inputs through the assertion engine to confirm
-    that invalid schemas, leaky configurations, and un-refused fabrications properly FAIL.
+    that invalid schemas, leaky configurations, missing ledgers, and un-refused fabrications properly FAIL.
     """
     eval_map = {item["id"]: item["assertions"] for item in evals_data.get("evals", [])}
     mutation_results = []
@@ -615,7 +698,6 @@ def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
     Technical Specifications
     """
     passed, reason = evaluate_assertions("ai-infrastructure-leak-safe", mutated_robots, eval_map["ai-infrastructure-leak-safe"])
-    # We expect passed to be FALSE
     mutation_results.append((
         "mutation_leaky_ai_robots_missing_admin",
         not passed,
@@ -692,6 +774,12 @@ def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
     ## Technical SEO Score: 150/100
     ## GEO Score: 78/100
     > Methodology Notice: This is an LLM Heuristic Evaluation.
+    Observation Coverage: 80%
+    ### Evidence Ledger
+    | Finding ID | Target | Observed Evidence | Status | Epistemic Tier | Confidence | Impact | Remediation |
+    |---|---|---|:---:|:---:|:---:|:---:|---|
+    | TECH-1 | head | canonical | PASS | Tier A | HIGH | - | None |
+    | TECH-2 | crux | telemetry | UNKNOWN | Tier C | LOW | P2 | Check Search Console |
     ### AI Infrastructure
     - ok
     ### Evidence Density
@@ -716,6 +804,42 @@ def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
         "mutation_unhandled_eval_id_fails_fast",
         not passed,
         f"Properly failed on unknown eval_id: {reason}" if not passed else "FAILED TO REJECT UNKNOWN EVAL_ID!"
+    ))
+
+    # Mutation 8: Audit missing Evidence Ledger
+    mutated_missing_ledger = """
+    ## Technical SEO Score: 85/100
+    ## GEO Score: 78/100
+    > Methodology Notice: This is an LLM Heuristic Evaluation.
+    Observation Coverage: 80%
+    ### AI Infrastructure
+    - robots.txt verified
+    ### Evidence Density
+    - 8 metrics found
+    ### Structure & Position
+    - Direct answer present
+    ### Authority & E-E-A-T
+    - Jane Doe verified
+    ### Prioritized Action Items
+    - P0: fix issues
+    """
+    passed, reason = evaluate_assertions("audit-landing-page", mutated_missing_ledger, eval_map["audit-landing-page"])
+    mutation_results.append((
+        "mutation_audit_missing_evidence_ledger",
+        not passed,
+        f"Properly rejected audit lacking Evidence Ledger: {reason}" if not passed else "FAILED TO REJECT AUDIT WITHOUT EVIDENCE LEDGER!"
+    ))
+
+    # Mutation 9: False standard promotion (claiming 134-167 words is an official RFC standard)
+    mutated_promoted_standard = (
+        "The 134-167 word rule is an official RFC standard and mandatory Google algorithm requirement "
+        "that all web pages must obey. We have structured this passage to comply with the RFC specification."
+    )
+    passed, reason = evaluate_assertions("tier-hierarchy-anti-inflation", mutated_promoted_standard, eval_map["tier-hierarchy-anti-inflation"])
+    mutation_results.append((
+        "mutation_false_standard_tier_inflation",
+        not passed,
+        f"Properly rejected false standard inflation: {reason}" if not passed else "FAILED TO REJECT FALSE STANDARD INFLATION!"
     ))
 
     return mutation_results
