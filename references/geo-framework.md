@@ -20,7 +20,9 @@ This reference document synthesizes foundational research on Generative Engine O
   * $N_r$: The total number of sentences in response $r$.
   * $\alpha$: The exponential position-decay factor (typically $\alpha \approx 1.0$).
 
-  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the response under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
+  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening of the generated answer ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the answer under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
+
+  **Editorial Heuristic ("First 150 Words"):** While $\text{pos}(s)$ is defined over sentence positions in the LLM's *generated response*, generative engines retrieve source text in discrete semantic chunks. Structuring the lead paragraph (first 150 words) with the direct answer ensures the core claim is front-loaded in the retrieved chunk, dramatically increasing the probability that the LLM extracts it into its opening ($\text{pos}=0$) response sentence.
 
 ### B. Empirical Method Ranking by Citation Lift
 Experiments measuring visibility improvements across generative search engines:
@@ -66,7 +68,7 @@ Generative search engines do not share the same retrieval corpus or weighting:
 
 ## 4. The GEO Signal Stack (Scoring Rubric)
 
-> **Important:** The 0–100 GEO score is an **expert qualitative heuristic rubric** derived from the Princeton/AutoGEO criteria. It models citation probability, not a deterministic browser performance metric.
+> **Important:** The 0–100 GEO score is an **expert qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria. It models citation probability, not a deterministic browser performance metric.
 
 ### Pillar 1: Evidence Density (35% Weight)
 - [ ] $\ge 5$ numbers with units per article/page.

@@ -2,7 +2,7 @@
 name: ultimate-seo-geo
 description: >
   The definitive, all-in-one SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.
-  Audits technical on-page SEO, scores GEO citation readiness (PAWC / Princeton KDD 2024 & CMU AutoGEO),
+  Audits technical on-page SEO, scores GEO citation readiness (PAWC / Princeton KDD 2024),
   generates rich JSON-LD Schema.org graphs, configures AI bot access (robots.txt & llms.txt), rewrites
   content for maximum AI citation probability in ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews,
   and crafts evidence-driven content plans.
@@ -27,11 +27,13 @@ Infer or confirm which mode the user needs:
 
 | Mode | Trigger Phrases | Description |
 |---|---|---|
-| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized action plan. |
-| **2. `optimize`** | "rewrite for AI", "make ChatGPT cite this", "front-load", "improve PAWC", "optimize text" | Evidence-dense rewriting using Princeton KDD & CMU AutoGEO rules without fluff or keyword stuffing. |
-| **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for rich results and AI comprehension. |
+| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 action plan. |
+| **2. `optimize`** | "rewrite for AI", "make ChatGPT cite this", "front-load", "improve PAWC", "optimize text" | Evidence-dense rewriting using Princeton KDD rules without fluff or keyword stuffing. |
+| **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for AI comprehension and entity resolution. |
 | **4. `ai-files`** | "generate llms.txt", "fix robots.txt", "allow AI bots", "AI crawler setup" | Creates production-ready `robots.txt` (with explicit AI crawler directives and leak-safe disallows) and structured `llms.txt`. |
 | **5. `strategy`** | "content plan", "topical authority", "keyword strategy", "AI search strategy" | Builds search & AI citation content clusters with target questions, evidence requirements, and formats. |
+
+*(Note: The internal `safety_check` evaluation mode validates enforcement of the non-negotiable rule below).*
 
 ---
 
@@ -70,7 +72,7 @@ Score the target (URL, HTML file, or full codebase) across two parallel scorecar
 5. **Social & Sharing (15%):** Open Graph (`og:title`, `og:description`, `og:image`, `og:url`), Twitter card tags.
 
 #### B. Generative Engine Optimization (GEO) Score (0–100) [Heuristic]
-Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (arXiv preprint):
+Derived from Princeton/GA Tech (KDD 2024):
 1. **Evidence Density (35%):**
    - Numbers with units: >= 5 specific metrics per page (e.g., latency ms, percentage, pricing, uptime).
    - External citations: >= 1 reference per 500 words linking to primary sources, RFCs, or studies.
@@ -78,7 +80,7 @@ Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (arXiv preprint):
    - Direct quotes: >= 2 verbatim statements from named experts (minimum 1 to avoid veto penalty).
    - First-party telemetry/data: Proprietary benchmarks, case study metrics, or live telemetry.
 2. **Structure & Position / PAWC (25%):**
-   - Direct answer front-loaded in the first 150 words (PAWC exponential decay).
+   - Direct answer front-loaded in the first 150 words (editorial heuristic for RAG chunking).
    - Summary / Key Takeaways box at the top.
    - Comparative data formatted in markdown or HTML `<table>` (high LLM extraction rate).
    - Sequential instructions formatted in ordered lists (`<ol>`).
@@ -89,6 +91,12 @@ Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (arXiv preprint):
 4. **AI Infrastructure (15%):**
    - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `meta-externalagent`, `meta-externalfetcher`).
    - Root `llms.txt` file present and formatted (community proposal).
+
+#### C. Prioritized Remediation Plan (P0 / P1 / P2)
+Structure action items into clear impact tiers:
+* **P0 (Critical / Blockers):** Security/leak risks (RFC 9309 crawler leak to `/api/` or `/admin/`), bot disallows, missing canonicals, unindexed pages.
+* **P1 (High Citation Impact):** Evidence deficit (< 5 metrics, 0 expert quotes), disconnected Schema `@graph`, missing `dateModified`, poor direct answer positioning.
+* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, formatting polish.
 
 ---
 

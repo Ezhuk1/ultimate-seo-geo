@@ -16,15 +16,15 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **meta-externalagent** | Meta | Llama model training & ingestion | Allow `/` |
 | **meta-externalfetcher** | Meta | Real-time web retrieval & link previews | Allow `/` |
 | **cohere-ai** | Cohere | Enterprise RAG retrieval | Allow `/` |
-| **Bytespider** | ByteDance | Search & model retrieval | Allow `/` |
-| *Google-Extended* | Google | *Control token* (not an HTTP crawler; evaluated by Googlebot for AI training) | Opt-out only (`Disallow: /`) |
+| **Bytespider** | ByteDance | Search & model retrieval (often rate-limited or blocked due to high scraping volume) | Allow `/` |
+| *Google-Extended* | Google | *Control token* (evaluated by Googlebot for AI training; does not crawl and does not affect AI Overviews) | Opt-out only (`Disallow: /`) |
 
 ---
 
 ## 2. Security Warning: RFC 9309 Group Precedence & Data Leaks
 
 > [!CAUTION]
-> **The Robots Exclusion Protocol (RFC 9309, Section 2.2.1) specifies that a crawler only parses the SINGLE most specific group of directives matching its User-Agent.**
+> **The Robots Exclusion Protocol (RFC 9309, Section 2.2.1) specifies that a crawler matches only the group corresponding to its product token. If a matching group exists, the crawler obeys ONLY that group and completely ignores the generic `*` group.**
 > If your `robots.txt` specifies:
 > ```txt
 > User-agent: *
@@ -62,8 +62,9 @@ User-agent: PerplexityBot
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Note: Google-Extended is an opt-out control token evaluated by Googlebot, not an HTTP fetcher.
-# Add "User-agent: Google-Extended" + "Disallow: /" only if opting out of Gemini/Vertex training.
+# Note: Google-Extended is an opt-out control token evaluated by Googlebot for Gemini/Vertex training.
+# It is NOT an HTTP fetcher and does NOT affect indexing or citation in Google AI Overviews.
+# Add "User-agent: Google-Extended" + "Disallow: /" only if opting out of Gemini/Vertex model training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/

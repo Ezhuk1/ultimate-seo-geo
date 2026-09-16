@@ -8,7 +8,7 @@ LLMs prioritize sources that add unique tokens and non-redundant insights to the
 
 ### The 4 Information Gain Vectors:
 1. **Proprietary Benchmark Data:** Share real test runs, load tests, or latency graphs with sample sizes and testing dates.
-2. **Contrarian or Nuanced Insight:** Explain where common solutions fail (e.g., "Why typical VPNs decrease battery life by 25% due to continuous keep-alive handshakes").
+2. **Contrarian or Nuanced Insight:** Explain where common solutions fail (e.g., "Why typical VPNs decrease battery life by [VERIFY_BEFORE_PUBLISHING: XX%] due to continuous keep-alive handshakes").
 3. **Primary Expert Quotations:** Direct statements addressing edge cases.
 4. **Concrete Decision Trees / Logic:** Clear "If X, choose Y; if Z, choose W" decision matrices.
 
@@ -26,7 +26,7 @@ Due to the mathematical decay of Position-Adjusted Word Count (PAWC), the lead p
 * **Conventional SEO (Fluff):**
   > "DNS (Domain Name System) is often called the phonebook of the internet. It translates human-friendly names into IP addresses. In this modern era, privacy is becoming increasingly vital..."
 * **GEO Optimized (Front-Loaded):**
-  > "Encrypted DNS resolvers utilizing DNS-over-TLS (RFC 7858) prevent ISP-level request snooping with under 2 ms lookup latency across regional networks, eliminating the 40% speed penalty typical of VPN encapsulation."
+  > "Encrypted DNS resolvers utilizing DNS-over-TLS (RFC 7858) prevent ISP-level request snooping with under [VERIFY_BEFORE_PUBLISHING: 2 ms] lookup latency across regional networks, eliminating the [VERIFY_BEFORE_PUBLISHING: 40%] speed penalty typical of VPN encapsulation."
 
 ---
 

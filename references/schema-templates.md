@@ -1,6 +1,6 @@
 # Schema.org JSON-LD Architecture & Templates
 
-This reference provides production-ready, interconnected `@graph` schema templates adhering to Google Search Rich Results guidelines.
+This reference provides production-ready, interconnected `@graph` schema templates optimized for AI knowledge extraction (GEO/AEO) and search entity resolution.
 
 ## 1. Architectural Rules (The Unified Graph)
 
@@ -19,14 +19,14 @@ Organization (#organization)
      │
   WebPage (#webpage) ──┬── about ────────────► Service / Product (#service)
                        ├── mainEntity / hasPart ► FAQPage (#faq)
-                       ├── step ──────────────► HowTo (#howto)
+                       ├── hasPart ──────────► HowTo (#howto)
                        └── breadcrumb ────────► BreadcrumbList (#breadcrumbs)
 ```
 
 > [!NOTE]
-> **Google Search Policy on FAQ & HowTo (August 2023 Update):**
-> Google Search displays FAQ rich snippet accordions primarily for authoritative government and healthcare websites, and HowTo rich results only on desktop.
-> However, for **GEO (Generative Engine Optimization)** across ChatGPT, Perplexity, Claude, and Gemini, `FAQPage` remains an essential high-yield schema block: generative engines directly parse these explicit Q&A entity pairs to synthesize direct answers.
+> **Google Search Policy on FAQ & HowTo (2023 Deprecations):**
+> Google Search deprecated HowTo rich results entirely (September 2023) and restricted FAQ rich snippets to authoritative government and healthcare websites (August 2023).
+> Consequently, `HowTo` and `FAQPage` are no longer reliable drivers for Google SERP rich snippets. However, for **GEO (Generative Engine Optimization)** across ChatGPT, Perplexity, Claude, and Gemini, they remain critical: generative models directly parse procedural steps (`HowTo`) and question-answer pairs (`FAQPage`) to assemble cited answers.
 
 ---
 
@@ -125,7 +125,7 @@ Organization (#organization)
           "name": "How does this solution prevent speed loss?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The engine operates at DNS resolution layer without encapsulating packets in a continuous tunnel, maintaining 100% native throughput."
+            "text": "The engine operates at DNS resolution layer without encapsulating packets in a continuous tunnel, maintaining native connection throughput [VERIFY_BEFORE_PUBLISHING: REAL_BENCHMARK_MS]."
           }
         }
       ]

@@ -25,9 +25,9 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 3. **Traditional keyword stuffing actively hurts** (causing a **−8% penalty** in AI citation likelihood).
 4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric:
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because of exponential decay, the first 150 words carry **~2.7× more extraction weight** than trailing sentences under baseline decay ($\alpha = 1.0$, $e^1 \approx 2.72$), and up to **5×** under steeper decay regimes.
+   Because sentence extraction weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ in steeper regimes), front-loading answers in the first 150 words serves as a proven editorial heuristic to ensure lead facts populate the opening sentences ($\text{pos}(s)=0$) of synthesized AI answers.
 
-> **Methodology Note:** The 0–100 scores provided in audit mode represent **expert qualitative heuristic evaluations** based on the Princeton & AutoGEO rubrics. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
+> **Methodology Note:** The 0–100 scores provided in audit mode represent **expert qualitative heuristic evaluations** based on the Princeton KDD 2024 rubrics. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
 
 ---
 
@@ -36,8 +36,8 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 | Mode | Trigger Phrases | Key Deliverables |
 |---|---|---|
 | **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual qualitative scorecard: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 remediation steps. |
-| **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton + AutoGEO rewrite patterns. |
-| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ (for LLM answer extraction), and HowTo. |
+| **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton KDD 2024 rewrite patterns. |
+| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo (optimized for LLM answer extraction). |
 | **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates leak-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
 
@@ -127,13 +127,13 @@ ultimate-seo-geo/
 ├── LICENSE                           # MIT License
 ├── .gitignore                        # Git ignore rules
 ├── references/
-│   ├── geo-framework.md              # Princeton KDD 2024, AutoGEO, rigorous PAWC math & engine matrix
+│   ├── geo-framework.md              # Princeton KDD 2024, rigorous PAWC math & engine matrix
 │   ├── technical-seo-checklist.md    # Crawlability, Core Web Vitals, metadata, canonicals
 │   ├── schema-templates.md           # Unified @graph JSON-LD master templates (WebPage, Service, FAQ, HowTo)
-│   ├── ai-crawler-spec.md            # RFC 9309 leak prevention & llms.txt standard
+│   ├── ai-crawler-spec.md            # RFC 9309 leak prevention & llms.txt proposal
 │   └── content-strategy-ai.md        # Information Gain, front-loading, evidence hunting
 └── evals/
-    └── evals.json                    # Deterministic test cases with negative safety checks
+    └── evals.json                    # Heuristic & structured test cases with negative safety checks
 ```
 
 ---
