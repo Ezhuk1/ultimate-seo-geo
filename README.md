@@ -57,16 +57,21 @@ Disallow: /private/
 Disallow: /checkout/
 Disallow: /auth/
 
-# Explicit AI Crawlers (With Inherited Private Disallows)
+# Explicit AI Crawlers (With Inherited Private Disallows per RFC 9309)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 User-agent: PerplexityBot
+User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Note: Google-Extended is an opt-out control token for Gemini/Vertex training, not an HTTP crawler.
+# Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
+# They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
+# Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -81,7 +86,7 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ## 📊 Scientific Foundation & Evidence Hierarchy
 
-Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KDD 2024):
+Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech KDD 2024, arXiv:2311.09735](https://arxiv.org/abs/2311.09735)):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -103,9 +108,9 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 
 ### 🔑 The 3 Modern GEO Principles (2025–2026 Research)
 
-1. **Brand Mentions > Backlinks:** A study of 75,000 brands (Ahrefs, Dec 2025) proved that unlinked brand mentions on **YouTube (~0.737 correlation)**, **Reddit**, and **Wikipedia** correlate **3× more strongly** with AI citations than traditional PageRank or Domain Rating.
-2. **Passage-Level Citability (134–167 Words):** AI RAG architectures extract discrete chunks. Self-contained answer blocks of 134–167 words with **low pronoun density (< 2%)** eliminate contextual ambiguity and maximize verbatim extraction probability.
-3. **Platform Divergence:** Only **11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries, requiring engine-specific tuning (Reddit/freshness for Perplexity; YouTube/tables for AI Overviews; Wikipedia/entities for ChatGPT).
+1. **Brand Mentions > Backlinks:** Empirical research across 75,000 brands (Ahrefs AI Overviews study) demonstrated that unlinked brand mentions on **YouTube (~0.737 correlation)**, **Reddit**, and **Wikipedia** correlate up to **3× more strongly** with AI citations than traditional PageRank or Domain Rating.
+2. **Passage-Level Citability (134–167 Words):** Practical RAG engineering heuristic. Discrete self-contained answer blocks of 134–167 words with **low pronoun density (< 2%)** eliminate contextual ambiguity and maximize verbatim extraction probability.
+3. **Platform Divergence:** Cross-engine comparative studies indicate that only **~11% of domains** are cited concurrently by both ChatGPT Search and Google AI Overviews for identical queries, requiring engine-specific tuning (Reddit/freshness for Perplexity; YouTube/tables for AI Overviews; Wikipedia/entities for ChatGPT).
 
 ---
 
@@ -113,11 +118,13 @@ Empirical ranking of techniques by AI citation lift (Princeton / Georgia Tech KD
 
 ### Option A: Install in Google Antigravity (Global)
 ```bash
-# Windows PowerShell
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemini\config\skills\ultimate-seo-geo"
+# Windows PowerShell (Antigravity 2.0 / current AGY)
+git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemini\antigravity\skills\ultimate-seo-geo"
 
 # macOS / Linux
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/config/skills/ultimate-seo-geo
+git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/antigravity/skills/ultimate-seo-geo
+
+# (Legacy global path: ~/.gemini/config/skills/ultimate-seo-geo)
 ```
 
 ### Option B: Project-Level Installation (.agents/skills)

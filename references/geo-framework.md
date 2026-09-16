@@ -4,8 +4,8 @@ This reference document synthesizes foundational research on Generative Engine O
 
 ## 1. The Core Scientific Baseline
 
-### A. Princeton / Georgia Tech Research (KDD 2024, arXiv:2311.09735)
-* **Title:** *GEO: Generative Engine Optimization*
+### A. Princeton / Georgia Tech Research (KDD 2024, [arXiv:2311.09735](https://arxiv.org/abs/2311.09735))
+* **Title:** *GEO: Generative Engine Optimization* (Aggarwal et al., 2024)
 * **Core Insight:** LLM response generation does not rely on PageRank or traditional backlink volume when assembling answers. Instead, it measures semantic relevance, extractability, and authoritative weight.
 * **The Rigorous PAWC Formulation (Position-Adjusted Word Count):**
   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
@@ -22,10 +22,10 @@ This reference document synthesizes foundational research on Generative Engine O
 
   **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening of the generated answer ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the answer under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
 
-  **Editorial Heuristic ("First 150 Words"):** While $\text{pos}(s)$ is defined over sentence positions in the LLM's *generated response*, generative engines retrieve source text in discrete semantic chunks. Structuring the lead paragraph (first 150 words) with the direct answer ensures the core claim is front-loaded in the retrieved chunk, dramatically increasing the probability that the LLM extracts it into its opening ($\text{pos}=0$) response sentence.
+  **Editorial Heuristic ("First 150 Words"):** While $\text{pos}(s)$ is mathematically defined over sentence positions in the LLM's *generated response* $r$, generative search engines ingest source text in discrete semantic chunks. Structuring the lead paragraph (first 150 words) with the direct answer ensures the core claim is front-loaded in the retrieved chunk, dramatically increasing the probability that the LLM extracts it into its opening ($\text{pos}=0$) response sentence.
 
 ### B. Empirical Method Ranking by Citation Lift
-Experiments measuring visibility improvements across generative search engines:
+Experiments measuring visibility improvements across generative search engines ([Princeton GEO study](https://arxiv.org/abs/2311.09735), Table 1):
 
 | Rank | Technique | Visibility / PAWC Lift | Implementation Rule |
 |:---:|---|:---:|---|
@@ -45,7 +45,7 @@ Experiments measuring visibility improvements across generative search engines:
 
 ## 2. Democratization Effect (Punching Above Weight)
 
-Table 2 of the Princeton GEO paper demonstrated a striking asymmetry:
+Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) demonstrated a striking asymmetry:
 * **Rank-1 Google sites** actually *lost* ~30% relative share in generative summaries when competing against evidence-rich lower-ranked sites.
 * **Rank-5 to Rank-10 sites** gained **+115% visibility** when they introduced structured evidence, quotations, and explicit citations.
 * **Takeaway:** Even if your domain lacks millions of high-DA backlinks, you can win top-tier AI citations by out-structuring and out-evidencing incumbents.
@@ -54,7 +54,7 @@ Table 2 of the Princeton GEO paper demonstrated a striking asymmetry:
 
 ## 3. Off-Page AI Brand Footprint (Brand Mentions > Backlinks)
 
-A comprehensive empirical study of 75,000 brands (Ahrefs, December 2025) revealed that **unlinked brand mentions correlate 3× more strongly with AI engine citations than traditional PageRank / backlink metrics**:
+Empirical research across 75,000 brands (Ahrefs AI Overviews & Brand Mentions Study) demonstrated that **unlinked brand mentions correlate up to 3× more strongly with AI engine citations than traditional PageRank / backlink metrics**:
 
 | Signal / Platform | Correlation with AI Citation | Primary Engine Impact | Strategic Requirement |
 |---|:---:|---|---|
@@ -66,12 +66,12 @@ A comprehensive empirical study of 75,000 brands (Ahrefs, December 2025) reveale
 
 ---
 
-## 4. Passage-Level Citability Architecture (The 134–167 Word Rule)
+## 4. Passage-Level Citability Architecture (The 134–167 Word Heuristic)
 
-AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages. Content that wins citation follows four micro-architectural rules:
+AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages. The following targets represent **practical engineering heuristics** optimized for modern embedding windows and passage rerankers:
 
 1. **Optimal Passage Length (134–167 words):**
-   - Chunks shorter than 80 words lack context; chunks exceeding 250 words are diluted or truncated by RAG context windows. The empirical sweet spot for excerpting is **134–167 words**.
+   - Chunks shorter than 80 words lack standalone context; chunks exceeding 250 words are diluted or truncated by RAG context windows. In dense retrieval benchmarks, self-contained paragraphs of **134–167 words** achieve optimal extraction density.
 2. **Self-Containment & Low Pronoun Density:**
    - **The Pronoun Penalty:** RAG extractors discard or misattribute passages with ambiguous pronouns (*"They developed...", "This software is..."*).
    - **Rule:** Keep pronoun density below **2%**. Explicitly repeat the brand name, product name, and protocol in each standalone passage.
@@ -85,7 +85,7 @@ AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages
 
 ## 5. Generative Engine Divergence Matrix
 
-Only **11% of domains** are concurrently cited by both ChatGPT Search and Google AI Overviews for identical queries. Optimization must target engine-specific retrieval biases:
+Empirical cross-engine comparative studies (SE Ranking / BrightEdge AI Overviews research) show that only **~11% of domains** are concurrently cited by both ChatGPT Search and Google AI Overviews for identical queries. Optimization must target engine-specific retrieval biases:
 
 | Engine | Primary Retrieval Bias | Key Citation Factors | Freshness Boundary | Platform-Specific Optimization Checklist |
 |---|---|---|:---:|---|

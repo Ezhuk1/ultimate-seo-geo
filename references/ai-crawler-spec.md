@@ -12,12 +12,16 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **ChatGPT-User** | OpenAI | Real-time user-driven browsing in ChatGPT | Allow `/` |
 | **OAI-SearchBot** | OpenAI | Indexation for ChatGPT Search | Allow `/` |
 | **ClaudeBot** | Anthropic | Training & background knowledge | Allow `/` |
+| **Claude-SearchBot** | Anthropic | Real-time search indexation for Claude | Allow `/` |
+| **Claude-User** | Anthropic | Real-time user-driven browsing in Claude | Allow `/` |
 | **PerplexityBot** | Perplexity AI | Real-time web index & indexation | Allow `/` |
-| **meta-externalagent** | Meta | Llama model training & ingestion | Allow `/` |
+| **Perplexity-User** | Perplexity AI | Real-time user-driven query retrieval | Allow `/` |
+| **meta-externalagent** | Meta | Llama model training & ingestion (case-insensitive) | Allow `/` |
 | **meta-externalfetcher** | Meta | Real-time web retrieval & link previews | Allow `/` |
 | **cohere-ai** | Cohere | Enterprise RAG retrieval | Allow `/` |
-| **Bytespider** | ByteDance | Search & model retrieval (often rate-limited or blocked due to high scraping volume) | Allow `/` |
-| *Google-Extended* | Google | *Control token* (evaluated by Googlebot for AI training; does not crawl and does not affect AI Overviews) | Opt-out only (`Disallow: /`) |
+| **Bytespider** | ByteDance | Search & model retrieval | Conditional (Often rate-limited/blocked due to high fetch velocity) |
+| *Google-Extended* | Google | *Control token* (evaluated by Googlebot for Gemini/Vertex training; does not crawl and does not affect AI Overviews) | Opt-out only (`Disallow: /`) |
+| *Applebot-Extended* | Apple | *Control token* (evaluated for Apple Intelligence model training; does not crawl and does not affect Siri/Spotlight search) | Opt-out only (`Disallow: /`) |
 
 ---
 
@@ -53,18 +57,23 @@ Disallow: /private/
 Disallow: /checkout/
 Disallow: /auth/
 
-# Explicit AI Engine Permissions (With Duplicate Disallows)
+# Explicit AI Engine Permissions (With Duplicate Disallows per RFC 9309)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 User-agent: PerplexityBot
+User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Note: Google-Extended is an opt-out control token evaluated by Googlebot for Gemini/Vertex training.
-# It is NOT an HTTP fetcher and does NOT affect indexing or citation in Google AI Overviews.
-# Add "User-agent: Google-Extended" + "Disallow: /" only if opting out of Gemini/Vertex model training.
+# Optional: Add Bytespider if targeting ByteDance / Doubao search (omit if protecting against aggressive scrapers):
+# User-agent: Bytespider
+# Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
+# They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
+# Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/

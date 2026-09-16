@@ -55,6 +55,19 @@ Organization (#organization)
       }
     },
     {
+      "@type": "Person",
+      "@id": "https://example.com/#author",
+      "name": "Jane Doe",
+      "jobTitle": "Chief Technology Officer & Lead Security Researcher",
+      "description": "Network security architect with over 15 years experience in DNS protocols, privacy engineering, and network infrastructure.",
+      "sameAs": [
+        "https://linkedin.com/in/janedoe",
+        "https://github.com/janedoe",
+        "https://orcid.org/0000-0002-1825-0097"
+      ],
+      "worksFor": { "@id": "https://example.com/#organization" }
+    },
+    {
       "@type": "WebSite",
       "@id": "https://example.com/#website",
       "name": "Brand Name",
@@ -74,6 +87,7 @@ Organization (#organization)
         { "@id": "https://example.com/#howto-setup" }
       ],
       "breadcrumb": { "@id": "https://example.com/#breadcrumbs" },
+      "author": { "@id": "https://example.com/#author" },
       "datePublished": "[YYYY-MM-DDThh:mm:ssZ]",
       "dateModified": "[YYYY-MM-DDThh:mm:ssZ]",
       "inLanguage": "en"
@@ -111,7 +125,7 @@ Organization (#organization)
         "@type": "Offer",
         "price": "0.00",
         "priceCurrency": "USD",
-        "priceValidUntil": "2027-12-31",
+        "priceValidUntil": "[YYYY-12-31]",
         "availability": "https://schema.org/InStock"
       }
     },
@@ -139,13 +153,11 @@ Organization (#organization)
       "step": [
         {
           "@type": "HowToStep",
-          "position": 1,
           "name": "Open Settings",
           "text": "Navigate to Settings → Network & Internet → Private DNS."
         },
         {
           "@type": "HowToStep",
-          "position": 2,
           "name": "Enter Hostname",
           "text": "Select Private DNS provider hostname and input dns.example.com."
         }

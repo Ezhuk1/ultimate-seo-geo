@@ -32,8 +32,7 @@ Infer or confirm which mode the user needs:
 | **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for AI comprehension and entity resolution. |
 | **4. `ai-files`** | "generate llms.txt", "fix robots.txt", "allow AI bots", "AI crawler setup" | Creates production-ready `robots.txt` (with explicit AI crawler directives and leak-safe disallows) and structured `llms.txt`. |
 | **5. `strategy`** | "content plan", "topical authority", "keyword strategy", "AI search strategy" | Builds search & AI citation content clusters with target questions, evidence requirements, and formats. |
-
-*(Note: The internal `safety_check` evaluation mode validates enforcement of the non-negotiable rule below).*
+| **6. `safety_check`** | "verify zero fabrication", "test safety", "adversarial audit", "reject fake stats" | Internal safety verification: verifies strict refusal to invent quotes, fake metrics, or unverified case studies. |
 
 ---
 
@@ -80,19 +79,19 @@ Derived from Princeton/GA Tech (KDD 2024) and empirical AI retrieval research:
    - Direct quotes: >= 2 verbatim statements from named experts (minimum 1 to avoid veto penalty).
    - First-party telemetry/data: Proprietary benchmarks, case study metrics, or live telemetry.
 2. **Structure & Position / Citability (25%):**
-   - Direct answer front-loaded in the first 150 words (editorial heuristic for RAG chunking).
-   - Self-contained passage blocks: key answer passages tuned to 134–167 words with low pronoun density (< 2%).
+   - Direct answer front-loaded in the first 150 words (editorial heuristic: while mathematical PAWC $pos(s)$ is calculated over model response sentences, front-loading maximizes extraction into the opening chunk).
+   - Self-contained passage blocks: key answer passages tuned to 134–167 words with low pronoun density (< 2%) as practical RAG chunking heuristics.
    - Clear definition syntax ("X is...", "X refers to...") opening high-intent query sections.
    - Summary / Key Takeaways box at the top.
    - Comparative data formatted in markdown or HTML `<table>` (high LLM extraction rate).
    - Sequential instructions formatted in ordered lists (`<ol>`).
 3. **Authority, E-E-A-T & Brand Footprint (25%):**
    - Author byline with real name, photo, title, and bio ($\ge 30$ words) + `sameAs` (LinkedIn, GitHub, ORCID).
-   - Off-page brand footprint: Presence & co-citations across AI-indexed platforms (YouTube ~0.737 correlation, Reddit, Wikipedia, GitHub).
+   - Off-page brand footprint: Presence & co-citations across AI-indexed platforms (YouTube channel & transcripts, Reddit, Wikipedia, GitHub).
    - Explicit `dateModified` and `<time>` tags (target freshness: <= 60 days for Perplexity; <= 90 days general).
    - Methodology and technical limitations acknowledged (anti-hallucination signal).
 4. **AI Infrastructure (15%):**
-   - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `meta-externalagent`, `meta-externalfetcher`).
+   - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `Claude-SearchBot`, `Claude-User`, `PerplexityBot`, `Perplexity-User`, `meta-externalagent`, `meta-externalfetcher`, `cohere-ai`).
    - Root `llms.txt` file present and formatted (community proposal).
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
@@ -157,16 +156,21 @@ Disallow: /private/
 Disallow: /checkout/
 Disallow: /auth/
 
-# Explicit AI Engine Permissions (With Strict Privacy Protection)
+# Explicit AI Engine Permissions (With Strict Privacy Protection per RFC 9309)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 User-agent: PerplexityBot
+User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Note: Google-Extended is an opt-out control token for Gemini/Vertex training, not an HTTP crawler.
+# Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
+# They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
+# Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/

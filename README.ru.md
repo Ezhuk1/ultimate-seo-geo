@@ -57,16 +57,21 @@ Disallow: /private/
 Disallow: /checkout/
 Disallow: /auth/
 
-# Явные разрешения для AI-краулеров (с дублированием закрытых путей)
+# Явные разрешения для AI-краулеров (с дублированием закрытых путей по RFC 9309)
 User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
 User-agent: PerplexityBot
+User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
-# Примечание: Google-Extended — это токен управления обучением Gemini/Vertex для Googlebot, а не отдельный HTTP-краулер.
+# Примечание: Google-Extended и Applebot-Extended — это токены управления обучением моделей, а не HTTP-краулеры.
+# Они не влияют на поисковую индексацию или цитирование в Google AI Overviews или Siri/Spotlight.
+# Добавляйте "User-agent: Google-Extended" или "User-agent: Applebot-Extended" + "Disallow: /" только для отказа от обучения AI-моделей.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -81,7 +86,7 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ## 📊 Научный базис и иерархия факторов цитирования
 
-Эмпирический рейтинг техник по приросту цитируемости в генеративных движках (исследование Princeton / Georgia Tech KDD 2024):
+Эмпирический рейтинг техник по приросту цитируемости в генеративных движках ([исследование Princeton / Georgia Tech KDD 2024, arXiv:2311.09735](https://arxiv.org/abs/2311.09735)):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -103,9 +108,9 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ### 🔑 3 Главных принципа современного GEO (Исследования 2025–2026)
 
-1. **Brand Mentions > Backlinks:** Исследование 75,000 брендов (Ahrefs, декабрь 2025) доказало, что нелинкованные упоминания бренда на **YouTube (~0.737 корреляция)**, **Reddit** и **Википедии** коррелируют с AI-цитированием **в 3 раза сильнее**, чем традиционный PageRank или количество бэклинков.
-2. **Цитируемость пассажей (134–167 слов):** RAG-архитектуры нейросетей извлекают контент отдельными смысловыми блоками. Самодостаточные пассажи объемом 134–167 слов с **низкой плотностью местоимений (< 2%)** исключают двусмысленность и максимизируют вероятность прямого цитирования.
-3. **Платформенная дивергенция:** Только **11% доменов** цитируются одновременно в ChatGPT Search и Google AI Overviews по одному и тому же запросу. Необходима калибровка под движки (Reddit и свежесть для Perplexity; YouTube и таблицы для AI Overviews; Википедия и сущности для ChatGPT).
+1. **Brand Mentions > Backlinks:** Эмпирическое исследование 75,000 брендов (Ahrefs AI Overviews study) показало, что нелинкованные упоминания бренда на **YouTube (~0.737 корреляция)**, **Reddit** и **Википедии** коррелируют с AI-цитированием **в 3 раза сильнее**, чем традиционный PageRank или количество бэклинков.
+2. **Цитируемость пассажей (134–167 слов):** Практическая RAG-эвристика чанкования. Самодостаточные смысловые блоки объемом 134–167 слов с **низкой плотностью местоимений (< 2%)** исключают контекстную двусмысленность и максимизируют вероятность прямого цитирования.
+3. **Платформенная дивергенция:** Сравнительные тесты показывают, что лишь **~11% доменов** цитируются одновременно в ChatGPT Search и Google AI Overviews по одному и тому же запросу. Необходима калибровка под движки (Reddit и свежесть для Perplexity; YouTube и таблицы для AI Overviews; Википедия и сущности для ChatGPT).
 
 ---
 
@@ -113,11 +118,13 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ### Вариант А: Установка в Google Antigravity (Глобально)
 ```bash
-# Windows PowerShell
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemini\config\skills\ultimate-seo-geo"
+# Windows PowerShell (Antigravity 2.0 / текущий AGY)
+git clone https://github.com/Ezhuk1/ultimate-seo-geo.git "$env:USERPROFILE\.gemini\antigravity\skills\ultimate-seo-geo"
 
 # macOS / Linux
-git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/config/skills/ultimate-seo-geo
+git clone https://github.com/Ezhuk1/ultimate-seo-geo.git ~/.gemini/antigravity/skills/ultimate-seo-geo
+
+# (Ранние версии: ~/.gemini/config/skills/ultimate-seo-geo)
 ```
 
 ### Вариант Б: Локально для проекта (.agents/skills)
