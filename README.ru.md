@@ -60,7 +60,6 @@ User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
-User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Google-Extended
 User-agent: meta-externalagent
@@ -70,7 +69,7 @@ Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
 
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```
 
 ---

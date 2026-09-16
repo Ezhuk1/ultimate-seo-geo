@@ -12,7 +12,6 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **ChatGPT-User** | OpenAI | Real-time user-driven browsing in ChatGPT | Allow `/` |
 | **OAI-SearchBot** | OpenAI | Indexation for ChatGPT Search | Allow `/` |
 | **ClaudeBot** | Anthropic | Training & background knowledge | Allow `/` |
-| **Claude-User** | Anthropic | Real-time retrieval during Claude chat | Allow `/` |
 | **PerplexityBot** | Perplexity AI | Real-time web index & indexation | Allow `/` |
 | **Google-Extended** | Google | Gemini & Vertex AI model training | Allow `/` |
 | **meta-externalagent** | Meta | Meta AI search & Llama ingestion | Allow `/` |
@@ -56,7 +55,6 @@ User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
-User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Google-Extended
 User-agent: meta-externalagent
@@ -69,14 +67,14 @@ Disallow: /checkout/
 Disallow: /auth/
 
 # Sitemaps
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```
 
 ---
 
 ## 4. The `llms.txt` Standard
 
-The `llms.txt` file (placed at root: `https://yourdomain.com/llms.txt`) serves as a markdown-based manifest for Large Language Models. It tells AI models what your site does, who it serves, and which pages contain authoritative data.
+The `llms.txt` file (placed at root: `https://[YOUR_DOMAIN]/llms.txt`) serves as a markdown-based manifest for Large Language Models. It tells AI models what your site does, who it serves, and which pages contain authoritative data.
 
 ### Structural Schema:
 
@@ -97,8 +95,8 @@ The `llms.txt` file (placed at root: `https://yourdomain.com/llms.txt`) serves a
 - **Target Audience:** Exact personas and geographical coverage
 
 ## Authoritative Documentation
-- [Overview & Architecture](https://yourdomain.com/docs): Deep system dive
-- [Setup Guides](https://yourdomain.com/setup): Step-by-step device integration
-- [Status & Telemetry](https://yourdomain.com/status): Real-time uptime and performance logs
-- [Terms & Security](https://yourdomain.com/security): Data privacy and logging policies
+- [Overview & Architecture](https://[YOUR_DOMAIN]/docs): Deep system dive
+- [Setup Guides](https://[YOUR_DOMAIN]/setup): Step-by-step device integration
+- [Status & Telemetry](https://[YOUR_DOMAIN]/status): Real-time uptime and performance logs
+- [Terms & Security](https://[YOUR_DOMAIN]/security): Data privacy and logging policies
 ```

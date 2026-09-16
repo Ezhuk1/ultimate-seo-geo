@@ -44,6 +44,18 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 
 ---
 
+## Required Reference Materials & Tools
+
+**Crucial:** You MUST use the `view_file` tool to read the corresponding templates and rubrics from the `references/` directory before executing any mode.
+- For `audit` and `optimize`: Read `references/geo-framework.md` and `references/technical-seo-checklist.md`
+- For `schema`: Read `references/schema-templates.md` and strictly follow the `@graph` architecture.
+- For `ai-files`: Read `references/ai-crawler-spec.md`
+- For `strategy`: Read `references/content-strategy-ai.md`
+
+Use your available tools (e.g., `read_url_content`, `view_file`, `list_dir`) to analyze the target URL or codebase before generating outputs.
+
+---
+
 ## Detailed Execution Workflows
 
 ### Mode 1: Comprehensive Dual Audit (`audit`)
@@ -60,10 +72,10 @@ Score the target (URL, HTML file, or full codebase) across two parallel scorecar
 #### B. Generative Engine Optimization (GEO) Score (0–100) [Heuristic]
 Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (ICLR 2026):
 1. **Evidence Density (35%):**
-   - Numbers with units: $\ge 5$ specific metrics per page (e.g., latency ms, percentage, pricing, uptime).
-   - External citations: $\ge 1$ reference per 500 words linking to primary sources, RFCs, or studies.
+   - Numbers with units: >= 5 specific metrics per page (e.g., latency ms, percentage, pricing, uptime).
+   - External citations: >= 1 reference per 500 words linking to primary sources, RFCs, or studies.
    - Named entities: Full human names, specific organizations, explicit technologies.
-   - Direct quotes: $\ge 2$ verbatim statements from named experts (minimum 1 to avoid veto penalty).
+   - Direct quotes: >= 2 verbatim statements from named experts (minimum 1 to avoid veto penalty).
    - First-party telemetry/data: Proprietary benchmarks, case study metrics, or live telemetry.
 2. **Structure & Position / PAWC (25%):**
    - Direct answer front-loaded in the first 150 words (PAWC exponential decay).
@@ -72,7 +84,7 @@ Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (ICLR 2026):
    - Sequential instructions formatted in ordered lists (`<ol>`).
 3. **Authority & E-E-A-T (25%):**
    - Author byline with role and bio.
-   - Explicit `dateModified` and `<time>` tags (target freshness: $\le 60$ days; grace window: $\le 90$ days).
+   - Explicit `dateModified` and `<time>` tags (target freshness: <= 60 days; grace window: <= 90 days).
    - Methodology and technical limitations acknowledged (anti-hallucination signal).
 4. **AI Infrastructure (15%):**
    - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`).
@@ -126,7 +138,6 @@ User-agent: GPTBot
 User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
-User-agent: Claude-User
 User-agent: PerplexityBot
 User-agent: Google-Extended
 User-agent: meta-externalagent
@@ -136,11 +147,11 @@ Disallow: /api/
 Disallow: /admin/
 Disallow: /private/
 
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```
 
 #### 2. `llms.txt` Specification
-Construct a Markdown summary at `https://yourdomain.com/llms.txt`:
+Construct a Markdown summary at `https://[YOUR_DOMAIN]/llms.txt`:
 - Single H1 of the product/site.
 - Blockquote summary of core value proposition and bounds.
 - Bullet list of high-intent queries the site is authoritative to answer.
