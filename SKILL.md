@@ -126,7 +126,7 @@ Transform vague, marketing-heavy prose into high-PAWC, citable passages followin
 * **Self-Containment & Coreference Independence:** Every citable excerpt must stand independently without relying on preceding text. Avoid opening answer blocks with ambiguous referents ("They", "This tool", "It"); explicitly state the entity and technology name.
 * **Adaptive Passage Chunking:** Structure key factual claims in self-contained ~100–200 word blocks aligned with standard 256- to 512-token dense embedding windows.
 * **Definition Opening:** Place the direct answer formula in the first 40–60 words: `[Entity] is [category] designed to [outcome] by [mechanism]`.
-* **Compound Champion:** Pair fluency with numerical statistics and named source attribution for $\ge +35\%$ compounded benchmark lift.
+* **Compound Champion:** Pair fluency with numerical statistics and named source attribution (in Princeton KDD 2024 Section 5.3, Fluency + Statistics outperformed the best single individual strategy by >5.5% on the benchmark subset).
 
 **Rewrite Pattern (Front-Loading):**
 * *Before:* "In today's fast-paced digital world, choosing the right tool is essential for success. In this article, we will examine various options..."
