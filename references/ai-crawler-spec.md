@@ -13,10 +13,11 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | **OAI-SearchBot** | OpenAI | Indexation for ChatGPT Search | Allow `/` |
 | **ClaudeBot** | Anthropic | Training & background knowledge | Allow `/` |
 | **PerplexityBot** | Perplexity AI | Real-time web index & indexation | Allow `/` |
-| **Google-Extended** | Google | Gemini & Vertex AI model training | Allow `/` |
-| **meta-externalagent** | Meta | Meta AI search & Llama ingestion | Allow `/` |
+| **meta-externalagent** | Meta | Llama model training & ingestion | Allow `/` |
+| **meta-externalfetcher** | Meta | Real-time web retrieval & link previews | Allow `/` |
 | **cohere-ai** | Cohere | Enterprise RAG retrieval | Allow `/` |
 | **Bytespider** | ByteDance | Search & model retrieval | Allow `/` |
+| *Google-Extended* | Google | *Control token* (not an HTTP crawler; evaluated by Googlebot for AI training) | Opt-out only (`Disallow: /`) |
 
 ---
 
@@ -39,6 +40,8 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 ---
 
 ## 3. Production `robots.txt` Blueprint (Leak-Safe)
+> [!NOTE]
+> Grouping multiple `User-agent:` lines into a single record is fully compliant with RFC 9309 (Section 2.2.1) and supported by all major modern search and AI crawlers.
 
 ```txt
 # Standard Web Crawlers
@@ -56,9 +59,11 @@ User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
 User-agent: PerplexityBot
-User-agent: Google-Extended
 User-agent: meta-externalagent
+User-agent: meta-externalfetcher
 User-agent: cohere-ai
+# Note: Google-Extended is an opt-out control token evaluated by Googlebot, not an HTTP fetcher.
+# Add "User-agent: Google-Extended" + "Disallow: /" only if opting out of Gemini/Vertex training.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -72,9 +77,9 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ---
 
-## 4. The `llms.txt` Standard
+## 4. The `llms.txt` Proposal (Community Emerging)
 
-The `llms.txt` file (placed at root: `https://[YOUR_DOMAIN]/llms.txt`) serves as a markdown-based manifest for Large Language Models. It tells AI models what your site does, who it serves, and which pages contain authoritative data.
+The `llms.txt` format (originated by Jeremy Howard / Answer.AI) is an emerging de-facto community proposal, not a formalized IETF or W3C standard. Placed at root (`https://[YOUR_DOMAIN]/llms.txt`), it serves as a markdown-based manifest for Large Language Models. It tells AI models what your site does, who it serves, and which pages contain authoritative data.
 
 ### Structural Schema:
 

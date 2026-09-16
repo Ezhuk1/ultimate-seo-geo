@@ -25,7 +25,7 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 3. **Traditional keyword stuffing actively hurts** (causing a **−8% penalty** in AI citation likelihood).
 4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric:
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because of exponential decay, the first 150 words of an article carry **~5× more extraction weight** than trailing paragraphs.
+   Because of exponential decay, the first 150 words carry **~2.7× more extraction weight** than trailing sentences under baseline decay ($\alpha = 1.0$, $e^1 \approx 2.72$), and up to **5×** under steeper decay regimes.
 
 > **Methodology Note:** The 0–100 scores provided in audit mode represent **expert qualitative heuristic evaluations** based on the Princeton & AutoGEO rubrics. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
 
@@ -37,8 +37,8 @@ Traditional SEO optimizes for Google's **PageRank** and blue links.
 |---|---|---|
 | **1. `audit`** | `audit site`, `check SEO`, `calculate GEO score`, `why did traffic drop` | Dual qualitative scorecard: Technical SEO Score (0–100) + GEO Score (0–100) with prioritized P0/P1/P2 remediation steps. |
 | **2. `optimize`** | `rewrite for AI`, `make ChatGPT cite this`, `front-load answer`, `improve PAWC` | Converts marketing fluff into high-PAWC, evidence-dense passages using the Princeton + AutoGEO rewrite patterns. |
-| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ, and HowTo. |
-| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates leak-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest. |
+| **3. `schema`** | `generate JSON-LD`, `add schema`, `rich snippets`, `FAQ schema`, `HowTo markup` | Generates a unified, validated `@graph` Schema.org JSON-LD script connecting Organization, WebSite, WebPage, Service/Product, FAQ (for LLM answer extraction), and HowTo. |
+| **4. `ai-files`** | `setup llms.txt`, `fix robots.txt for AI`, `allow GPTBot`, `AI bot access` | Generates leak-safe `robots.txt` explicitly permitting AI search bots while protecting private routes + structured `llms.txt` manifest (community proposal). |
 | **5. `strategy`** | `AI content plan`, `topical authority map`, `keyword research`, `target AI queries` | Creates editorial clusters designed to capture long-tail conversational prompts in Perplexity and ChatGPT. |
 
 ---
@@ -61,9 +61,10 @@ User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
 User-agent: PerplexityBot
-User-agent: Google-Extended
 User-agent: meta-externalagent
+User-agent: meta-externalfetcher
 User-agent: cohere-ai
+# Note: Google-Extended is an opt-out control token for Gemini/Vertex training, not an HTTP crawler.
 Allow: /
 Disallow: /api/
 Disallow: /admin/

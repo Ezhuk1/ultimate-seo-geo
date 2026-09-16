@@ -23,6 +23,11 @@ Organization (#organization)
                        └── breadcrumb ────────► BreadcrumbList (#breadcrumbs)
 ```
 
+> [!NOTE]
+> **Google Search Policy on FAQ & HowTo (August 2023 Update):**
+> Google Search displays FAQ rich snippet accordions primarily for authoritative government and healthcare websites, and HowTo rich results only on desktop.
+> However, for **GEO (Generative Engine Optimization)** across ChatGPT, Perplexity, Claude, and Gemini, `FAQPage` remains an essential high-yield schema block: generative engines directly parse these explicit Q&A entity pairs to synthesize direct answers.
+
 ---
 
 ## 2. Complete Enterprise Unified `@graph` Master Template
@@ -104,8 +109,9 @@ Organization (#organization)
       ],
       "offers": {
         "@type": "Offer",
-        "price": 0,
+        "price": "0.00",
         "priceCurrency": "USD",
+        "priceValidUntil": "2027-12-31",
         "availability": "https://schema.org/InStock"
       }
     },

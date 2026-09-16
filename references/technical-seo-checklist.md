@@ -31,7 +31,7 @@ This reference details the core technical foundation required for modern search 
   - Format: `Primary Keyword - Secondary Benefit | Brand Name`.
   - Unique across all indexable URLs.
 - **Meta Descriptions:**
-  - Length: 130–160 characters.
+  - Length: 140–160 characters.
   - Includes value proposition, target query, and clear call-to-action.
 - **Heading Hierarchy:**
   - Exactly one `<h1>` per page reflecting the main entity or topic.

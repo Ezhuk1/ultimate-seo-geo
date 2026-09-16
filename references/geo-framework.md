@@ -20,7 +20,7 @@ This reference document synthesizes foundational research on Generative Engine O
   * $N_r$: The total number of sentences in response $r$.
   * $\alpha$: The exponential position-decay factor (typically $\alpha \approx 1.0$).
 
-  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening ($\text{pos}=0 \implies e^0 = 1.0$) conveys up to **$5\times$ greater citable weight** than a sentence near the end of a multi-paragraph response.
+  **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the response under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
 
 ### B. Empirical Method Ranking by Citation Lift
 Experiments measuring visibility improvements across generative search engines:
@@ -58,7 +58,7 @@ Generative search engines do not share the same retrieval corpus or weighting:
 |---|---|---|:---:|---|
 | **ChatGPT Search** | Wikipedia, major media, official docs | Entity verification, authoritative definitions | $\le 90$ days | Schema `Organization`, clear definitions, Wikipedia cross-reference |
 | **Perplexity AI** | Real-time web index, recent articles, Reddit | **Freshness**, primary news/blogs, clear headers | **$\le 60$ days** | Explicit `<time>` tags, `dateModified`, monthly updates |
-| **Google AI Overviews** | Google index top 10, featured snippets | Semantic header hierarchy, tables, FAQ schema | $\le 90$ days | Strict H1→H2→H3, HTML `<table>`, JSON-LD `FAQPage` |
+| **Google AI Overviews** | Google index top 10, featured snippets | Semantic header hierarchy, tables, FAQ schema* | $\le 90$ days | Strict H1→H2→H3, HTML `<table>`, JSON-LD `FAQPage` (*Note: Google SERP FAQ rich snippets restricted to gov/health in Aug 2023; retained here for LLM answer extraction) |
 | **Claude** | Primary academic sources, official docs | Deep reasoning, nuanced tradeoffs, methodology | $\le 90$ days | Disclosing technical limitations, citing RFCs/papers |
 | **Gemini** | Google Knowledge Graph, YouTube, forums | Entity recognition, structured step-by-step solutions | $\le 90$ days | YouTube video schema, `HowTo` schema, Knowledge Graph |
 

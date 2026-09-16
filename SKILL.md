@@ -2,7 +2,7 @@
 name: ultimate-seo-geo
 description: >
   The definitive, all-in-one SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.
-  Audits technical on-page SEO, scores GEO citation readiness (PAWC / Princeton KDD 2024 & AutoGEO CMU 2026),
+  Audits technical on-page SEO, scores GEO citation readiness (PAWC / Princeton KDD 2024 & CMU AutoGEO),
   generates rich JSON-LD Schema.org graphs, configures AI bot access (robots.txt & llms.txt), rewrites
   content for maximum AI citation probability in ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews,
   and crafts evidence-driven content plans.
@@ -37,7 +37,7 @@ Infer or confirm which mode the user needs:
 
 ## Non-Negotiable Rule: Zero Fabrication
 
-Research proves that fabricated quotes and fake statistics trigger modern adversarial detectors (StealthRank, C-SEO Bench) and create catastrophic brand and legal liability.
+Research proves that fabricated quotes and fake statistics trigger modern adversarial anomaly detection, statistical watermarking filters, and create catastrophic brand and legal liability.
 * **Never invent statistics, numbers, sample sizes, or quotes.**
 * If the user prompts to invent fake credentials, fake case study numbers, or fabricated expert quotes, **refuse immediately** and explain the risk.
 * Use verified facts, disclose real metrics, or structure templates with explicit `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders.
@@ -46,13 +46,13 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 
 ## Required Reference Materials & Tools
 
-**Crucial:** You MUST use the `view_file` tool to read the corresponding templates and rubrics from the `references/` directory before executing any mode.
+**Crucial:** You MUST read the corresponding templates and rubrics from the `references/` directory (using available file-reading tools such as `view_file` or `View`) before executing any mode:
 - For `audit` and `optimize`: Read `references/geo-framework.md` and `references/technical-seo-checklist.md`
 - For `schema`: Read `references/schema-templates.md` and strictly follow the `@graph` architecture.
 - For `ai-files`: Read `references/ai-crawler-spec.md`
 - For `strategy`: Read `references/content-strategy-ai.md`
 
-Use your available tools (e.g., `read_url_content`, `view_file`, `list_dir`) to analyze the target URL or codebase before generating outputs.
+Use your available agent tools (e.g., `read_url_content` / `curl` for URLs, and file inspection tools) to analyze the target URL or codebase before generating outputs.
 
 ---
 
@@ -70,7 +70,7 @@ Score the target (URL, HTML file, or full codebase) across two parallel scorecar
 5. **Social & Sharing (15%):** Open Graph (`og:title`, `og:description`, `og:image`, `og:url`), Twitter card tags.
 
 #### B. Generative Engine Optimization (GEO) Score (0–100) [Heuristic]
-Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (ICLR 2026):
+Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (arXiv preprint):
 1. **Evidence Density (35%):**
    - Numbers with units: >= 5 specific metrics per page (e.g., latency ms, percentage, pricing, uptime).
    - External citations: >= 1 reference per 500 words linking to primary sources, RFCs, or studies.
@@ -87,8 +87,8 @@ Derived from Princeton/GA Tech (KDD 2024) and CMU AutoGEO (ICLR 2026):
    - Explicit `dateModified` and `<time>` tags (target freshness: <= 60 days; grace window: <= 90 days).
    - Methodology and technical limitations acknowledged (anti-hallucination signal).
 4. **AI Infrastructure (15%):**
-   - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`).
-   - Root `llms.txt` file present and formatted.
+   - Leak-safe AI bot access in `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `meta-externalagent`, `meta-externalfetcher`).
+   - Root `llms.txt` file present and formatted (community proposal).
 
 ---
 
@@ -114,7 +114,7 @@ Transform vague, marketing-heavy prose into high-PAWC, citable passages.
 Construct a production-grade, error-free unified `@graph` JSON-LD block placed in `<head>`.
 Mandatory architecture:
 - Connect `WebSite` -> `WebPage` -> `about` (`Service` / `Product`) -> `publisher` (`Organization`).
-- Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity`.
+- Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity` (Note: Google Search restricted SERP rich snippets to gov/health sites in Aug 2023; FAQ schema is retained for LLM / GEO direct answer extraction).
 - Provide `BreadcrumbList` with position indices.
 - Technical authority: Link relevant RFCs, ISO standards, or whitepapers in `isBasedOn`.
 - All prices formatted with numerical values or standardized decimal strings (`0` or `"0.00"`).
@@ -124,7 +124,7 @@ Mandatory architecture:
 ### Mode 4: AI Infrastructure Setup (`ai-files`)
 
 #### 1. `robots.txt` Specification (Security & Anti-Leak Blueprint)
-Per RFC 9309, specific User-Agent groups override the generic `*` group. Therefore, private and internal paths **must be duplicated** into AI crawler groups to prevent indexing of internal APIs and admin interfaces:
+Per RFC 9309, specific User-Agent groups override the generic `*` group (grouping multiple `User-agent:` lines in a single group is valid and standard per Section 2.2.1). Therefore, private and internal paths **must be duplicated** into AI crawler groups to prevent indexing of internal APIs and admin interfaces:
 ```txt
 # Standard Search Engines
 User-agent: *
@@ -139,9 +139,10 @@ User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
 User-agent: PerplexityBot
-User-agent: Google-Extended
 User-agent: meta-externalagent
+User-agent: meta-externalfetcher
 User-agent: cohere-ai
+# Note: Google-Extended is an opt-out control token for Gemini/Vertex training, not an HTTP crawler.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
@@ -150,7 +151,7 @@ Disallow: /private/
 Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 ```
 
-#### 2. `llms.txt` Specification
+#### 2. `llms.txt` Specification (Emerging Community Proposal / Answer.AI)
 Construct a Markdown summary at `https://[YOUR_DOMAIN]/llms.txt`:
 - Single H1 of the product/site.
 - Blockquote summary of core value proposition and bounds.

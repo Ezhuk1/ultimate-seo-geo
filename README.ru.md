@@ -25,7 +25,7 @@
 3. **Классический переспам ключами (Keyword Stuffing) активно вредит** (снижает вероятность цитирования на **−8%**).
 4. **Позиция ответа критична (Метрика PAWC):**  
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   В силу экспоненциального затухания, первые 150 слов статьи несут в **~5 раз больший вес** для извлечения моделью, чем завершающие абзацы.
+   В силу экспоненциального затухания, первые 150 слов несут в **~2.7 раза больший вес** для извлечения моделью при базовом затухании ($\alpha = 1.0$, где $e^1 \approx 2.72$) и до **5 раз** при более крутых штрафах позиции.
 
 > **Примечание по методологии:** Скоринг 0–100 в режиме аудита представляет собой **экспертную качественную эвристику (LLM Heuristic Evaluation)** по чек-листам Принстона и AutoGEO. Для детерминированных измерений Core Web Vitals и сети комбинируйте скилл с утилитами командной строки (`lighthouse-cli`, `curl -I`).
 
@@ -37,8 +37,8 @@
 |---|---|---|
 | **1. `audit`** | `аудит сайта`, `проверь SEO`, `посчитай GEO score`, `почему упал трафик` | Параллельный качественный аудит: Технический SEO Score (0–100) + GEO Score (0–100) с планом правок P0 / P1 / P2. |
 | **2. `optimize`** | `перепиши под AI`, `сделай чтобы ChatGPT цитировал`, `front-load`, `улучши PAWC` | Превращает водянистые рекламные тексты в плотные блоки по формулам Принстона и CMU AutoGEO. |
-| **3. `schema`** | `сгенерируй JSON-LD`, `добавь микроразметку`, `rich snippets`, `FAQ schema`, `HowTo` | Создает валидный объединенный `@graph` JSON-LD блок в `<head>`, связывающий Organization, WebSite, WebPage, Service, FAQ и HowTo. |
-| **4. `ai-files`** | `настрой llms.txt`, `исправь robots.txt для AI`, `открой доступ GPTBot` | Формирует безопасный `robots.txt` с защитой от утечек приватных роутов + файл-манифест `llms.txt`. |
+| **3. `schema`** | `сгенерируй JSON-LD`, `добавь микроразметку`, `rich snippets`, `FAQ schema`, `HowTo` | Создает валидный объединенный `@graph` JSON-LD блок в `<head>`, связывающий Organization, WebSite, WebPage, Service, FAQ (для RAG-извлечения ответов LLM) и HowTo. |
+| **4. `ai-files`** | `настрой llms.txt`, `исправь robots.txt для AI`, `открой доступ GPTBot` | Формирует безопасный `robots.txt` с защитой от утечек приватных роутов + файл-манифест `llms.txt` (комьюнити-пропозал). |
 | **5. `strategy`** | `контент-план под AI`, `карта тематического авторитета`, `семантическое ядро` | Проектирует кластеры статей и лендингов, ориентированных на длинные диалоговые запросы в Perplexity и ChatGPT. |
 
 ---
@@ -61,9 +61,10 @@ User-agent: ChatGPT-User
 User-agent: OAI-SearchBot
 User-agent: ClaudeBot
 User-agent: PerplexityBot
-User-agent: Google-Extended
 User-agent: meta-externalagent
+User-agent: meta-externalfetcher
 User-agent: cohere-ai
+# Примечание: Google-Extended — это токен управления обучением Gemini/Vertex для Googlebot, а не отдельный HTTP-краулер.
 Allow: /
 Disallow: /api/
 Disallow: /admin/
