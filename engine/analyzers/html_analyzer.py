@@ -129,6 +129,9 @@ class DocumentParser(HTMLParser):
                 })
             self.current_heading_tag = None
             self.current_heading_text = []
+        elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main"):
+            if self.visible_text_parts and self.visible_text_parts[-1] != "\n\n":
+                self.visible_text_parts.append("\n\n")
 
     def handle_data(self, data: str):
         if self.in_title:
@@ -176,7 +179,15 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
     missing_alt_count = sum(1 for img in parser.images if img["alt"] is None or img["alt"].strip() == "")
     missing_dims_count = sum(1 for img in parser.images if not img["has_dimensions"])
 
-    full_text = " ".join(parser.visible_text_parts)
+    full_text_chunks = []
+    for part in parser.visible_text_parts:
+        if part == "\n\n":
+            full_text_chunks.append("\n\n")
+        else:
+            if full_text_chunks and full_text_chunks[-1] != "\n\n":
+                full_text_chunks.append(" ")
+            full_text_chunks.append(part)
+    full_text = "".join(full_text_chunks)
 
     return {
         "title": {
