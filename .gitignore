@@ -1,0 +1,15 @@
+# OS & Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+.vscode/
+.idea/
+
+# Node / Scratch
+node_modules/
+dist/
+build/
+*.log
+scratch/
+tmp/

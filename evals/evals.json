@@ -1,0 +1,53 @@
+{
+  "name": "ultimate-seo-geo-evals",
+  "evals": [
+    {
+      "id": "audit-landing-page",
+      "prompt": "Run a full SEO and GEO audit on our homepage https://bezmezhau.com and give us a score breakdown.",
+      "expected_mode": "audit",
+      "required_outputs": [
+        "Technical SEO Score (0-100)",
+        "GEO Score (0-100)",
+        "Evidence Density",
+        "Structure & Position",
+        "Authority & E-E-A-T",
+        "AI Crawlability",
+        "Prioritized Action Items"
+      ]
+    },
+    {
+      "id": "generate-schema",
+      "prompt": "Generate a unified Schema.org JSON-LD graph for a SaaS network tool with Organization, Service, FAQ, and HowTo for Android.",
+      "expected_mode": "schema",
+      "required_outputs": [
+        "@context: https://schema.org",
+        "@graph",
+        "Organization",
+        "Service",
+        "HowTo",
+        "FAQPage",
+        "dateModified"
+      ]
+    },
+    {
+      "id": "ai-infrastructure-files",
+      "prompt": "Generate robots.txt and llms.txt for our domain to ensure full compatibility with GPTBot and PerplexityBot.",
+      "expected_mode": "ai-files",
+      "required_outputs": [
+        "robots.txt with explicit GPTBot, ClaudeBot, PerplexityBot allow rules",
+        "llms.txt with H1, blockquote, query list, and technical specifications"
+      ]
+    },
+    {
+      "id": "rewrite-for-pawc",
+      "prompt": "Rewrite this vague paragraph about our encrypted DNS service to maximize AI citation probability.",
+      "expected_mode": "optimize",
+      "required_outputs": [
+        "Front-loaded sentence in first 150 words",
+        "Numerical metrics with units",
+        "Reference to RFC standard or primary citation",
+        "Elimination of generic filler / keyword stuffing"
+      ]
+    }
+  ]
+}
