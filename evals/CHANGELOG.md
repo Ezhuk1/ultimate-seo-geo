@@ -2,6 +2,14 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [2.1.0] - 2026-09-17
+
+### Added
+- **CSR Empty Shell Detection (`TECH-CSR-SHELL-008`):** Deterministic detection of client-side rendered mounts (`div#root`, `div#app`, `div#__next`) with empty/sparse text. Warns of complete invisibility to fast AI search crawlers (`GPTBot`, `ClaudeBot`, `PerplexityBot`) that do not execute client-side JavaScript.
+- **Standalone Schema.org AST Validator CLI (`--validate-schema`):** Pre-flight validation of JSON-LD snippets before presentation to users, catching broken `@id` cross-references (`SCHEMA-BROKEN-REF-005`), invalid ISO 8601 date formats (`SCHEMA-DATE-FORMAT-006`), and non-numeric price formats (`SCHEMA-PRICE-FORMAT-003`).
+- **Strict Just-In-Time (JIT) Reference Loading in `SKILL.md`:** Prohibits eager loading of all 5 reference manuals simultaneously. Limits reference reading strictly to the single targeted file needed for the active mode, protecting agent context window from "lost in the middle" degradation.
+- **New Integration Tests:** Added `test_csr_shell_detection` and `test_schema_standalone_validator` to `evals/test_engine.py` (6/6 engine tests passing).
+
 ## [2.0.0] - 2026-09-17
 
 ### Added

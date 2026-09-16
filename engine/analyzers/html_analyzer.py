@@ -33,9 +33,17 @@ class DocumentParser(HTMLParser):
         self.visible_text_parts = []
         self._current_script_text = []
 
+        # CSR / SPA Shell detection
+        self.csr_mount_elements = []
+        self.has_client_bundle = False
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
+
+        tag_id = attr_dict.get("id", "").lower()
+        if tag_id in ("root", "app", "__next", "__nuxt"):
+            self.csr_mount_elements.append(f"{tag}#{tag_id}")
 
         if tag == "title":
             self.in_title = True
@@ -45,6 +53,9 @@ class DocumentParser(HTMLParser):
             self.in_script = True
             self.current_script_type = attr_dict.get("type", "").lower()
             self._current_script_text = []
+            script_src = attr_dict.get("src", "").lower()
+            if script_src and any(pattern in script_src for pattern in ("chunk", "bundle", "main.", "app.", "/static/js/", "_next/static/")):
+                self.has_client_bundle = True
         elif tag == "meta":
             name = attr_dict.get("name", "").lower()
             prop = attr_dict.get("property", "").lower()
@@ -201,5 +212,11 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "json_ld_raw_blocks": parser.json_ld_blocks,
         "visible_text": full_text,
         "visible_text_preview": full_text[:1000] if full_text else "",
-        "word_count": len(full_text.split())
+        "word_count": len(full_text.split()),
+        "csr_detection": {
+            "is_csr_shell": (bool(parser.csr_mount_elements) and len(full_text.split()) < 35) or (parser.has_client_bundle and len(full_text.split()) < 25),
+            "mount_elements": parser.csr_mount_elements,
+            "has_client_bundle": parser.has_client_bundle,
+            "visible_word_count": len(full_text.split())
+        }
     }

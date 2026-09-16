@@ -197,10 +197,97 @@ def test_unknown_signal_invariant():
     print("[PASS] test_unknown_signal_invariant")
 
 
+def test_csr_shell_detection():
+    """Verifies that empty client-side rendering mounts are caught with TECH-CSR-SHELL-008."""
+    csr_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>My Client-Side Single Page Application</title>
+    <meta name="description" content="A client side rendered React application shell that loads data via client-side fetch API.">
+    <link rel="canonical" href="https://example.com/app">
+    <script src="/static/js/main.c498ef.chunk.js" defer></script>
+</head>
+<body>
+    <div id="root"></div>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+</body>
+</html>"""
+
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(csr_html)
+
+    try:
+        ledger, scores = run_inspection(path)
+        rule_ids = {f.rule_id for f in ledger.findings}
+        assert "TECH-CSR-SHELL-008" in rule_ids, "Expected TECH-CSR-SHELL-008 to be flagged for empty div#root"
+        csr_ev = next(e for e in ledger.evidence if e.rule_id == "TECH-CSR-SHELL-008")
+        assert csr_ev.status == "CRITICAL"
+        assert "Fast AI search crawlers" in csr_ev.message
+        print("[PASS] test_csr_shell_detection")
+    finally:
+        os.remove(path)
+
+
+def test_schema_standalone_validator():
+    """Verifies validate_schema_snippet catches broken @id references, bad prices, and invalid dates."""
+    from engine.analyzers.schema_analyzer import validate_schema_snippet
+
+    valid_schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://example.com/#site",
+                "name": "Example Corp",
+                "url": "https://example.com"
+            },
+            {
+                "@type": "WebPage",
+                "@id": "https://example.com/#page",
+                "name": "Example Page",
+                "isPartOf": {"@id": "https://example.com/#site"},
+                "datePublished": "2026-05-15T08:00:00Z",
+                "dateModified": "2026-05-16"
+            }
+        ]
+    }
+
+    is_valid, errors, res = validate_schema_snippet(valid_schema)
+    assert is_valid is True, f"Expected valid schema, got errors: {errors}"
+    assert len(errors) == 0
+
+    broken_schema = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": "https://example.com/#page",
+                "name": "Page with Broken Ref and Bad Date",
+                "author": {"@id": "https://example.com/#nonexistent_author"},
+                "datePublished": "15 May 2026"
+            },
+            {
+                "@type": "Offer",
+                "price": "$199.99"
+            }
+        ]
+    }
+
+    is_valid_broken, errors_broken, res_broken = validate_schema_snippet(broken_schema)
+    assert is_valid_broken is False, "Expected broken schema to fail validation"
+    assert any("SCHEMA-BROKEN-REF-005" in e for e in errors_broken), "Missing broken ref error"
+    assert any("SCHEMA-DATE-FORMAT-006" in e for e in errors_broken), "Missing invalid date error"
+    assert any("SCHEMA-PRICE-FORMAT-003" in e for e in errors_broken), "Missing invalid price error"
+    print("[PASS] test_schema_standalone_validator")
+
+
 if __name__ == "__main__":
-    print("Running Engine v2.0.0 integration suite...")
+    print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
     test_unknown_signal_invariant()
-    print("All Engine v2.0.0 tests passed successfully!")
+    test_csr_shell_detection()
+    test_schema_standalone_validator()
+    print("All Engine v2.1.0 tests passed successfully!")

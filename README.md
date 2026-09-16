@@ -147,16 +147,19 @@ Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech K
 
 ---
 
-## 🖥️ Autonomous Inspection Engine CLI (v2.0.0)
+## 🖥️ Autonomous Inspection Engine CLI (v2.1.0)
 
 `ultimate-seo-geo` includes a built-in, autonomous deterministic inspection engine with **zero external dependencies** (pure Python 3.10+ standard library). It inspects targets in <500ms and compiles a cryptographically hashed Evidence Ledger:
 
 ```bash
-# Audit a live website with AI bot simulation
+# Audit a live website with AI bot simulation & CSR shell detection
 python -m engine.inspector https://example.com
 
 # Audit a local HTML build artifact or template
 python -m engine.inspector path/to/page.html
+
+# Validate standalone Schema.org JSON-LD before deployment
+python -m engine.inspector --validate-schema path/to/schema.json
 
 # Output machine-readable JSON for CI/CD quality gates
 python -m engine.inspector https://example.com --format json --output audit-report.json
@@ -166,8 +169,9 @@ python -m engine.inspector https://example.com --robots path/to/custom-robots.tx
 ```
 
 ### Deterministic Engine Capabilities
+- **Client-Side Rendering (CSR) Empty Shell Detection (`TECH-CSR-SHELL-008`):** Flags empty mounts (`<div id="root">`, `<div id="app">`, `<div id="__next">`) that lack server-rendered text. AI search bots (`GPTBot`, `ClaudeBot`, `PerplexityBot`) do not execute JavaScript; CSR shells render pages completely invisible to LLM retrieval.
+- **Standalone Schema.org AST Validator (`--validate-schema`):** Pre-flight validation of JSON-LD snippets checking for broken `@id` cross-references, ISO 8601 date formats (`datePublished`, `dateModified`), and Google Merchant offer price formats.
 - **RFC 9309 AI Crawler Access Simulator:** Parses robots.txt AST and computes deterministic access rights for `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, and search bots using longest-match and Allow-precedence rules.
-- **Schema.org AST & Graph Analyzer:** Verifies JSON-LD syntax, validates unified `@graph` cross-references via `@id`, catches orphaned entities, and validates Google Merchant offer price formats.
 - **Content & GEO Readiness Analyzer:** Quantifies direct answer frontloading in the opening block, detects conversational fluff, analyzes passage chunking distributions, and checks coreference independence.
 - **Evidence Ledger Protocol:** Enforces the 4-layer pipeline (`RAW` -> `SIGNAL` -> `EVIDENCE` -> `FINDING`) with SHA-256 payload provenance.
 - **Strict "Unknown != Failure" Invariant:** Unobserved signals (e.g., real-user CrUX field data when API keys are absent) are recorded with 0 penalty and segregated from verified defects.

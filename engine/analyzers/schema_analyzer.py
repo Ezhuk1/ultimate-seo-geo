@@ -250,4 +250,69 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                 details={"author_name": name, "profiles": profiles}
             ))
 
+    # 6. Check Broken @id References (SCHEMA-BROKEN-REF-005)
+    # References pointing to an @id not declared anywhere in this graph
+    broken_refs = [
+        ref for ref in result.referenced_ids
+        if ref not in result.entity_ids and (ref.startswith("#") or any(ref.startswith(eid.split("#")[0]) for eid in result.entity_ids if "#" in eid))
+    ]
+    for b_ref in broken_refs:
+        result.findings.append(SchemaFinding(
+            rule_id="SCHEMA-BROKEN-REF-005",
+            severity="CRITICAL",
+            entity_type=None,
+            message=f"Broken entity reference: '@id' '{b_ref}' referenced in property does not exist in the @graph.",
+            details={"broken_id": b_ref}
+        ))
+
+    # 7. Check ISO 8601 Date Formats (SCHEMA-DATE-FORMAT-006)
+    iso_date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$")
+    for entity in result.entities:
+        for date_key in ("datePublished", "dateModified"):
+            val = entity.get(date_key)
+            if val is not None:
+                val_str = str(val).strip()
+                if not iso_date_pattern.match(val_str):
+                    result.findings.append(SchemaFinding(
+                        rule_id="SCHEMA-DATE-FORMAT-006",
+                        severity="CRITICAL",
+                        entity_type=entity.get("@type"),
+                        message=f"Invalid {date_key} format '{val}'. Schema.org strictly requires ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
+                        details={"key": date_key, "invalid_value": val}
+                    ))
+
     return result
+
+
+def validate_schema_snippet(snippet: str | dict | list) -> tuple[bool, list[str], SchemaAnalysisResult]:
+    """
+    Validates a standalone Schema.org JSON-LD snippet (string, dict, or list).
+    Returns (is_valid, list_of_errors, SchemaAnalysisResult).
+    """
+    errors = []
+    if isinstance(snippet, str):
+        clean_text = snippet.strip()
+        # Strip code fences if present
+        clean_text = re.sub(r"^```(?:json)?\s*", "", clean_text, flags=re.IGNORECASE)
+        clean_text = re.sub(r"\s*```$", "", clean_text)
+        clean_text = re.sub(r"<\/?script[^>]*>", "", clean_text, flags=re.IGNORECASE).strip()
+        try:
+            parsed = json.loads(clean_text)
+            blocks = [clean_text]
+        except json.JSONDecodeError as exc:
+            err = f"JSON syntax error: {exc.msg} at line {exc.lineno}:{exc.colno}"
+            return False, [err], SchemaAnalysisResult(syntax_errors=[err])
+    elif isinstance(snippet, (dict, list)):
+        blocks = [json.dumps(snippet)]
+    else:
+        return False, ["Snippet must be a JSON string, dict, or list"], SchemaAnalysisResult()
+
+    result = analyze_json_ld(blocks)
+    critical_or_warn = [
+        f"[{fnd.severity}] {fnd.rule_id}: {fnd.message}"
+        for fnd in result.findings
+        if fnd.severity in ("CRITICAL", "WARNING")
+    ]
+    is_valid = len(critical_or_warn) == 0 and len(result.syntax_errors) == 0
+    return is_valid, critical_or_warn, result
+

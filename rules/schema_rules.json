@@ -41,6 +41,26 @@
       "selector": "Person.sameAs",
       "description": "Authors should provide sameAs array linking to Wikidata, ORCID, LinkedIn, or GitHub.",
       "remediation": "Add sameAs: ['https://orcid.org/...', 'https://linkedin.com/in/...'] to author Person nodes."
+    },
+    {
+      "id": "SCHEMA-BROKEN-REF-005",
+      "name": "Broken Entity @id Cross-Reference",
+      "tier": "Tier A (W3C JSON-LD Graph Integrity)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "@graph @id reference",
+      "description": "A node in the @graph points to an @id URI that is not defined anywhere in the graph.",
+      "remediation": "Ensure every entity referenced via @id is explicitly declared as a node within the @graph."
+    },
+    {
+      "id": "SCHEMA-DATE-FORMAT-006",
+      "name": "ISO 8601 Date Format Compliance",
+      "tier": "Tier A (W3C / Schema.org Date Standard)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "datePublished, dateModified",
+      "description": "Dates must strictly follow ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
+      "remediation": "Convert date strings to standard ISO 8601 format (e.g. '2026-05-15T08:00:00Z')."
     }
   ]
 }

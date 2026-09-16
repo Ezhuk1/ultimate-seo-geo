@@ -71,6 +71,16 @@
       "selector": "CrUX API",
       "description": "Real-user field measurements (LCP <= 2.5s, INP <= 200ms, CLS <= 0.1).",
       "remediation": "Inspect field metrics via Google Search Console CrUX report."
+    },
+    {
+      "id": "TECH-CSR-SHELL-008",
+      "name": "Client-Side Rendering (CSR) Empty Shell Invisibility",
+      "tier": "Tier A (HTTP Protocol & Crawler Indexation)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "div#root, div#app, div#__next",
+      "description": "Pages relying on client-side rendering with empty initial HTML shells are invisible to fast AI search crawlers (GPTBot, ClaudeBot, PerplexityBot) that do not execute JavaScript.",
+      "remediation": "Implement Server-Side Rendering (SSR), Static Site Generation (SSG), or pre-rendering so that semantic HTML and Schema.org are delivered in the initial HTTP wire payload."
     }
   ]
 }

@@ -50,13 +50,19 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 
 ---
 
-## Required Reference Materials & Tools
+## Required Reference Materials & Tools: Strict Just-In-Time (JIT) Loading
 
-**Crucial:** You MUST read the corresponding templates and rubrics from the `references/` directory (using your environment's file reading tools, e.g., `view_file`, `Read`, or `cat`) before executing any mode:
-- For `audit` and `optimize`: Read `references/geo-framework.md` and `references/technical-seo-checklist.md`
-- For `schema`: Read `references/schema-templates.md` and strictly follow the `@graph` architecture.
-- For `ai-files`: Read `references/ai-crawler-spec.md`
-- For `strategy`: Read `references/content-strategy-ai.md`
+> [!IMPORTANT]
+> **Context Window Protection (Zero Eager Loading / Strict JIT):**
+> DO NOT load all reference documents simultaneously! Reading all 5 manuals eagerly burns over 40,000 tokens, dilutes agent focus, and causes severe "lost in the middle" quality degradation.
+> You MUST read **ONLY** the single, targeted reference file corresponding to the active mode:
+> - **Mode 1 (`audit`):** If running CLI engine (`python -m engine.inspector`), no reference files need to be loaded into context! If manually auditing, read `references/technical-seo-checklist.md` and `references/geo-framework.md`.
+> - **Mode 2 (`optimize`):** Read ONLY `references/geo-framework.md`.
+> - **Mode 3 (`schema`):** Read ONLY `references/schema-templates.md`.
+> - **Mode 4 (`ai-files`):** Read ONLY `references/ai-crawler-spec.md`.
+> - **Mode 5 (`strategy`):** Read ONLY `references/content-strategy-ai.md`.
+>
+> Reading references from uninvoked modes during single-mode execution is strictly prohibited.
 
 Use your available environment tools (e.g., `read_url_content`, `webfetch`, or `curl` for URLs; local file inspection for codebases) to analyze the target URL or files before generating outputs.
 
@@ -146,6 +152,14 @@ Architecture guidelines:
 - Provide `BreadcrumbList` with position indices `[STANDARD]`.
 - Technical authority: Link relevant RFCs, ISO standards, or whitepapers in `isBasedOn` `[RESEARCH]`.
 - All prices formatted with numerical values or standardized decimal strings (`0` or `"0.00"`) `[STANDARD]`.
+- Dates formatted strictly as ISO 8601 (`YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`) `[STANDARD]`.
+
+#### Pre-Flight Automated Validation
+Before presenting generated JSON-LD markup to the user, execute the deterministic schema AST validator:
+```bash
+python -m engine.inspector --validate-schema "path/to/schema.json"
+```
+Ensures 0 broken `@id` references, standard ISO 8601 dates, and compliant offer price formats before user handoff.
 
 ---
 

@@ -147,16 +147,19 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ---
 
-## 🖥️ Консольный движок автономного аудита CLI (v2.0.0)
+## 🖥️ Консольный движок автономного аудита CLI (v2.1.0)
 
 `ultimate-seo-geo` включает встроенный детерминированный движок аудита с **нулевыми внешними зависимостями** (работает на стандартной библиотеке Python 3.10+ быстрее 500 мс). Он проверяет цели и формирует криптографически верифицированный Evidence Ledger с хэшем SHA-256:
 
 ```bash
-# Аудит живого сайта с симуляцией поисковых AI-ботов
+# Аудит живого сайта с симуляцией поисковых AI-ботов и детекцией CSR-пустышек
 python -m engine.inspector https://example.com
 
 # Аудит локального HTML-файла или артефакта сборки
 python -m engine.inspector path/to/page.html
+
+# Валидация сгенерированной разметки Schema.org JSON-LD перед деплоем
+python -m engine.inspector --validate-schema path/to/schema.json
 
 # Экспорт машиночитаемого JSON для CI/CD quality gates
 python -m engine.inspector https://example.com --format json --output audit-report.json
@@ -166,8 +169,9 @@ python -m engine.inspector https://example.com --robots path/to/custom-robots.tx
 ```
 
 ### Возможности детерминированного движка:
+- **Детекция пустых CSR-оболочек (`TECH-CSR-SHELL-008`):** Выявление пустых клиентских контейнеров (`<div id="root">`, `<div id="app">`, `<div id="__next">`) без серверного рендеринга. Быстрые поисковые AI-краулеры (`GPTBot`, `ClaudeBot`, `PerplexityBot`) не исполняют JavaScript; CSR-пустышки делают страницу полностью невидимой для LLM-синтеза.
+- **Автономный валидатор Schema.org AST (`--validate-schema`):** Pre-flight проверка сниппетов JSON-LD на битые перекрёстные ссылки `@id`, соответствие дат стандарту ISO 8601 (`datePublished`, `dateModified`) и соблюдение числовых форматов цен Google Merchant.
 - **Симулятор доступа AI-краулеров по RFC 9309:** Парсинг AST robots.txt и детерминированная симуляция прав доступа для `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended` по правилам наибольшего совпадения (longest-match) и приоритета Allow.
-- **Анализатор графа и AST Schema.org:** Проверка синтаксиса JSON-LD, верификация перекрёстных связей в едином `@graph` через `@id`, обнаружение изолированных сущностей (orphans) и валидация цен Google Merchant.
 - **Анализатор контента и готовности к GEO:** Детекция прямого ответа в первом блоке, выявление вводного "воды"-текста, анализ распределения длины пассажей и проверка независимости местоимений (coreference).
 - **Протокол Evidence Ledger:** 4-уровневый конвейер (`RAW` -> `SIGNAL` -> `EVIDENCE` -> `FINDING`) с фиксацией SHA-256 хэша входящего контента.
 - **Строгий инвариант "Unknown != Failure":** Неизмеренные сигналы (например, реальные полевые данные CrUX при отсутствии API-ключа) не снижают балл и изолируются от подтвержденных дефектов.

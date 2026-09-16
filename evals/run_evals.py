@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v2.0.0)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v2.1.0)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
 Evidence Ledger formatting, UNKNOWN signal handling, negative mutation test cases,
-and Autonomous Engine v2.0.0 deterministic inspection suite.
+and Autonomous Engine v2.1.0 deterministic inspection suite.
 """
 
 import json
@@ -908,13 +908,15 @@ def main():
         if ok:
             mutations_passed += 1
 
-    # 4. Autonomous Inspection Engine (v2.0.0) Integration Suite
-    print("\n--- 3. Autonomous Inspection Engine (v2.0.0) Integration Suite ---")
+    # 4. Autonomous Inspection Engine (v2.1.0) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v2.1.0) Integration Suite ---")
     from evals.test_engine import (
         test_clean_page_inspection,
         test_defective_page_detection,
         test_robots_simulator_rfc9309,
         test_unknown_signal_invariant,
+        test_csr_shell_detection,
+        test_schema_standalone_validator,
     )
 
     engine_tests = [
@@ -922,6 +924,8 @@ def main():
         ("test_defective_page_detection", test_defective_page_detection),
         ("test_robots_simulator_rfc9309", test_robots_simulator_rfc9309),
         ("test_unknown_signal_invariant", test_unknown_signal_invariant),
+        ("test_csr_shell_detection", test_csr_shell_detection),
+        ("test_schema_standalone_validator", test_schema_standalone_validator),
     ]
 
     engine_passed = 0
@@ -943,7 +947,7 @@ def main():
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
     ):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.0.0 tests are healthy.")
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.1.0 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")

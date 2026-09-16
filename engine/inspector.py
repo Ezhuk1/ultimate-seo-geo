@@ -17,7 +17,7 @@ from typing import Optional, Dict, Any, List
 from .analyzers.http_analyzer import analyze_target_http
 from .analyzers.html_analyzer import analyze_target_html
 from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
-from .analyzers.schema_analyzer import analyze_json_ld
+from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
 from .ledger import (
     LedgerBuilder,
@@ -309,6 +309,47 @@ def run_inspection(
             message="Single H1 heading present."
         )
 
+    # TECH-CSR-SHELL-008: Client-Side Rendering (CSR) Empty Shell
+    csr_info = html_data.get("csr_detection", {})
+    builder.add_signal("html_is_csr_shell", "Client-Side Rendering (CSR) Empty Shell Detected", csr_info.get("is_csr_shell", False))
+    if csr_info.get("is_csr_shell", False):
+        mounts_str = ", ".join(csr_info.get("mount_elements", [])) or "JS bundle container"
+        w_count = csr_info.get("visible_word_count", 0)
+        builder.add_evidence(
+            rule_id="TECH-CSR-SHELL-008",
+            category="technical",
+            title="Client-Side Rendering (CSR) Empty Shell Invisibility",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"CSR mount [{mounts_str}] with only {w_count} visible word(s)",
+            expected="Server-rendered semantic HTML payload",
+            message="Empty Client-Side Rendering (CSR) shell detected. Fast AI search crawlers (GPTBot, ClaudeBot, PerplexityBot) do NOT execute client-side JavaScript. This page is completely invisible to AI search engines."
+        )
+        builder.add_finding(
+            rule_id="TECH-CSR-SHELL-008",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Client-Side Rendering (CSR) Empty Shell Invisibility",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[
+                "Implement Server-Side Rendering (SSR) via Next.js, Nuxt, Astro, or Remix so that HTML and Schema.org are delivered in the initial HTTP wire response.",
+                "Verify crawlability with 'curl -s <URL>' - if main content is missing in the curl response, AI search engines will not index it."
+            ],
+            impact_estimate="Total invisibility and de-indexing from AI search models (GPTBot, ClaudeBot, PerplexityBot, CCBot)."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-CSR-SHELL-008",
+            category="technical",
+            title="Client-Side Rendering (CSR) Empty Shell Invisibility",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Semantic content present in initial HTML payload",
+            expected="Server-rendered semantic HTML payload",
+            message="Initial HTML payload contains readable semantic content (not an empty CSR shell)."
+        )
+
     # TECH-ROBOTS-AI-002
     if robots_sim:
         blocked_ai = [b for b, res in robots_sim.items() if not res["root_allowed"]]
@@ -548,14 +589,37 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v2.0.0")
-    parser.add_argument("target", help="Target URL (https://...) or local HTML file path")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v2.1.0")
+    parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
+    parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format (markdown or json)")
     parser.add_argument("--output", help="Optional output file path to write results")
     parser.add_argument("--robots", help="Optional custom robots.txt file or URL")
     parser.add_argument("--timeout", type=float, default=15.0, help="HTTP request timeout in seconds")
 
     args = parser.parse_args()
+
+    # Standalone Schema Validation Mode
+    if args.validate_schema:
+        schema_input = args.validate_schema
+        if schema_input in ("stdin", "-"):
+            schema_input = sys.stdin.read()
+        elif os.path.exists(schema_input):
+            with open(schema_input, "r", encoding="utf-8", errors="replace") as f:
+                schema_input = f.read()
+
+        is_valid, errors, result = validate_schema_snippet(schema_input)
+        if is_valid:
+            print(f"[PASS] Schema.org JSON-LD is 100% valid! Parsed {len(result.entities)} entity/entities in unified @graph; price formats, ISO dates, and @id references verified.")
+            sys.exit(0)
+        else:
+            print(f"[FAIL] Schema.org JSON-LD validation failed ({len(errors)} issue(s)):")
+            for err in errors:
+                print(f"  - {err}")
+            sys.exit(1)
+
+    if not args.target:
+        parser.error("the following arguments are required: target (or use --validate-schema)")
 
     custom_robots = None
     if args.robots:
