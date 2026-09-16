@@ -6,7 +6,12 @@ This reference document synthesizes foundational research on Generative Engine O
 
 ### A. Princeton / Georgia Tech Research (KDD 2024, [arXiv:2311.09735](https://arxiv.org/abs/2311.09735))
 * **Title:** *GEO: Generative Engine Optimization* (Aggarwal et al., 2024)
-* **Core Insight:** LLM response generation does not rely on PageRank or traditional backlink volume when assembling answers. Instead, it measures semantic relevance, extractability, and authoritative weight.
+* **The Two-Stage Pipeline (How SEO and GEO Intersect):**
+  Generative search engines (ChatGPT Search, Perplexity, Google AI Overviews) are **two-stage systems**:
+  1. **Stage 1 (Retrieval):** The system searches its index using traditional web retrieval (keyword matching, BM25, semantic dense vectors). Traditional SEO, technical crawlability, and indexability determine whether a page enters the top candidate pool (in the Princeton paper, the top-5 Google results).
+  2. **Stage 2 (Generative Synthesis):** The retrieved candidate passages are placed into the LLM prompt. The generative model synthesizes the response, selecting facts and claims from the most extractable sources. Here, **GEO factors govern citation probability**.
+  *Takeaway:* Traditional SEO gets you into the candidate pool; GEO gets you quoted in the final answer.
+
 * **The Rigorous PAWC Formulation (Position-Adjusted Word Count):**
   $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
   Where:
@@ -22,14 +27,14 @@ This reference document synthesizes foundational research on Generative Engine O
 
   **Mathematical Implication:** Because $e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$ decays monotonically, a sentence placed at the opening of the generated answer ($\text{pos}=0 \implies e^0 = 1.0$) conveys **$\approx 2.72\times$ greater citable weight** than a sentence at the end of the answer under baseline decay ($\alpha = 1.0$, where $e^0 / e^{-1} = e \approx 2.72$), and up to **$5\times$** under steeper decay regimes ($\alpha \approx 1.6$).
 
-  **Editorial Heuristic ("First 150 Words"):** While $\text{pos}(s)$ is mathematically defined over sentence positions in the LLM's *generated response* $r$, generative search engines ingest source text in discrete semantic chunks. Structuring the lead paragraph (first 150 words) with the direct answer ensures the core claim is front-loaded in the retrieved chunk, dramatically increasing the probability that the LLM extracts it into its opening ($\text{pos}=0$) response sentence.
+  **Editorial Heuristic vs Metric Reality:** Note that $\text{pos}(s)$ is mathematically defined over sentence positions in the LLM's *generated response* $r$, not the source HTML page $c$. The "First 150 Words" guideline is a practical *editorial heuristic*: because RAG extractors chunk source text, placing the direct answer in the lead paragraph increases the probability that the chunk is retrieved and extracted into an early ($\text{pos}=0$) response sentence.
 
 ### B. Empirical Method Ranking by Citation Lift
 Experiments measuring visibility improvements across generative search engines ([Princeton GEO study](https://arxiv.org/abs/2311.09735), Table 1):
 
 | Rank | Technique | Visibility / PAWC Lift | Implementation Rule |
 |:---:|---|:---:|---|
-| **1** | **Quotation Addition** | **+41%** | Quote real, named industry experts with institutional affiliation ($\ge 2$ target). |
+| **1** | **Quotation Addition** | **+41%** | Quote real, named industry experts with institutional affiliation (articles/guides). |
 | **2** | **Statistics Addition** | **+30%** | Replace qualitative adjectives ("fast", "cheap") with verified numbers & units. |
 | **3** | **Cite Sources** | **+28%** | Link directly to primary RFCs, whitepapers, benchmarks, or peer-reviewed data. |
 | **4** | **Fluency Optimization** | **+28%** | Concise, high-readability sentences (Flesch-Kincaid grade 8–10). |
@@ -39,17 +44,18 @@ Experiments measuring visibility improvements across generative search engines (
 | **8** | **Unique Vocabulary** | **+6%** | Distinctive, non-generic naming for proprietary frameworks. |
 | **9** | **Keyword Stuffing** | **−8% (Penalty)** | Repetitive keyword placement is penalized by generative models. |
 
-**The Compound Champion:** **Fluency + Statistics** produces $\ge +35\%$ to $+44\%$ lift, beating every single isolated approach.
-> *Scientific Note on Sub-Additivity:* As documented in Section 4.2 of the Princeton GEO paper, multi-technique optimizations do not sum linearly ($28\% + 30\% \ne 58\%$). Due to diminishing marginal returns in the model's attention mechanism and overlapping token attribution, combining fluency with verified statistics yields an empirical compounded lift of $+35\%$ to $+44\%$, avoiding token saturation while maximizing PAWC weight.
+**The Compound Champion:** **Fluency + Statistics** produces $\ge +35\%$ to $+44\%$ lift on the Princeton test subset (200 queries), outperforming single isolated approaches.
+> *Scientific Note on Sub-Additivity:* As documented in Section 4.2 of the Princeton GEO paper, multi-technique combinations do not sum linearly ($28\% + 30\% \ne 58\%$). Due to diminishing marginal returns in the attention mechanism and overlapping token attribution, combining fluency with verified statistics yields an empirical compounded lift of $+35\%$ to $+44\%$.
 
 ---
 
 ## 2. Democratization Effect (Punching Above Weight)
 
-Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) demonstrated a striking asymmetry:
-* **Rank-1 Google sites** actually *lost* ~30% relative share in generative summaries when competing against evidence-rich lower-ranked sites.
-* **Rank-5 to Rank-10 sites** gained **+115% visibility** when they introduced structured evidence, quotations, and explicit citations.
-* **Takeaway:** Even if your domain lacks millions of high-DA backlinks, you can win top-tier AI citations by out-structuring and out-evidencing incumbents.
+Table 2 of the Princeton GEO paper ([arXiv:2311.09735](https://arxiv.org/abs/2311.09735)) evaluated how source optimization affects candidates across Google SERP ranks (top-5):
+* Specifically for the **Cite Sources** optimization:
+  - **Rank-1 Google sites** experienced a **$-30.3\%$** relative visibility drop when competing against evidence-rich lower-ranked sites.
+  - **Rank-5 Google sites** gained **$+115.1\%$** relative visibility when introducing authoritative primary citations and data.
+* *Takeaway:* Generative synthesis can elevate a lower-ranked search candidate (e.g. Rank-5) over an incumbent if the candidate provides clearer primary evidence and verifiable data. Traditional ranking secures entry into the candidate pool; GEO evidence density dictates synthesis share.
 
 ---
 
@@ -79,8 +85,8 @@ AI retrieval engines (RAG pipelines) index and retrieve text in chunked passages
 3. **Definition Patterns (First 40–60 Words):**
    - High-intent AI queries match formal definition patterns: `[Entity] is [category] designed to [outcome] by [mechanism]`.
    - Formulate opening sentences with strict declarative syntax: avoid conversational throat-clearing (*"In this guide we will explore..."*).
-4. **Question-Based Heading Alignment:**
-   - H2 and H3 headings matching natural language search queries (*"How does encrypted DNS prevent ISP snooping?"*) receive up to **2× higher extraction priority** than generic headers (*"Overview"* or *"Details"*).
+4. **Query-Aligned Heading Structure (Best Practice Heuristic):**
+   - Phrasing H2 and H3 headings as natural-language questions or descriptive intent statements (*"How does encrypted DNS prevent ISP snooping?"*) assists passage segmenters and dense retriever rerankers in mapping semantic chunks to conversational queries.
 
 ---
 
@@ -98,36 +104,38 @@ Empirical cross-engine comparative studies (SE Ranking / BrightEdge AI Overviews
 
 ---
 
-## 6. The GEO Signal Stack (Scoring Rubric)
+## 6. The 3-Tier Signal Stack (Methodology & Heuristic Rubric)
 
-> **Important:** The 0–100 GEO score is an **expert qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria. It models citation probability, not a deterministic browser performance metric.
+> **Methodological Notice:** The 0–100 scores generated in `audit` mode represent an **opinionated qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria and RAG architectural practices. They model citation probability rather than an automated deterministic standard.
 
-### Pillar 1: Evidence Density (35% Weight)
-- [ ] $\ge 5$ numbers with units per article/page.
-- [ ] $\ge 1$ external citation per 500 words to primary authority.
-- [ ] $\ge 2$ direct quotes from verified experts (minimum 1 to pass veto check).
-- [ ] $\ge 3$ named entities (real people with titles, verified organizations).
-- [ ] $\ge 1$ proprietary benchmark, telemetry metric, or first-party test result.
+### Tier 1: Observable Verified Signals (Objective / Binary)
+- [ ] **Canonical Consistency:** Canonical tag is present, valid, and matches the indexable URL.
+- [ ] **Crawler Permissions:** AI search bots (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) are permitted in `robots.txt`.
+- [ ] **Leak-Safe Directives:** Sensitive endpoints (`/api/`, `/admin/`, `/checkout/`, `/auth/`) are duplicated across all specific AI crawler groups per RFC 9309.
+- [ ] **Schema Parsability:** JSON-LD parses without syntax errors and correctly links entities with stable `@id` URIs.
+- [ ] **Indexability:** Page returns 200 OK, has a valid `<title>`, `<meta name="description">`, and single primary `<h1>`.
 
-### Pillar 2: Structure & Positioning (25% Weight)
-- [ ] Direct answer provided within the first 150 words (front-loading).
-- [ ] Self-contained passage blocks: key excerpts tuned to 134–167 words with low pronoun density (< 2%).
-- [ ] Clear definition syntax ("X is...", "X refers to...") opening high-intent query sections.
-- [ ] TL;DR / Key Takeaways callout box near the top.
-- [ ] Comparative data presented in clean markdown or HTML tables.
-- [ ] Procedural workflows presented in numbered ordered lists.
-- [ ] Paragraph lengths strictly capped at 2–4 sentences.
+### Tier 2: Practical Heuristic Signals (Editorial Best Practice)
+- [ ] **Direct Answer Front-Loading:** The direct resolution or definition is placed in the opening sentences of the target section.
+- [ ] **Passage Self-Containment:** Core answer blocks stand alone without relying on ambiguous previous paragraphs.
+- [ ] **Explicit Entity Naming:** Entities, tools, protocols, and organizations are explicitly named rather than obscured with vague pronouns.
+- [ ] **Tabular Comparison:** Comparative metrics are formatted in Markdown or HTML `<table>` for unambiguous RAG table parsing.
+- [ ] **Structured Steps:** Multi-step procedural workflows are formatted in numbered lists (`<ol>`).
 
-### Pillar 3: Authority, E-E-A-T & Brand Footprint (25% Weight)
-- [ ] Author byline with real name, photo, title, and bio ($\ge 30$ words).
-- [ ] `author.sameAs` in JSON-LD linking to LinkedIn, GitHub, ORCID, or Wikidata profile.
-- [ ] Off-page brand footprint: verified mentions or channels across YouTube, Reddit, Wikipedia, or GitHub.
-- [ ] Machine-readable `dateModified` timestamp updated within the last 60 days (hard cutoff: 90 days).
-- [ ] Methodology and sample criteria explicitly stated.
-- [ ] Known limitations and technical boundaries transparently acknowledged.
+### Tier 3: Context-Dependent Experimental Hypotheses
+These criteria model RAG chunking optimizations and must be evaluated **contextually based on page intent**:
 
-### Pillar 4: AI Infrastructure & Crawlability (15% Weight)
-- [ ] Full server-side rendering (SSR) of critical text and data.
-- [ ] `robots.txt` explicitly allows `GPTBot`, `ClaudeBot`, `PerplexityBot` without leaking private paths.
-- [ ] `llms.txt` deployed at domain root following community guidelines.
-- [ ] Schema.org JSON-LD graph validates without syntax errors and interconnects entities.
+#### A. Content-Type Contextual Rules
+* **Editorial Articles & Guides:**
+  - Expect author bylines with verifiable credentials and `author.sameAs` in Schema.
+  - Direct expert quotation ($\ge 1$ named authority with institutional context) provides high citation lift.
+* **API References, Developer Documentation & Tools:**
+  - **EXEMPT FROM HUMAN QUOTES:** Personal quotes are not required or expected on technical documentation, calculators, or API endpoints. Zero penalty for omitting quotes.
+  - Instead, evaluate: parameter specifications, code examples, IETF RFC links, error codes, and benchmark telemetry.
+
+#### B. Target Heuristic Ranges (Editorial Content)
+- [ ] Passage length tuned to ~134–167 words (practical heuristic for 512-token dense embeddings).
+- [ ] Low pronoun density (< 2%) in high-priority answer blocks.
+- [ ] $\ge 5$ numbers with explicit units / verified metrics for analytical comparisons.
+- [ ] Primary citations linking directly to RFCs, benchmarks, or peer-reviewed papers.
+- [ ] Machine-readable `dateModified` timestamp updated within the last 60–90 days.

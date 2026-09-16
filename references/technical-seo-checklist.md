@@ -27,15 +27,15 @@ This reference details the core technical foundation required for modern search 
 
 ## 2. On-Page Semantic Structure
 - **Title Tags:**
-  - Length: 50–60 characters (pixel width < 600px).
+  - Display Guideline: ~50–60 characters (recommended target to prevent SERP truncation on desktop ~600px containers; longer titles are indexed and evaluated by Google, not penalized).
   - Format: `Primary Keyword - Secondary Benefit | Brand Name`.
   - Unique across all indexable URLs.
 - **Meta Descriptions:**
-  - Length: 140–160 characters.
+  - Display Guideline: ~140–160 characters (recommended snippet preview window).
   - Includes value proposition, target query, and clear call-to-action.
-- **Heading Hierarchy:**
-  - Exactly one `<h1>` per page reflecting the main entity or topic.
-  - Strict hierarchical nesting: `h1` → `h2` → `h3`. Never skip levels (e.g. do not jump from `h1` directly to `h3`).
+- **Heading Hierarchy (Accessibility & Semantic Best Practice):**
+  - Recommended: One clear primary `<h1>` per page reflecting the main entity or topic. (Google Search handles multiple `<h1>` tags gracefully, but a single primary heading represents the cleanest document outline).
+  - Structural nesting: Maintain a logical `h1` → `h2` → `h3` outline for screen reader accessibility, human scannability, and RAG chunk segmentation. (Note: Skipped heading levels are not a Google Search ranking penalty, but a semantic hygiene warning).
   - Headings should formulate clear questions or concrete topic descriptors.
 - **Image Optimization:**
   - Semantic `<img />` tags with descriptive, contextual `alt` attributes.

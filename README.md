@@ -17,17 +17,15 @@
 
 ## 💡 Why This Skill Exists
 
-Traditional SEO optimizes for Google's **PageRank** and blue links.  
-**Generative AI Search (GEO / AEO) operates on completely different principles:**
-
-1. **LLMs do not use PageRank to formulate answers.** They extract the most authoritative, structurally dense, and verifiable sentences in the retrieved context window.
-2. **The Princeton GEO Paper (KDD 2024)** proved that weaker domains (Rank-5 to Rank-10) gained **+115% in generative AI visibility** simply by incorporating high-density evidence, quotations, and verified metrics.
-3. **Traditional keyword stuffing actively hurts** (causing a **−8% penalty** in AI citation likelihood).
+Modern AI Search combines **traditional retrieval** with **generative synthesis**:
+1. **The Two-Stage Pipeline:** Traditional SEO (crawling, technical indexability, PageRank) determines whether your page enters the top candidate search pool (e.g. Google's top-5 to top-10 results). Once candidates are retrieved, **GEO governs synthesis**: the LLM extracts and cites facts from candidates exhibiting the highest evidence density and structural clarity.
+2. **The Democratization Effect:** The Princeton GEO Paper (KDD 2024, Table 2) proved that lower-ranked search candidates (specifically Rank-5 Google results using the *Cite Sources* technique) gained **+115.1% in generative AI visibility**, demonstrating that superior evidence density can surpass higher-ranking incumbents in generated answers.
+3. **Traditional keyword stuffing actively hurts** (causing an empirical **−8% penalty** in AI citation likelihood).
 4. **Position Matters Exponentially:** Under the **PAWC** (Position-Adjusted Word Count) metric:
    $$\text{PAWC}(c, q) = \sum_{s \in S_c} \frac{|s|}{L_r} \cdot e^{-\alpha \cdot \frac{\text{pos}(s)}{N_r}}$$
-   Because sentence extraction weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ in steeper regimes), front-loading answers in the first 150 words serves as a proven editorial heuristic to ensure lead facts populate the opening sentences ($\text{pos}(s)=0$) of synthesized AI answers.
+   Because sentence extraction weight decays exponentially ($\sim 2.7\times$ under baseline $\alpha = 1.0$, and up to $5\times$ under steeper regimes), front-loading answers in the lead paragraph serves as a practical editorial heuristic to maximize the likelihood that your facts populate the opening sentences ($\text{pos}(s)=0$) of synthesized AI responses.
 
-> **Methodology Note:** The 0–100 scores provided in audit mode represent **expert qualitative heuristic evaluations** based on the Princeton KDD 2024 rubrics. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
+> **Methodology Note:** The 0–100 scores provided in audit mode represent an **opinionated qualitative heuristic rubric** derived from the Princeton KDD 2024 criteria and RAG architectural practices. For deterministic Core Web Vitals and network measurements, pair this audit with automated tools (`lighthouse-cli`, `curl -I`).
 
 ---
 

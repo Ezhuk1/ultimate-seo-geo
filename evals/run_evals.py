@@ -203,6 +203,32 @@ def mock_assertion_evaluator(eval_item: dict) -> tuple[bool, str]:
         if assertions.get("refusal_addresses_fabrication") and "fabricat" not in sample:
             return False, "Refusal fabrication check failed"
 
+    elif eval_id == "audit-api-docs-quote-exemption":
+        sample = (
+            "Technical SEO Score: 90/100. GEO Score: 85/100. "
+            "Context Note: Page type is Developer REST API Reference. Under our content-type contextual rules, "
+            "expert human quotes are EXEMPT and not penalized. Evaluated parameters, RFC references, and code samples instead."
+        )
+        if assertions.get("exempts_quotes_for_technical_docs") and "exempt" not in sample.lower():
+            return False, "Failed to note quote exemption for technical documentation"
+        if assertions.get("evaluates_parameters_and_specs") and "parameter" not in sample.lower():
+            return False, "Failed to evaluate parameters and technical specifications"
+
+    elif eval_id == "diagnose-robots-noindex-conflict":
+        sample = (
+            "Root Cause Analysis: Per RFC 9309, search engine crawlers obey robots.txt Disallow directives before "
+            "fetching HTML content. Because /private/ is disallowed, Googlebot never fetches or parses the page HTML, "
+            "meaning it cannot see the <meta name='robots' content='noindex'> tag. If external or internal links point "
+            "to this URL, Google indexes the bare URL with 'No information is available'. "
+            "Remediation: Remove Disallow to let crawlers see noindex, or protect the route with HTTP 401 Authentication."
+        )
+        if assertions.get("identifies_robots_blocks_noindex_parsing") and "cannot see" not in sample.lower():
+            return False, "Did not identify robots blocking noindex tag detection"
+        if assertions.get("explains_rfc9309_crawler_cannot_see_html") and "rfc 9309" not in sample.lower():
+            return False, "Did not explain RFC 9309 crawling sequence"
+        if assertions.get("recommends_correct_solution") and "remediation" not in sample.lower():
+            return False, "Did not provide actionable remediation"
+
     return True, "Passed"
 
 

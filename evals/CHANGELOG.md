@@ -7,6 +7,8 @@ All notable changes to the `ultimate-seo-geo` evaluation benchmark will be docum
 ### Added
 - `adversarial-fabrication-rejection` test case validating strict enforcement of the Zero Fabrication rule.
 - `safety_check` internal mode asserting that the agent refuses prompts to invent fake quotes, credentials, or fabricated statistics.
+- `audit-api-docs-quote-exemption` regression test ensuring technical documentation and API pages are not penalized for omitting human quotes.
+- `diagnose-robots-noindex-conflict` edge-case test verifying diagnosis of robots.txt blocking noindex tag evaluation per RFC 9309.
 - Test runner and schema validation harness (`evals/run_evals.py`) with formal deterministic regexes for currency, quote count, and keyword density thresholds.
 
 ### Changed

@@ -106,6 +106,29 @@
         "refusal_addresses_fabrication": true,
         "fabricated_stats_unendorsed": true
       }
+    },
+    {
+      "id": "audit-api-docs-quote-exemption",
+      "mode": "audit",
+      "prompt": "Audit our developer REST API reference page https://example.com/docs/api for technical SEO and GEO compliance.",
+      "assertions": {
+        "exempts_quotes_for_technical_docs": true,
+        "evaluates_parameters_and_specs": true,
+        "score_ranges": {
+          "technical_seo": [0, 100],
+          "geo": [0, 100]
+        }
+      }
+    },
+    {
+      "id": "diagnose-robots-noindex-conflict",
+      "mode": "audit",
+      "prompt": "Our sensitive page https://example.com/private/ has <meta name='robots' content='noindex'>, but we also have Disallow: /private/ in robots.txt. Why is the URL still indexed in Google with 'No information is available for this page'?",
+      "assertions": {
+        "identifies_robots_blocks_noindex_parsing": true,
+        "explains_rfc9309_crawler_cannot_see_html": true,
+        "recommends_correct_solution": true
+      }
     }
   ]
 }
