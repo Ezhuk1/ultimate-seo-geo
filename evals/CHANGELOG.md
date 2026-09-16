@@ -2,6 +2,17 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [2.0.0] - 2026-09-17
+
+### Added
+- **Autonomous Inspection Engine (`engine/`):** Full-fledged, zero-dependency (pure standard library Python 3.10+) deterministic execution engine.
+- **CLI Inspector Runner (`engine/inspector.py`):** Execute audits directly via `python -m engine.inspector <target> [--format markdown|json] [--output path]`.
+- **RFC 9309 Crawler Simulator (`engine/analyzers/robots_simulator.py`):** Deterministic AST parser and access simulator for `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, and search bots with longest-match and Allow-precedence rules.
+- **Schema.org AST Analyzer (`engine/analyzers/schema_analyzer.py`):** JSON-LD syntax validator, `@graph` entity AST indexer, orphaned entity detector, and Google Merchant Offer price format validator.
+- **Content & GEO Readiness Analyzer (`engine/analyzers/content_analyzer.py`):** Direct answer detector, adaptive passage chunking analyzer, and coreference independence checker.
+- **Declarative Rule Contracts (`rules/`):** Machine-readable contract definitions in `technical_rules.json`, `schema_rules.json`, and `geo_rules.json`.
+- **Automated Engine Integration Suite (`evals/test_engine.py`):** 4 new automated integration tests covering clean page inspection, defective page detection, RFC 9309 simulation, and unmeasured signal score invariants.
+
 ## [1.6.0] - 2026-09-17
 
 ### Added

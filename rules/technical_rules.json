@@ -1,0 +1,76 @@
+{
+  "category": "technical",
+  "version": "2.0.0",
+  "rules": [
+    {
+      "id": "TECH-CANONICAL-001",
+      "name": "Canonical Tag Consistency",
+      "tier": "Tier A (RFC 6596)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "link[rel='canonical']",
+      "description": "Page must declare a valid canonical URL to prevent duplicate content indexing.",
+      "remediation": "Add <link rel='canonical' href='https://example.com/canonical-path' /> inside <head>."
+    },
+    {
+      "id": "TECH-ROBOTS-AI-002",
+      "name": "AI Crawler Access & Leak Prevention",
+      "tier": "Tier A (RFC 9309)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "robots.txt",
+      "description": "AI search bots (GPTBot, ClaudeBot, PerplexityBot) must be permitted on public routes while private routes (/api/, /admin/) are explicitly disallowed.",
+      "remediation": "Update robots.txt with dedicated User-agent blocks duplicating private disallows."
+    },
+    {
+      "id": "TECH-TITLE-003",
+      "name": "Page Title Display Preview",
+      "tier": "Tier E (Display Heuristic)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "title",
+      "description": "Page title should be between 40 and 70 characters to avoid SERP snippet truncation.",
+      "remediation": "Set <title> to 50–60 characters formatted as 'Primary Topic - Key Benefit | Brand'."
+    },
+    {
+      "id": "TECH-META-DESC-004",
+      "name": "Meta Description Presence & Length",
+      "tier": "Tier E (Snippet Heuristic)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "meta[name='description']",
+      "description": "Page should provide a descriptive meta description between 120 and 170 characters.",
+      "remediation": "Provide <meta name='description' content='...' /> summarizing unique value proposition."
+    },
+    {
+      "id": "TECH-H1-OUTLINE-005",
+      "name": "Single Primary Document Outline Heading",
+      "tier": "Tier E (Semantic Recommendation)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "h1",
+      "description": "Page should have exactly one clear primary <h1> heading defining the page topic.",
+      "remediation": "Ensure exactly one <h1> heading is present and accurately describes the primary entity."
+    },
+    {
+      "id": "TECH-VIEWPORT-006",
+      "name": "Mobile Responsive Viewport",
+      "tier": "Tier A (W3C Mobile Standard)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "meta[name='viewport']",
+      "description": "Page must define responsive viewport meta tag for mobile indexability.",
+      "remediation": "Add <meta name='viewport' content='width=device-width, initial-scale=1.0' />."
+    },
+    {
+      "id": "PERF-CWV-FIELD-007",
+      "name": "Core Web Vitals Real-User Field Data",
+      "tier": "Tier C (CrUX Dataset)",
+      "impact": "P2",
+      "confidence_type": "field_telemetry",
+      "selector": "CrUX API",
+      "description": "Real-user field measurements (LCP <= 2.5s, INP <= 200ms, CLS <= 0.1).",
+      "remediation": "Inspect field metrics via Google Search Console CrUX report."
+    }
+  ]
+}

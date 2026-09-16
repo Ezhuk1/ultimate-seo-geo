@@ -147,6 +147,33 @@ Empirical ranking of techniques by AI citation lift ([Princeton / Georgia Tech K
 
 ---
 
+## 🖥️ Autonomous Inspection Engine CLI (v2.0.0)
+
+`ultimate-seo-geo` includes a built-in, autonomous deterministic inspection engine with **zero external dependencies** (pure Python 3.10+ standard library). It inspects targets in <500ms and compiles a cryptographically hashed Evidence Ledger:
+
+```bash
+# Audit a live website with AI bot simulation
+python -m engine.inspector https://example.com
+
+# Audit a local HTML build artifact or template
+python -m engine.inspector path/to/page.html
+
+# Output machine-readable JSON for CI/CD quality gates
+python -m engine.inspector https://example.com --format json --output audit-report.json
+
+# Test against a custom robots.txt configuration
+python -m engine.inspector https://example.com --robots path/to/custom-robots.txt
+```
+
+### Deterministic Engine Capabilities
+- **RFC 9309 AI Crawler Access Simulator:** Parses robots.txt AST and computes deterministic access rights for `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`, and search bots using longest-match and Allow-precedence rules.
+- **Schema.org AST & Graph Analyzer:** Verifies JSON-LD syntax, validates unified `@graph` cross-references via `@id`, catches orphaned entities, and validates Google Merchant offer price formats.
+- **Content & GEO Readiness Analyzer:** Quantifies direct answer frontloading in the opening block, detects conversational fluff, analyzes passage chunking distributions, and checks coreference independence.
+- **Evidence Ledger Protocol:** Enforces the 4-layer pipeline (`RAW` -> `SIGNAL` -> `EVIDENCE` -> `FINDING`) with SHA-256 payload provenance.
+- **Strict "Unknown != Failure" Invariant:** Unobserved signals (e.g., real-user CrUX field data when API keys are absent) are recorded with 0 penalty and segregated from verified defects.
+
+---
+
 ## 🛠️ Installation & Setup
 
 ### Option A: Install in Google Antigravity (Global)
@@ -177,14 +204,31 @@ ultimate-seo-geo/
 ├── README.ru.md                      # Полная русскоязычная документация
 ├── LICENSE                           # MIT License
 ├── .gitignore                        # Git ignore rules
+├── engine/                           # Autonomous Deterministic Inspection Engine (Python stdlib)
+│   ├── inspector.py                  # CLI runner & Markdown/JSON report generator
+│   ├── ledger.py                     # 4-Layer Evidence Ledger Protocol & SHA-256 provenance
+│   ├── scoring.py                    # Multi-dimensional score engine & Invariant guards
+│   └── analyzers/
+│       ├── http_analyzer.py          # HTTP/HTTPS & local file payload observer
+│       ├── html_analyzer.py          # HTML parser for canonical, meta, headings, links
+│       ├── robots_simulator.py       # RFC 9309 AST parser & AI crawler simulator
+│       ├── schema_analyzer.py        # Schema.org AST, @graph & price validator
+│       └── content_analyzer.py       # Direct answer, chunking & coreference analyzer
+├── rules/                            # Declarative rule contracts
+│   ├── technical_rules.json          # Canonical, robots, title, meta, H1 contracts
+│   ├── schema_rules.json             # Syntax, graph interconnect, price format contracts
+│   └── geo_rules.json                # Direct answer, chunking, coreference contracts
 ├── references/
 │   ├── geo-framework.md              # Princeton KDD 2024, rigorous PAWC math & engine matrix
 │   ├── technical-seo-checklist.md    # Crawlability, Core Web Vitals, metadata, canonicals
-│   ├── schema-templates.md           # Unified @graph JSON-LD master templates (WebPage, Service, FAQ, HowTo)
+│   ├── schema-templates.md           # Unified @graph JSON-LD master templates
 │   ├── ai-crawler-spec.md            # RFC 9309 leak prevention & llms.txt proposal
 │   └── content-strategy-ai.md        # Information Gain, front-loading, evidence hunting
 └── evals/
-    └── evals.json                    # Heuristic & structured test cases with negative safety checks
+    ├── evals.json                    # Heuristic & structured test cases with negative safety checks
+    ├── run_evals.py                  # Test runner & assertion harness
+    ├── test_engine.py                # Automated engine integration suite
+    └── CHANGELOG.md                  # Comprehensive benchmark & engine changelog
 ```
 
 ---
@@ -192,3 +236,4 @@ ultimate-seo-geo/
 ## 🛡️ License
 
 Released under the [MIT License](LICENSE). Free for open-source, commercial, and enterprise applications.
+

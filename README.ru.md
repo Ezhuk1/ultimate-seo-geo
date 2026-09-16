@@ -147,6 +147,33 @@ Sitemap: https://[YOUR_DOMAIN]/sitemap.xml
 
 ---
 
+## 🖥️ Консольный движок автономного аудита CLI (v2.0.0)
+
+`ultimate-seo-geo` включает встроенный детерминированный движок аудита с **нулевыми внешними зависимостями** (работает на стандартной библиотеке Python 3.10+ быстрее 500 мс). Он проверяет цели и формирует криптографически верифицированный Evidence Ledger с хэшем SHA-256:
+
+```bash
+# Аудит живого сайта с симуляцией поисковых AI-ботов
+python -m engine.inspector https://example.com
+
+# Аудит локального HTML-файла или артефакта сборки
+python -m engine.inspector path/to/page.html
+
+# Экспорт машиночитаемого JSON для CI/CD quality gates
+python -m engine.inspector https://example.com --format json --output audit-report.json
+
+# Проверка со специфической конфигурацией robots.txt
+python -m engine.inspector https://example.com --robots path/to/custom-robots.txt
+```
+
+### Возможности детерминированного движка:
+- **Симулятор доступа AI-краулеров по RFC 9309:** Парсинг AST robots.txt и детерминированная симуляция прав доступа для `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended` по правилам наибольшего совпадения (longest-match) и приоритета Allow.
+- **Анализатор графа и AST Schema.org:** Проверка синтаксиса JSON-LD, верификация перекрёстных связей в едином `@graph` через `@id`, обнаружение изолированных сущностей (orphans) и валидация цен Google Merchant.
+- **Анализатор контента и готовности к GEO:** Детекция прямого ответа в первом блоке, выявление вводного "воды"-текста, анализ распределения длины пассажей и проверка независимости местоимений (coreference).
+- **Протокол Evidence Ledger:** 4-уровневый конвейер (`RAW` -> `SIGNAL` -> `EVIDENCE` -> `FINDING`) с фиксацией SHA-256 хэша входящего контента.
+- **Строгий инвариант "Unknown != Failure":** Неизмеренные сигналы (например, реальные полевые данные CrUX при отсутствии API-ключа) не снижают балл и изолируются от подтвержденных дефектов.
+
+---
+
 ## 🛠️ Установка и подключение
 
 ### Вариант А: Установка в Google Antigravity (Глобально)
@@ -177,6 +204,20 @@ ultimate-seo-geo/
 ├── README.ru.md                      # Полная документация на русском языке (этот файл)
 ├── LICENSE                           # Открытая лицензия MIT
 ├── .gitignore                        # Исключения Git
+├── engine/                           # Автономный детерминированный движок (Python stdlib)
+│   ├── inspector.py                  # CLI раннер и генератор отчетов Markdown/JSON
+│   ├── ledger.py                     # Протокол 4-уровневого Evidence Ledger и хэширование SHA-256
+│   ├── scoring.py                    # Движок многомерного скоринга и защита инварианта
+│   └── analyzers/
+│       ├── http_analyzer.py          # Наблюдатель HTTP/HTTPS и локальных файлов
+│       ├── html_analyzer.py          # Парсер DOM для canonical, метатегов, заголовков, ссылок
+│       ├── robots_simulator.py       # AST парсер RFC 9309 и симулятор краулеров
+│       ├── schema_analyzer.py        # Валидатор AST Schema.org, @graph и цен
+│       └── content_analyzer.py       # Анализатор прямого ответа, чанков и кореференций
+├── rules/                            # Декларативные контракты правил
+│   ├── technical_rules.json          # Контракты canonical, robots, title, meta, H1
+│   ├── schema_rules.json             # Контракты синтаксиса, графа, формата цен
+│   └── geo_rules.json                # Контракты прямых ответов, чанкинга, местоимений
 ├── references/
 │   ├── geo-framework.md              # Математика PAWC, KDD 2024, матрица движков
 │   ├── technical-seo-checklist.md    # Индексация, Core Web Vitals, метатеги, canonicals
@@ -184,7 +225,10 @@ ultimate-seo-geo/
 │   ├── ai-crawler-spec.md            # Защита RFC 9309 от утечек и пропозал llms.txt
 │   └── content-strategy-ai.md        # Принцип Information Gain, front-loading, сбор доказательств
 └── evals/
-    └── evals.json                    # Эвристические и структурные тесты + негативные проверки безопасности
+    ├── evals.json                    # Эвристические и структурные тесты + негативные проверки безопасности
+    ├── run_evals.py                  # Тестовый харнесс и раннер ассершенов
+    ├── test_engine.py                # Интеграционный тестовый набор движка
+    └── CHANGELOG.md                  # Полный журнал изменений бенчмарка и движка
 ```
 
 ---

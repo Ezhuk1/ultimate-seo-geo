@@ -66,7 +66,13 @@ Use your available environment tools (e.g., `read_url_content`, `webfetch`, or `
 
 ### Mode 1: Comprehensive Evidence-Driven Audit (`audit`)
 
-Perform an autonomous, falsifiable inspection of the target (URL, HTML file, or codebase) across two parallel assessment dimensions, compiled into an **Evidence Ledger**:
+Perform an autonomous, falsifiable inspection of the target (URL, HTML file, or codebase) across two parallel assessment dimensions, compiled into an **Evidence Ledger**.
+
+When environment tool execution is available, execute the deterministic inspection engine directly:
+```bash
+python -m engine.inspector <URL or file_path> [--format markdown|json]
+```
+The engine executes all deterministic analyzers in <500ms, measures HTTP payload with SHA-256 provenance, simulates RFC 9309 crawler permissions, indexes the Schema.org `@graph` AST, evaluates GEO content rules, and compiles the Evidence Ledger. The agent then reasons over the verified observations to deliver strategic recommendations and code remedies.
 
 #### A. The Evidence Ledger Protocol `[STANDARD]`
 Every audit MUST compile a structured Evidence Ledger table providing deterministic proof for each evaluation finding:

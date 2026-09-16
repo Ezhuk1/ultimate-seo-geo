@@ -1,0 +1,46 @@
+{
+  "category": "schema",
+  "version": "2.0.0",
+  "rules": [
+    {
+      "id": "SCHEMA-SYNTAX-001",
+      "name": "JSON-LD Syntactic Validity",
+      "tier": "Tier A (Schema.org / W3C JSON-LD)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "script[type='application/ld+json']",
+      "description": "JSON-LD scripts must be syntactically valid JSON with valid @context and @type.",
+      "remediation": "Validate structured data using Schema.org validator and resolve JSON syntax errors."
+    },
+    {
+      "id": "SCHEMA-GRAPH-INTERCONNECT-002",
+      "name": "Unified Entity Graph Interconnection",
+      "tier": "Tier E (Clean Architecture Recommendation)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "@graph",
+      "description": "Entities on the same page should link to one another using stable @id URIs (e.g. publisher, provider, isPartOf).",
+      "remediation": "Connect WebPage to WebSite, Service to Organization, and Author to Article via @id nodes."
+    },
+    {
+      "id": "SCHEMA-PRICE-FORMAT-003",
+      "name": "Offer Currency & Price Format",
+      "tier": "Tier A (Schema.org Offer Spec)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "Offer.price",
+      "description": "Price must be formatted as numeric string (e.g. '0.00' or '29.99'), never text labels like 'FREE'.",
+      "remediation": "Set price to numeric value '0.00' with priceCurrency 'USD'."
+    },
+    {
+      "id": "SCHEMA-AUTHOR-SAMEAS-004",
+      "name": "Person sameAs Authority Verification",
+      "tier": "Tier E (E-E-A-T Entity Heuristic)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "Person.sameAs",
+      "description": "Authors should provide sameAs array linking to Wikidata, ORCID, LinkedIn, or GitHub.",
+      "remediation": "Add sameAs: ['https://orcid.org/...', 'https://linkedin.com/in/...'] to author Person nodes."
+    }
+  ]
+}

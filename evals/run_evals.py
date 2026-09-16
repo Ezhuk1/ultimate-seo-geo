@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v1.6.0)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v2.0.0)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
-Evidence Ledger formatting, UNKNOWN signal handling, and negative mutation test cases.
+Evidence Ledger formatting, UNKNOWN signal handling, negative mutation test cases,
+and Autonomous Engine v2.0.0 deterministic inspection suite.
 """
 
 import json
@@ -11,6 +12,10 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+
+repo_root = Path(__file__).resolve().parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 
 def load_evals(evals_path: Path) -> dict:
@@ -903,12 +908,42 @@ def main():
         if ok:
             mutations_passed += 1
 
+    # 4. Autonomous Inspection Engine (v2.0.0) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v2.0.0) Integration Suite ---")
+    from evals.test_engine import (
+        test_clean_page_inspection,
+        test_defective_page_detection,
+        test_robots_simulator_rfc9309,
+        test_unknown_signal_invariant,
+    )
+
+    engine_tests = [
+        ("test_clean_page_inspection", test_clean_page_inspection),
+        ("test_defective_page_detection", test_defective_page_detection),
+        ("test_robots_simulator_rfc9309", test_robots_simulator_rfc9309),
+        ("test_unknown_signal_invariant", test_unknown_signal_invariant),
+    ]
+
+    engine_passed = 0
+    for test_name, test_fn in engine_tests:
+        try:
+            test_fn()
+            print(f"  [PASS] {test_name:<38} -> Deterministic assertion passed")
+            engine_passed += 1
+        except Exception as exc:
+            print(f"  [FAIL] {test_name:<38} -> {exc}")
+
     print("\n--------------------------------------------------")
     print(f"Canonical evals:  {passed}/{len(evals_list)} passed.")
     print(f"Mutation tests:   {mutations_passed}/{len(mutations)} passed.")
+    print(f"Engine tests:     {engine_passed}/{len(engine_tests)} passed.")
 
-    if passed == len(evals_list) and mutations_passed == len(mutations):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, and mutation guards are healthy.")
+    if (
+        passed == len(evals_list)
+        and mutations_passed == len(mutations)
+        and engine_passed == len(engine_tests)
+    ):
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.0.0 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")

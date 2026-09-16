@@ -1,0 +1,56 @@
+{
+  "category": "geo",
+  "version": "2.0.0",
+  "rules": [
+    {
+      "id": "GEO-ANSWER-FRONTLOAD-001",
+      "name": "Direct Answer Definition Syntax",
+      "tier": "Tier E (RAG Chunking Heuristic)",
+      "impact": "P1",
+      "confidence_type": "heuristic",
+      "selector": "body > section:first-of-type p:first-of-type",
+      "description": "Opening 40–60 words should state a direct, standalone definition or resolution formula to survive RAG chunking.",
+      "remediation": "Open with direct definition: '[Entity] is [category] designed to [outcome] by [mechanism]'."
+    },
+    {
+      "id": "GEO-ADAPTIVE-CHUNKING-002",
+      "name": "Passage Length Adaptive Chunking",
+      "tier": "Tier E (Embedding Window Heuristic)",
+      "impact": "P1",
+      "confidence_type": "heuristic",
+      "selector": "article p, section p",
+      "description": "Key claim blocks should be self-contained within ~100–200 words (256–512 tokens).",
+      "remediation": "Split overly long passages (>250 words) into modular sub-sections with clear H2/H3 headers."
+    },
+    {
+      "id": "GEO-COREFERENCE-INDEPENDENCE-003",
+      "name": "Coreference Independence & Entity Naming",
+      "tier": "Tier E (Retrieval Heuristic)",
+      "impact": "P1",
+      "confidence_type": "heuristic",
+      "selector": "p:first-of-type",
+      "description": "Passage leads must name the entity directly rather than starting with ambiguous pronouns ('It', 'They', 'This tool').",
+      "remediation": "Replace ambiguous opening pronouns with explicit entity/protocol names."
+    },
+    {
+      "id": "GEO-EVIDENCE-METRICS-004",
+      "name": "Empirical Verification & Metrics Density",
+      "tier": "Tier B (Princeton KDD 2024 Research)",
+      "impact": "P1",
+      "confidence_type": "empirical",
+      "selector": "text()",
+      "description": "Claims should be backed by verified quantitative metrics with units or primary RFC/standard citations.",
+      "remediation": "Add verified benchmark metrics (e.g. latency ms, throughput, error rate) or primary RFC references."
+    },
+    {
+      "id": "GEO-ZERO-FABRICATION-005",
+      "name": "Zero Fabrication Integrity",
+      "tier": "Tier A (System Security Standard)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "text()",
+      "description": "Content must contain zero fabricated credentials, quotes, or statistics; unverified data must use explicit placeholders.",
+      "remediation": "Replace unverified claims with verified telemetry or [VERIFY_BEFORE_PUBLISHING: URL] placeholders."
+    }
+  ]
+}
