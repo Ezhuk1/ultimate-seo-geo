@@ -31,8 +31,9 @@ NUMERIC_STAT_PATTERN = re.compile(r"\b\d{1,3}(,\d{3})+(\.\d+)?\b|\b\d+(\.\d+)?\s
 
 CITATION_CUES = [
     "according to", "study by", "research by", "report from", "published in",
-    "data from", "source:", "survey conducted", "arxiv", "et al", "doi:",
-    "согласно", "исследование", "по данным", "источник:", "отчет"
+    "data from", "source:", "survey conducted", "arxiv", "et al", "doi:", "rfc",
+    "согласно", "исследование", "по данным", "источник:", "отчет",
+    "паводле", "па дадзеных", "дадзеныя", "стандарт", "ietf"
 ]
 
 PRONOUN_LEAD_PATTERN = re.compile(r"^(it|this|that|these|those|they|he|she|это|он|она|оно|они|данный|эта|тот|эти|тех)\b", re.IGNORECASE)
