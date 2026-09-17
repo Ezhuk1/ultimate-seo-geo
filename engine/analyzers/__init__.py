@@ -7,6 +7,7 @@ from .html_analyzer import analyze_target_html
 from .robots_simulator import parse_robots_txt, is_allowed, simulate_ai_crawlers, RobotsData
 from .schema_analyzer import analyze_json_ld, SchemaAnalysisResult, SchemaFinding
 from .content_analyzer import analyze_content, ContentAnalysisResult, ContentFinding
+from .sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
 
 __all__ = [
     "analyze_target_http",
@@ -21,4 +22,6 @@ __all__ = [
     "analyze_content",
     "ContentAnalysisResult",
     "ContentFinding",
+    "parse_sitemap_xml",
+    "SitemapAnalysisResult",
 ]

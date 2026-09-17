@@ -34,6 +34,8 @@ def analyze_target_http(target: str, timeout: float = 10.0) -> dict[str, Any]:
                     "content-type": "text/html; charset=utf-8",
                     "content-length": str(len(raw_bytes)),
                 },
+                "x_robots_tag": None,
+                "x_robots_directives": [],
                 "redirect_chain": [],
                 "response_time_ms": 1.0,
                 "tls_valid": True,
@@ -86,12 +88,16 @@ def analyze_target_http(target: str, timeout: float = 10.0) -> dict[str, Any]:
             content = raw_bytes.decode("utf-8", errors="replace")
             content_hash = hashlib.sha256(raw_bytes).hexdigest()
             headers = {k.lower(): v for k, v in resp.headers.items()}
+            x_robots = headers.get("x-robots-tag")
+            x_robots_directives = [d.strip().lower() for d in x_robots.split(",")] if x_robots else []
             return {
                 "target": target,
                 "final_url": resp.geturl(),
                 "is_local": False,
                 "status_code": resp.status,
                 "headers": headers,
+                "x_robots_tag": x_robots,
+                "x_robots_directives": x_robots_directives,
                 "redirect_chain": redirect_chain,
                 "response_time_ms": round(elapsed_ms, 2),
                 "tls_valid": target.startswith("https://"),

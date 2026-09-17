@@ -21,10 +21,15 @@ class DocumentParser(HTMLParser):
         self.title = ""
         self.meta_description = None
         self.canonical = None
+        self.canonical_tags = []
         self.viewport = None
+        self.viewport_parsed = {}
         self.meta_robots = None
+        self.meta_googlebot = None
+        self.robots_directives = set()
         self.open_graph = {}
         self.twitter_card = {}
+        self.hreflang_tags = []
 
         self.headings = []  # List of {"level": int, "text": str}
         self.images = []    # List of {"src": str, "alt": str | None, "has_dims": bool}
@@ -74,8 +79,19 @@ class DocumentParser(HTMLParser):
                 self.meta_description = content
             elif name == "viewport":
                 self.viewport = content
-            elif name == "robots":
-                self.meta_robots = content
+                for part in content.split(","):
+                    if "=" in part:
+                        k, v = part.split("=", 1)
+                        self.viewport_parsed[k.strip().lower()] = v.strip().lower()
+            elif name in ("robots", "googlebot"):
+                if name == "robots":
+                    self.meta_robots = content
+                elif name == "googlebot":
+                    self.meta_googlebot = content
+                for directive in content.split(","):
+                    d_clean = directive.strip().lower()
+                    if d_clean:
+                        self.robots_directives.add(d_clean)
             elif prop.startswith("og:"):
                 self.open_graph[prop] = content
             elif name.startswith("twitter:"):
@@ -86,6 +102,12 @@ class DocumentParser(HTMLParser):
             href = attr_dict.get("href", "")
             if rel == "canonical":
                 self.canonical = href
+                self.canonical_tags.append(href)
+            elif rel == "alternate" and "hreflang" in attr_dict:
+                self.hreflang_tags.append({
+                    "hreflang": attr_dict.get("hreflang", "").lower(),
+                    "href": href
+                })
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.current_heading_tag = tag
             self.current_heading_text = []
@@ -186,7 +208,8 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         else:
             internal_links += 1
 
-    missing_alt_count = sum(1 for img in parser.images if img["alt"] is None or img["alt"].strip() == "")
+    missing_alt_count = sum(1 for img in parser.images if img["alt"] is None)
+    decorative_alt_count = sum(1 for img in parser.images if img["alt"] is not None and img["alt"].strip() == "")
     missing_dims_count = sum(1 for img in parser.images if not img["has_dimensions"])
 
     full_text_chunks = []
@@ -222,15 +245,29 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         },
         "canonical": {
             "value": parser.canonical,
-            "present": parser.canonical is not None
+            "present": parser.canonical is not None,
+            "all_tags": parser.canonical_tags,
+            "count": len(parser.canonical_tags)
         },
         "viewport": {
             "value": parser.viewport,
-            "present": parser.viewport is not None
+            "present": parser.viewport is not None,
+            "parsed": parser.viewport_parsed,
+            "has_width_device": parser.viewport_parsed.get("width") == "device-width",
+            "has_initial_scale": "initial-scale" in parser.viewport_parsed
         },
         "meta_robots": {
             "value": parser.meta_robots,
-            "present": parser.meta_robots is not None
+            "googlebot": parser.meta_googlebot,
+            "present": (parser.meta_robots is not None or parser.meta_googlebot is not None),
+            "directives": sorted(list(parser.robots_directives)),
+            "is_noindex": ("noindex" in parser.robots_directives or "none" in parser.robots_directives),
+            "is_nofollow": ("nofollow" in parser.robots_directives or "none" in parser.robots_directives)
+        },
+        "hreflang": {
+            "tags": parser.hreflang_tags,
+            "count": len(parser.hreflang_tags),
+            "has_x_default": any(t["hreflang"].lower() == "x-default" for t in parser.hreflang_tags)
         },
         "open_graph": parser.open_graph,
         "twitter_card": parser.twitter_card,
@@ -242,6 +279,7 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "images": {
             "total_count": len(parser.images),
             "missing_alt": missing_alt_count,
+            "decorative_alt": decorative_alt_count,
             "missing_dimensions": missing_dims_count
         },
         "links": {

@@ -917,6 +917,9 @@ def main():
         test_unknown_signal_invariant,
         test_csr_shell_detection,
         test_schema_standalone_validator,
+        test_canonical_hardening,
+        test_noindex_detection,
+        test_sitemap_analyzer,
     )
 
     engine_tests = [
@@ -926,6 +929,9 @@ def main():
         ("test_unknown_signal_invariant", test_unknown_signal_invariant),
         ("test_csr_shell_detection", test_csr_shell_detection),
         ("test_schema_standalone_validator", test_schema_standalone_validator),
+        ("test_canonical_hardening", test_canonical_hardening),
+        ("test_noindex_detection", test_noindex_detection),
+        ("test_sitemap_analyzer", test_sitemap_analyzer),
     ]
 
     engine_passed = 0

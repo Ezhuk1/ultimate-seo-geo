@@ -140,6 +140,8 @@ def run_inspection(
 
     # TECH-CANONICAL-001
     canonical_val = html_data["canonical"]["value"]
+    canonical_count = html_data["canonical"].get("count", 1 if canonical_val else 0)
+
     if not canonical_val:
         builder.add_evidence(
             rule_id="TECH-CANONICAL-001",
@@ -164,6 +166,90 @@ def run_inspection(
             ],
             impact_estimate="Prevents search and AI crawlers from consolidating canonical signals."
         )
+    elif canonical_count > 1:
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Canonical Link Element",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{canonical_count} canonical tags found",
+            expected="Exactly 1 canonical tag per document",
+            message="Multiple canonical tags detected. Search engines ignore conflicting canonical tags."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Multiple Canonical Tags Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=["Remove duplicate `<link rel='canonical'>` tags, leaving only one single canonical URL."],
+            impact_estimate="Search engines will discard canonical hints and pick an arbitrary URL."
+        )
+    elif not canonical_val.startswith(("http://", "https://")):
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Canonical Link Element",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=canonical_val,
+            expected="Absolute HTTPS URL (e.g. https://example.com/path)",
+            message=f"Canonical URL '{canonical_val}' is relative. RFC 6596 requires an absolute URL."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Relative Canonical URL",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[f"Change relative canonical '{canonical_val}' to an absolute HTTPS URL."],
+            impact_estimate="Relative canonical URLs cause crawling ambiguity and indexing errors."
+        )
+    elif "#" in canonical_val:
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Canonical Link Element",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=canonical_val,
+            expected="Canonical URL without fragment identifiers (#)",
+            message="Canonical URL contains a URL fragment (#). Search engines index documents without fragments."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Canonical URL Contains Fragment",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Remove the fragment identifier (#...) from the canonical URL."],
+            impact_estimate="URL fragments in canonicals are ignored by crawlers and can cause normalization failure."
+        )
+    elif canonical_val.startswith("http://"):
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Canonical Link Element",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=canonical_val,
+            expected="Secure HTTPS canonical URL",
+            message="Canonical URL specifies insecure HTTP instead of HTTPS."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Insecure HTTP Canonical URL",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Upgrade canonical link to use https://."],
+            impact_estimate="Directs crawlers to an unencrypted version of the document."
+        )
     else:
         builder.add_evidence(
             rule_id="TECH-CANONICAL-001",
@@ -173,7 +259,7 @@ def run_inspection(
             confidence=CONFIDENCE_VERIFIED,
             observed=canonical_val,
             expected="Absolute HTTPS URL",
-            message="Canonical tag present."
+            message="Canonical tag present and absolute."
         )
 
     # TECH-TITLE-003
@@ -187,7 +273,7 @@ def run_inspection(
             status=STATUS_CRITICAL,
             confidence=CONFIDENCE_VERIFIED,
             observed=0,
-            expected="30-60 characters",
+            expected="30-65 characters",
             message="Page has no <title> tag."
         )
         builder.add_finding(
@@ -197,7 +283,7 @@ def run_inspection(
             title="Missing Title Tag",
             confidence=CONFIDENCE_VERIFIED,
             action_priority="P0_BLOCKER",
-            remediation_steps=["Add a concise descriptive `<title>` (30-60 chars) with primary entity and brand."],
+            remediation_steps=["Add a concise descriptive `<title>` (50-60 chars) with primary entity and brand."],
             impact_estimate="Direct loss of search engine snippet generation and LLM query matching."
         )
     elif t_len < 30 or t_len > 65:
@@ -208,8 +294,8 @@ def run_inspection(
             status=STATUS_WARNING,
             confidence=CONFIDENCE_HEURISTIC,
             observed=f"{t_len} chars ('{title_text}')",
-            expected="30-60 characters",
-            message=f"Title length ({t_len} chars) is outside optimal 30-60 character display window."
+            expected="30-65 characters",
+            message=f"Title length ({t_len} chars) is outside optimal 30-65 character display window."
         )
         builder.add_finding(
             rule_id="TECH-TITLE-003",
@@ -218,7 +304,7 @@ def run_inspection(
             title="Suboptimal Title Length",
             confidence=CONFIDENCE_HEURISTIC,
             action_priority="P2_MEDIUM",
-            remediation_steps=[f"Adjust title from {t_len} characters to 45-58 characters."],
+            remediation_steps=[f"Adjust title from {t_len} characters to 50-60 characters."],
             impact_estimate="Risk of SERP pixel truncation or weak entity grounding."
         )
     else:
@@ -229,8 +315,8 @@ def run_inspection(
             status=STATUS_PASS,
             confidence=CONFIDENCE_VERIFIED,
             observed=f"{t_len} chars ('{title_text}')",
-            expected="30-60 characters",
-            message="Title length is within ideal limits."
+            expected="30-65 characters",
+            message="Title length is within ideal limits (30-65 chars)."
         )
 
     # TECH-META-DESC-004
@@ -243,7 +329,7 @@ def run_inspection(
             status=STATUS_WARNING,
             confidence=CONFIDENCE_VERIFIED,
             observed=0,
-            expected="120-160 characters",
+            expected="100-165 characters",
             message="Missing meta description tag."
         )
         builder.add_finding(
@@ -264,8 +350,8 @@ def run_inspection(
             status=STATUS_WARNING,
             confidence=CONFIDENCE_HEURISTIC,
             observed=f"{d_len} chars",
-            expected="120-160 characters",
-            message=f"Meta description length ({d_len} chars) is outside optimal 120-160 window."
+            expected="100-165 characters",
+            message=f"Meta description length ({d_len} chars) is outside optimal 100-165 window."
         )
     else:
         builder.add_evidence(
@@ -275,8 +361,8 @@ def run_inspection(
             status=STATUS_PASS,
             confidence=CONFIDENCE_VERIFIED,
             observed=f"{d_len} chars",
-            expected="120-160 characters",
-            message="Meta description length is optimal."
+            expected="100-165 characters",
+            message="Meta description length is optimal (100-165 chars)."
         )
 
     # TECH-H1-OUTLINE-005
@@ -353,6 +439,145 @@ def run_inspection(
             observed="Semantic content present in initial HTML payload",
             expected="Server-rendered semantic HTML payload",
             message="Initial HTML payload contains readable semantic content (not an empty CSR shell)."
+        )
+
+    # TECH-VIEWPORT-006: Mobile Responsive Viewport
+    vp_data = html_data.get("viewport", {})
+    builder.add_signal("html_viewport_present", "Viewport Meta Tag Present", vp_data.get("present", False))
+    if not vp_data.get("present"):
+        builder.add_evidence(
+            rule_id="TECH-VIEWPORT-006",
+            category="technical",
+            title="Mobile Responsive Viewport",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="None",
+            expected="<meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+            message="Missing responsive viewport meta tag. Impairs mobile indexing and mobile usability scoring."
+        )
+        builder.add_finding(
+            rule_id="TECH-VIEWPORT-006",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Missing Viewport Meta Tag",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Add `<meta name='viewport' content='width=device-width, initial-scale=1.0'>` inside the `<head>` section."],
+            impact_estimate="Prevents search engines from validating mobile responsiveness, degrading mobile rank."
+        )
+    elif not vp_data.get("has_width_device", True):
+        builder.add_evidence(
+            rule_id="TECH-VIEWPORT-006",
+            category="technical",
+            title="Mobile Responsive Viewport",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=vp_data.get("value", ""),
+            expected="width=device-width in viewport declaration",
+            message="Viewport meta tag missing width=device-width directive."
+        )
+        builder.add_finding(
+            rule_id="TECH-VIEWPORT-006",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Suboptimal Viewport Configuration",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Update viewport tag to `<meta name='viewport' content='width=device-width, initial-scale=1.0'>`."],
+            impact_estimate="Pages may render in desktop scale mode on mobile screens."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-VIEWPORT-006",
+            category="technical",
+            title="Mobile Responsive Viewport",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=vp_data.get("value", ""),
+            expected="width=device-width, initial-scale=1.0",
+            message="Responsive viewport tag properly configured."
+        )
+
+    # TECH-NOINDEX-009: Indexation Directives (Meta Robots / X-Robots-Tag)
+    robots_meta = html_data.get("meta_robots", {})
+    x_robots_directives = http_res.get("x_robots_directives", [])
+    all_noindex = robots_meta.get("is_noindex", False) or ("noindex" in x_robots_directives) or ("none" in x_robots_directives)
+
+    if all_noindex:
+        src = "X-Robots-Tag HTTP header" if ("noindex" in x_robots_directives) else "<meta name='robots' content='noindex'>"
+        builder.add_evidence(
+            rule_id="TECH-NOINDEX-009",
+            category="technical",
+            title="Indexation Directives (noindex)",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"noindex detected via {src}",
+            expected="Permit indexing on public search landing pages",
+            message=f"Page is explicitly blocked from search and generative engine indexation via noindex directive in {src}."
+        )
+        builder.add_finding(
+            rule_id="TECH-NOINDEX-009",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Page Blocked from Indexation (noindex detected)",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[
+                f"Remove 'noindex' from {src} if this page is intended to be found in search or cited by AI models.",
+                "Ensure staging or development noindex configurations are not leaking into production."
+            ],
+            impact_estimate="Total exclusion from search indexation and AI answer generation."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-NOINDEX-009",
+            category="technical",
+            title="Indexation Directives (noindex)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="No noindex directives present",
+            expected="Indexable public status",
+            message="Document is indexable (no noindex found in meta robots or X-Robots-Tag)."
+        )
+
+    # TECH-IMG-ALT-010: Image Accessibility & Alternative Text
+    img_data = html_data.get("images", {})
+    missing_alt = img_data.get("missing_alt", 0)
+    total_imgs = img_data.get("total_count", 0)
+    if total_imgs > 0 and missing_alt > 0:
+        builder.add_evidence(
+            rule_id="TECH-IMG-ALT-010",
+            category="technical",
+            title="Image Accessibility & Alt Text",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{missing_alt} of {total_imgs} image(s) missing alt attribute",
+            expected="All images declare alt attribute (informative text or alt='' for decorative graphics)",
+            message=f"{missing_alt} image(s) lack an alt attribute entirely."
+        )
+        builder.add_finding(
+            rule_id="TECH-IMG-ALT-010",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Images Missing Alt Attribute",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=[
+                "Add descriptive `alt='...'` text describing informational images.",
+                "Use `alt=''` for purely decorative graphics so screen readers and crawlers can skip them cleanly."
+            ],
+            impact_estimate="Degrades accessibility compliance and image search ranking."
+        )
+    elif total_imgs > 0:
+        builder.add_evidence(
+            rule_id="TECH-IMG-ALT-010",
+            category="technical",
+            title="Image Accessibility & Alt Text",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"All {total_imgs} images have alt attributes defined",
+            expected="All images have alt attribute",
+            message="All images have alt attributes defined."
         )
 
     # TECH-ROBOTS-AI-002

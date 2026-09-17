@@ -29,7 +29,7 @@
       "impact": "P1",
       "confidence_type": "deterministic",
       "selector": "title",
-      "description": "Page title should be between 40 and 70 characters to avoid SERP snippet truncation.",
+      "description": "Page title should be between 30 and 65 characters to avoid SERP snippet truncation.",
       "remediation": "Set <title> to 50–60 characters formatted as 'Primary Topic - Key Benefit | Brand'."
     },
     {
@@ -39,8 +39,8 @@
       "impact": "P2",
       "confidence_type": "deterministic",
       "selector": "meta[name='description']",
-      "description": "Page should provide a descriptive meta description between 120 and 170 characters.",
-      "remediation": "Provide <meta name='description' content='...' /> summarizing unique value proposition."
+      "description": "Page should provide a descriptive meta description between 100 and 165 characters.",
+      "remediation": "Provide <meta name='description' content='...' /> summarizing unique value proposition (120-160 chars)."
     },
     {
       "id": "TECH-H1-OUTLINE-005",
@@ -81,6 +81,26 @@
       "selector": "div#root, div#app, div#__next",
       "description": "Pages relying on client-side rendering with empty initial HTML shells are invisible to fast AI search crawlers (GPTBot, ClaudeBot, PerplexityBot) that do not execute JavaScript.",
       "remediation": "Implement Server-Side Rendering (SSR), Static Site Generation (SSG), or pre-rendering so that semantic HTML and Schema.org are delivered in the initial HTTP wire payload."
+    },
+    {
+      "id": "TECH-NOINDEX-009",
+      "name": "Indexation Directives (Meta Robots / X-Robots-Tag)",
+      "tier": "Tier A (RFC 9309 & Search Protocols)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "meta[name='robots'], X-Robots-Tag",
+      "description": "Pages intended for public search must not specify noindex directives in meta tags or HTTP headers.",
+      "remediation": "Remove 'noindex' from meta robots or HTTP X-Robots-Tag response header."
+    },
+    {
+      "id": "TECH-IMG-ALT-010",
+      "name": "Image Accessibility & Alternative Text",
+      "tier": "Tier E (W3C WCAG Standard)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "img:not([alt])",
+      "description": "Informational images must provide descriptive alt text for accessibility and search engines.",
+      "remediation": "Add descriptive alt='...' for content images or alt='' for decorative graphics."
     }
   ]
 }

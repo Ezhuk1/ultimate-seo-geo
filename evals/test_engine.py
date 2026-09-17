@@ -22,6 +22,7 @@ if str(repo_root) not in sys.path:
 from engine.inspector import run_inspection, format_markdown_report
 from engine.analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers, is_allowed
 from engine.analyzers.schema_analyzer import analyze_json_ld
+from engine.analyzers.sitemap_analyzer import parse_sitemap_xml
 from engine.scoring import calculate_scores
 
 
@@ -30,6 +31,7 @@ def test_clean_page_inspection():
 <html lang="en">
 <head>
     <title>Ultimate SEO &amp; GEO Engine Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="A comprehensive test page demonstrating the evidence ledger protocol and deterministic SEO signal inspection in action with optimal length.">
     <link rel="canonical" href="https://example.com/test">
     <script type="application/ld+json">
@@ -112,6 +114,7 @@ def test_defective_page_detection():
         rule_ids = {f.rule_id for f in ledger.findings}
         assert "TECH-CANONICAL-001" in rule_ids, "Missing TECH-CANONICAL-001 finding"
         assert "TECH-TITLE-003" in rule_ids, "Missing TECH-TITLE-003 finding"
+        assert "TECH-VIEWPORT-006" in rule_ids, "Missing TECH-VIEWPORT-006 finding"
         assert "SCHEMA-PRICE-FORMAT-003" in rule_ids, "Missing SCHEMA-PRICE-FORMAT-003 finding"
         assert "GEO-ANSWER-FRONTLOAD-001" in rule_ids, "Missing GEO-ANSWER-FRONTLOAD-001 finding"
         print("[PASS] test_defective_page_detection")
@@ -156,6 +159,14 @@ Disallow: /
     sim = simulate_ai_crawlers(data)
     assert sim["GPTBot"]["root_allowed"] is True
     assert sim["ClaudeBot"]["root_allowed"] is False
+
+    # Check RFC 9309 product token matching with complex User-Agent string
+    full_ua = "Mozilla/5.0 (compatible; GPTBot/1.2; +https://openai.com/gptbot)"
+    allowed_full_root, _, _ = is_allowed(data, full_ua, "/")
+    assert allowed_full_root is True, "Complex GPTBot user agent string must match GPTBot group"
+    allowed_full_api, _, _ = is_allowed(data, full_ua, "/api/data")
+    assert allowed_full_api is False, "Complex GPTBot user agent string must obey GPTBot disallow"
+
     print("[PASS] test_robots_simulator_rfc9309")
 
 
@@ -282,6 +293,93 @@ def test_schema_standalone_validator():
     print("[PASS] test_schema_standalone_validator")
 
 
+def test_canonical_hardening():
+    html_rel = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Relative Canonical Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="/relative/path">
+</head>
+<body><h1>Test Heading</h1></body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_rel)
+    try:
+        ledger, _ = run_inspection(path)
+        rule_ids = {f.rule_id for f in ledger.findings}
+        assert "TECH-CANONICAL-001" in rule_ids, "Expected relative canonical to trigger TECH-CANONICAL-001 finding"
+        canonical_ev = [e for e in ledger.evidence if e.rule_id == "TECH-CANONICAL-001"][0]
+        assert "relative" in canonical_ev.message.lower()
+        print("[PASS] test_canonical_hardening")
+    finally:
+        os.remove(path)
+
+
+def test_noindex_detection():
+    html_noindex = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Noindex Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, follow">
+    <link rel="canonical" href="https://example.com/noindex">
+</head>
+<body><h1>Test Heading</h1></body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_noindex)
+    try:
+        ledger, _ = run_inspection(path)
+        rule_ids = {f.rule_id for f in ledger.findings}
+        assert "TECH-NOINDEX-009" in rule_ids, "Expected noindex to trigger TECH-NOINDEX-009 finding"
+        print("[PASS] test_noindex_detection")
+    finally:
+        os.remove(path)
+
+
+def test_sitemap_analyzer():
+    valid_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>https://example.com/test</loc>
+      <lastmod>2026-05-15</lastmod>
+      <changefreq>monthly</changefreq>
+      <priority>0.8</priority>
+   </url>
+   <url>
+      <loc>https://example.com/about</loc>
+      <lastmod>2026-05-10</lastmod>
+   </url>
+</urlset>"""
+
+    res = parse_sitemap_xml(valid_xml, target_url="https://example.com/test", base_domain="example.com")
+    assert res.is_valid_xml is True
+    assert res.total_urls == 2
+    assert res.target_in_sitemap is True
+    assert len(res.errors) == 0
+
+    broken_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>/relative/url</loc>
+   </url>
+   <url>
+      <loc>http://insecure.example.com</loc>
+      <lastmod>invalid-date-format</lastmod>
+   </url>
+</urlset>"""
+    res_broken = parse_sitemap_xml(broken_xml, target_url="https://example.com/test", base_domain="example.com")
+    assert res_broken.is_valid_xml is True
+    assert len(res_broken.invalid_urls) == 1
+    assert len(res_broken.non_https_urls) == 1
+    assert any("Relative URL" in e for e in res_broken.errors)
+    assert any("Unparseable lastmod" in w for w in res_broken.warnings)
+    print("[PASS] test_sitemap_analyzer")
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -290,4 +388,7 @@ if __name__ == "__main__":
     test_unknown_signal_invariant()
     test_csr_shell_detection()
     test_schema_standalone_validator()
+    test_canonical_hardening()
+    test_noindex_detection()
+    test_sitemap_analyzer()
     print("All Engine v2.1.0 tests passed successfully!")

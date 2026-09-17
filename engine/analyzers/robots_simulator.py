@@ -147,16 +147,20 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     """
     ua_clean = user_agent.strip().lower()
     
-    # 1. Find matching group for user_agent
+    # 1. Find matching group for user_agent according to RFC 9309 token rules
     matched_group: Optional[UserAgentGroup] = None
+    best_ua_match_len = -1
     wildcard_group: Optional[UserAgentGroup] = None
 
     for group in robots_data.groups:
-        if ua_clean in group.user_agents:
-            matched_group = group
-            break
-        if "*" in group.user_agents:
-            wildcard_group = group
+        for group_ua in group.user_agents:
+            if group_ua == "*":
+                wildcard_group = group
+            elif group_ua in ua_clean or ua_clean in group_ua:
+                # Specific crawler product token match
+                if len(group_ua) > best_ua_match_len:
+                    best_ua_match_len = len(group_ua)
+                    matched_group = group
 
     target_group = matched_group or wildcard_group
 
