@@ -42,7 +42,9 @@ def _normalize_url_for_compare(u: str) -> str:
     """Normalizes URL for exact presence checks (preserves path and query strings)."""
     parsed = urlparse(u.strip())
     path = parsed.path
-    if path and path != "/" and path.endswith("/"):
+    if not path or path == "/":
+        path = "/"
+    elif path.endswith("/"):
         path = path.rstrip("/")
     query_part = f"?{parsed.query}" if parsed.query else ""
     return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}{query_part}"
