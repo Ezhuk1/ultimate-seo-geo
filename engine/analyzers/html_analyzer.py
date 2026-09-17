@@ -5,23 +5,35 @@ Extracts canonical, metadata, headings, images, links, and structured data block
 
 from html.parser import HTMLParser
 from typing import Any
+from urllib.parse import urlsplit
 import re
 
 
 class DocumentParser(HTMLParser):
     def __init__(self):
         super().__init__()
+        self.in_head = False
         self.in_title = False
         self.in_script = False
         self.in_style = False
+        self.in_svg = False
+        self.in_main = False
+
         self.current_script_type = ""
         self.current_heading_tag = None
         self.current_heading_text = []
+        self._current_script_text = []
+        self._current_title_text = []
 
+        self.lang = None
+        self.meta_charset = None
         self.title = ""
+        self.title_tags = []
         self.meta_description = None
+        self.meta_descriptions = []
         self.canonical = None
         self.canonical_tags = []
+        self.canonical_in_body = False
         self.viewport = None
         self.viewport_parsed = {}
         self.meta_robots = None
@@ -36,21 +48,25 @@ class DocumentParser(HTMLParser):
         self.links = []     # List of {"href": str, "rel": str}
         self.json_ld_blocks = []
         self.visible_text_parts = []
-        self._current_script_text = []
+        self.main_text_parts = []
 
         # CSR / SPA Shell detection
         self.csr_mount_elements = []
         self.has_client_bundle = False
-        self.in_svg = False
-        self.title_captured = False
-        self.in_main = False
-        self.main_text_parts = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
 
-        if tag == "main":
+        if tag == "head":
+            self.in_head = True
+        elif tag == "body":
+            self.in_head = False
+        elif tag == "html":
+            html_lang = attr_dict.get("lang", "").strip()
+            if html_lang:
+                self.lang = html_lang
+        elif tag == "main":
             self.in_main = True
         elif tag == "svg":
             self.in_svg = True
@@ -59,8 +75,9 @@ class DocumentParser(HTMLParser):
         if tag_id in ("root", "app", "__next", "__nuxt"):
             self.csr_mount_elements.append(f"{tag}#{tag_id}")
 
-        if tag == "title" and not self.in_svg and not self.title_captured:
+        if tag == "title" and not self.in_svg:
             self.in_title = True
+            self._current_title_text = []
         elif tag == "style":
             self.in_style = True
         elif tag == "script":
@@ -74,9 +91,21 @@ class DocumentParser(HTMLParser):
             name = attr_dict.get("name", "").lower()
             prop = attr_dict.get("property", "").lower()
             content = attr_dict.get("content", "")
+            charset = attr_dict.get("charset", "").strip()
+            http_equiv = attr_dict.get("http-equiv", "").lower()
+
+            if charset:
+                self.meta_charset = charset.lower()
+            elif http_equiv == "content-type" and "charset=" in content.lower():
+                m = re.search(r'charset=["\']?([a-zA-Z0-9_\-]+)', content, re.IGNORECASE)
+                if m:
+                    self.meta_charset = m.group(1).strip().lower()
 
             if name == "description":
-                self.meta_description = content
+                if content:
+                    self.meta_descriptions.append(content)
+                if self.meta_description is None:
+                    self.meta_description = content
             elif name == "viewport":
                 self.viewport = content
                 for part in content.split(","):
@@ -99,11 +128,17 @@ class DocumentParser(HTMLParser):
 
         elif tag == "link":
             rel = attr_dict.get("rel", "").lower()
+            rel_tokens = rel.split()
             href = attr_dict.get("href", "")
-            if rel == "canonical":
-                self.canonical = href
+            if "canonical" in rel_tokens:
+                if not self.in_head:
+                    self.canonical_in_body = True
+                if self.canonical is None and self.in_head:
+                    self.canonical = href
+                elif self.canonical is None:
+                    self.canonical = href
                 self.canonical_tags.append(href)
-            elif rel == "alternate" and "hreflang" in attr_dict:
+            elif "alternate" in rel_tokens and "hreflang" in attr_dict:
                 self.hreflang_tags.append({
                     "hreflang": attr_dict.get("hreflang", "").lower(),
                     "href": href
@@ -131,14 +166,20 @@ class DocumentParser(HTMLParser):
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
-        if tag == "main":
+        if tag == "head":
+            self.in_head = False
+        elif tag == "main":
             self.in_main = False
         elif tag == "svg":
             self.in_svg = False
         elif tag == "title":
             self.in_title = False
-            if self.title.strip():
-                self.title_captured = True
+            title_text = " ".join("".join(self._current_title_text).split())
+            if title_text:
+                self.title_tags.append(title_text)
+                if not self.title:
+                    self.title = title_text
+            self._current_title_text = []
         elif tag == "style":
             self.in_style = False
         elif tag == "script":
@@ -165,7 +206,7 @@ class DocumentParser(HTMLParser):
 
     def handle_data(self, data: str):
         if self.in_title:
-            self.title += data
+            self._current_title_text.append(data)
         elif self.in_script:
             self._current_script_text.append(data)
         elif not self.in_style:
@@ -185,25 +226,32 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
     parser = DocumentParser()
     try:
         parser.feed(html_content)
-    except Exception as e:
-        # html.parser is generally forgiving, but handle unexpected parse errors gracefully
+    except Exception:
         pass
 
-    title_clean = " ".join(parser.title.split())
+    title_clean = parser.title
     h1_headings = [h["text"] for h in parser.headings if h["level"] == 1]
     
     # Analyze links internal vs external
     internal_links = 0
     external_links = 0
-    base_domain = base_url.split("://")[-1].split("/")[0].lower() if "://" in base_url else ""
+    base_host = ""
+    if base_url:
+        parsed_base = urlsplit(base_url)
+        base_host = parsed_base.netloc.lower().split(":")[0]
+
+    ignored_schemes = ("mailto:", "tel:", "sms:", "javascript:", "#", "data:")
 
     for l in parser.links:
-        href = l["href"].strip().lower()
-        if not href or href.startswith("#") or href.startswith("javascript:"):
+        href = l["href"].strip()
+        href_lower = href.lower()
+        if not href or any(href_lower.startswith(sch) for sch in ignored_schemes):
             continue
-        if href.startswith("/") or (base_domain and base_domain in href):
+
+        target_host = urlsplit(href).netloc.lower().split(":")[0]
+        if not target_host or target_host == base_host or (base_host and target_host.endswith("." + base_host)):
             internal_links += 1
-        elif href.startswith("http://") or href.startswith("https://"):
+        elif href_lower.startswith("http://") or href_lower.startswith("https://"):
             external_links += 1
         else:
             internal_links += 1
@@ -233,21 +281,28 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
     main_text = "".join(main_text_chunks)
 
     return {
+        "lang": parser.lang,
+        "meta_charset": parser.meta_charset,
         "title": {
             "value": title_clean,
             "length": len(title_clean),
-            "present": bool(title_clean)
+            "present": bool(title_clean),
+            "count": len(parser.title_tags),
+            "all_titles": parser.title_tags
         },
         "meta_description": {
             "value": parser.meta_description,
             "length": len(parser.meta_description) if parser.meta_description else 0,
-            "present": parser.meta_description is not None
+            "present": parser.meta_description is not None,
+            "count": len(parser.meta_descriptions),
+            "all_descriptions": parser.meta_descriptions
         },
         "canonical": {
             "value": parser.canonical,
             "present": parser.canonical is not None,
             "all_tags": parser.canonical_tags,
-            "count": len(parser.canonical_tags)
+            "count": len(parser.canonical_tags),
+            "in_body": parser.canonical_in_body
         },
         "viewport": {
             "value": parser.viewport,

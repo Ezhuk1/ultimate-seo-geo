@@ -27,7 +27,7 @@ class SitemapAnalysisResult:
     url: str
     is_valid_xml: bool
     is_sitemap_index: bool
-    total_urls: int
+    total_urls: int = 0
     nested_sitemaps: List[str] = field(default_factory=list)
     urls: List[SitemapUrlEntry] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
@@ -151,17 +151,23 @@ def parse_sitemap_xml(
 
         # Check lastmod format if present
         if lastmod_val:
-            parsed_date = False
-            for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d %H:%M:%S"):
-                try:
-                    dt = datetime.strptime(lastmod_val[:19], fmt[:19])
-                    parsed_date = True
-                    if dt.year > current_year + 1:
-                        res.warnings.append(f"Future lastmod date '{lastmod_val}' for '{loc_val}'.")
-                    break
-                except ValueError:
-                    continue
-            if not parsed_date:
+            parsed_dt = None
+            clean_lm = lastmod_val.strip()
+            try:
+                iso_candidate = clean_lm.replace("Z", "+00:00") if clean_lm.endswith("Z") else clean_lm
+                parsed_dt = datetime.fromisoformat(iso_candidate)
+            except ValueError:
+                for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+                    try:
+                        parsed_dt = datetime.strptime(clean_lm, fmt)
+                        break
+                    except ValueError:
+                        continue
+
+            if parsed_dt is not None:
+                if parsed_dt.year > current_year + 1:
+                    res.warnings.append(f"Future lastmod date '{lastmod_val}' for '{loc_val}'.")
+            else:
                 res.warnings.append(f"Unparseable lastmod date format '{lastmod_val}' for '{loc_val}'.")
 
         entry = SitemapUrlEntry(loc=loc_val, lastmod=lastmod_val, changefreq=freq_val, priority=prio_val)
@@ -173,3 +179,38 @@ def parse_sitemap_xml(
 
     res.total_urls = len(res.urls)
     return res
+
+
+def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapAnalysisResult]) -> SitemapAnalysisResult:
+    """
+    Merges child sitemap results into a parent sitemap index analysis result.
+    """
+    merged = SitemapAnalysisResult(
+        present=parent.present,
+        status_code=parent.status_code,
+        url=parent.url,
+        is_valid_xml=parent.is_valid_xml,
+        is_sitemap_index=parent.is_sitemap_index,
+        total_urls=0,
+        nested_sitemaps=list(parent.nested_sitemaps),
+        urls=list(parent.urls),
+        errors=list(parent.errors),
+        warnings=list(parent.warnings),
+        target_in_sitemap=parent.target_in_sitemap,
+        duplicate_urls=list(parent.duplicate_urls),
+        invalid_urls=list(parent.invalid_urls),
+        non_https_urls=list(parent.non_https_urls),
+    )
+
+    for ch in children:
+        merged.urls.extend(ch.urls)
+        merged.errors.extend(ch.errors)
+        merged.warnings.extend(ch.warnings)
+        merged.duplicate_urls.extend(ch.duplicate_urls)
+        merged.invalid_urls.extend(ch.invalid_urls)
+        merged.non_https_urls.extend(ch.non_https_urls)
+        if ch.target_in_sitemap:
+            merged.target_in_sitemap = True
+
+    merged.total_urls = len(merged.urls)
+    return merged

@@ -121,6 +121,76 @@
       "selector": "sitemap.xml",
       "description": "Public sites must provide a valid XML sitemap with absolute HTTPS URLs and valid lastmod dates.",
       "remediation": "Generate and validate sitemap.xml ensuring target URLs are included with valid ISO 8601 lastmod dates."
+    },
+    {
+      "id": "TECH-LANG-012",
+      "name": "HTML Document Language Attribute",
+      "tier": "Tier A (W3C HTML Standard)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "html[lang]",
+      "description": "The <html> element should declare a valid lang attribute (e.g., lang='en') to guide crawler localization and text-to-speech synthesis.",
+      "remediation": "Add lang='...' attribute to the root <html> tag."
+    },
+    {
+      "id": "TECH-CHARSET-013",
+      "name": "Character Encoding Declaration",
+      "tier": "Tier A (W3C HTML Standard)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "meta[charset]",
+      "description": "Page must declare character encoding early in <head> or via HTTP Content-Type header to avoid mojibake and encoding misinterpretation.",
+      "remediation": "Add <meta charset='utf-8'> as the first child of <head>."
+    },
+    {
+      "id": "TECH-TITLE-DUP-014",
+      "name": "Single Title Tag Contract",
+      "tier": "Tier A (W3C HTML Standard)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "title",
+      "description": "Document must contain at most one <title> element in <head>. Duplicate titles cause non-deterministic SERP snippet generation.",
+      "remediation": "Remove extra <title> tags, ensuring only one canonical title exists."
+    },
+    {
+      "id": "TECH-DESC-DUP-015",
+      "name": "Single Meta Description Contract",
+      "tier": "Tier E (Snippet Heuristic)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "meta[name='description']",
+      "description": "Document should contain at most one meta description tag to prevent search engines discarding descriptions due to ambiguity.",
+      "remediation": "Remove duplicate meta description tags."
+    },
+    {
+      "id": "PERF-TTFB-016",
+      "name": "Time to First Byte (TTFB) Threshold",
+      "tier": "Tier B (Server Performance)",
+      "impact": "P2",
+      "confidence_type": "deterministic",
+      "selector": "HTTP Wire Response Time",
+      "description": "Server wire response time (TTFB) should be under 1500ms to preserve crawl budget and mobile user experience.",
+      "remediation": "Optimize server backend, enable HTTP caching, or deploy edge CDN."
+    },
+    {
+      "id": "SOCIAL-OG-017",
+      "name": "Open Graph & Social Card Metadata",
+      "tier": "Tier E (Social Protocol)",
+      "impact": "P3",
+      "confidence_type": "deterministic",
+      "selector": "meta[property^='og:']",
+      "description": "Page should provide essential Open Graph tags (og:title, og:image) for rich social media cards and AI multi-modal previews.",
+      "remediation": "Add og:title, og:description, and og:image meta tags to <head>."
+    },
+    {
+      "id": "TECH-REDIRECT-018",
+      "name": "Redirect Chain & Status Integrity",
+      "tier": "Tier A (HTTP Protocol)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "HTTP Redirect Chain",
+      "description": "Redirect chains should not exceed 2 hops, and permanent relocations should use HTTP 301 rather than 302.",
+      "remediation": "Eliminate intermediate redirect hops and use permanent 301 redirects for canonical URLs."
     }
   ]
 }

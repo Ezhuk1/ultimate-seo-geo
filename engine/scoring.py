@@ -44,6 +44,7 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
     # 1. Technical Score
     tech_score = 100
     deductions = []
+    rule_penalties: Dict[str, int] = {}
     crit_count = 0
     warn_count = 0
     pass_count = 0
@@ -62,77 +63,102 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             if ev.status == STATUS_CRITICAL:
                 crit_count += 1
                 deduction = 25 if ev.confidence == CONFIDENCE_VERIFIED else 15
-                tech_score -= deduction
-                deductions.append({
-                    "rule_id": ev.rule_id,
-                    "title": ev.title,
-                    "penalty": -deduction,
-                    "reason": ev.message,
-                    "confidence": ev.confidence
-                })
+                current_penalty = rule_penalties.get(ev.rule_id, 0)
+                max_rule_cap = 25
+                actual_deduction = min(deduction, max(0, max_rule_cap - current_penalty))
+                if actual_deduction > 0:
+                    tech_score -= actual_deduction
+                    rule_penalties[ev.rule_id] = current_penalty + actual_deduction
+                    deductions.append({
+                        "rule_id": ev.rule_id,
+                        "title": ev.title,
+                        "penalty": -actual_deduction,
+                        "reason": ev.message,
+                        "confidence": ev.confidence
+                    })
             elif ev.status == STATUS_WARNING:
                 warn_count += 1
                 # Differentiate penalties:
-                # Heuristic / display length warnings carry -5 pts
-                # Technical and structural warnings carry -10 pts
-                if ev.confidence != CONFIDENCE_VERIFIED or ev.rule_id in ("TECH-TITLE-003", "TECH-META-DESC-004"):
+                # TECH-H1-OUTLINE-005: 0 H1 is warning (-10 pts), >1 H1 is informational recommendation (0 pts)
+                if ev.rule_id == "TECH-H1-OUTLINE-005":
+                    try:
+                        obs_val = int(str(ev.observed).split()[0])
+                        deduction = 0 if obs_val > 1 else 10
+                    except Exception:
+                        deduction = 10
+                elif ev.confidence != CONFIDENCE_VERIFIED or ev.rule_id in ("TECH-TITLE-003", "TECH-META-DESC-004"):
                     deduction = 5
                 else:
                     deduction = 10
-                tech_score -= deduction
-                deductions.append({
-                    "rule_id": ev.rule_id,
-                    "title": ev.title,
-                    "penalty": -deduction,
-                    "reason": ev.message,
-                    "confidence": ev.confidence
-                })
+
+                if deduction > 0:
+                    current_penalty = rule_penalties.get(ev.rule_id, 0)
+                    max_rule_cap = 15
+                    actual_deduction = min(deduction, max(0, max_rule_cap - current_penalty))
+                    if actual_deduction > 0:
+                        tech_score -= actual_deduction
+                        rule_penalties[ev.rule_id] = current_penalty + actual_deduction
+                        deductions.append({
+                            "rule_id": ev.rule_id,
+                            "title": ev.title,
+                            "penalty": -actual_deduction,
+                            "reason": ev.message,
+                            "confidence": ev.confidence
+                        })
 
     tech_score = max(0, min(100, tech_score))
 
     # 2. GEO Readiness Index
-    geo_score = 0
-    # Direct Answer Frontload (25 pts)
-    ans_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
-    if ans_ev:
-        if ans_ev.status == STATUS_PASS:
-            geo_score += 25
-        elif ans_ev.status == STATUS_WARNING:
-            geo_score += 10
-    else:
-        geo_score += 15  # Neutral default if not evaluated
+    content_signal = ledger.signals.get("content_total_words")
+    status_signal = ledger.signals.get("http_status_code")
+    has_error = bool(status_signal and status_signal.value and status_signal.value >= 400)
+    has_no_content = bool(content_signal is not None and content_signal.value == 0)
 
-    # Adaptive Chunking (25 pts)
-    chunk_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"), None)
-    if chunk_ev:
-        if chunk_ev.status == STATUS_PASS:
-            geo_score += 25
-        elif chunk_ev.status == STATUS_WARNING:
-            geo_score += 12
+    if has_error or has_no_content:
+        geo_score = 0
     else:
-        geo_score += 15
+        geo_score = 0
+        # Direct Answer Frontload (25 pts)
+        ans_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
+        if ans_ev:
+            if ans_ev.status == STATUS_PASS:
+                geo_score += 25
+            elif ans_ev.status == STATUS_WARNING:
+                geo_score += 10
+        else:
+            geo_score += 15  # Neutral default if measured but not flagged
 
-    # Coreference Independence (25 pts)
-    coref_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
-    if coref_ev:
-        if coref_ev.status == STATUS_PASS:
-            geo_score += 25
-        elif coref_ev.status == STATUS_WARNING:
-            geo_score += 12
-    else:
-        geo_score += 15
-
-    # Schema Graph Integration (25 pts)
-    graph_ev = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
-    if graph_ev:
-        if graph_ev.status == STATUS_PASS:
-            geo_score += 25
-        elif graph_ev.status == STATUS_WARNING:
-            geo_score += 10
-    else:
-        schema_ent = ledger.signals.get("schema_entity_count")
-        if schema_ent and schema_ent.value > 0:
+        # Adaptive Chunking (25 pts)
+        chunk_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"), None)
+        if chunk_ev:
+            if chunk_ev.status == STATUS_PASS:
+                geo_score += 25
+            elif chunk_ev.status == STATUS_WARNING:
+                geo_score += 12
+        else:
             geo_score += 15
+
+        # Coreference Independence (25 pts)
+        coref_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
+        if coref_ev:
+            if coref_ev.status == STATUS_PASS:
+                geo_score += 25
+            elif coref_ev.status == STATUS_WARNING:
+                geo_score += 12
+        else:
+            geo_score += 15
+
+        # Schema Graph Integration (25 pts)
+        graph_ev = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
+        if graph_ev:
+            if graph_ev.status == STATUS_PASS:
+                geo_score += 25
+            elif graph_ev.status == STATUS_WARNING:
+                geo_score += 10
+        else:
+            schema_ent = ledger.signals.get("schema_entity_count")
+            if schema_ent and schema_ent.value > 0:
+                geo_score += 15
 
     geo_score = max(0, min(100, geo_score))
 

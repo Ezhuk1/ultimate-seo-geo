@@ -472,6 +472,172 @@ def test_sitemap_analyzer_inspector_integration():
         os.remove(path)
 
 
+def test_audit_v2_16_fixes():
+    """Comprehensive test covering the 16 audit fixes."""
+    from engine.analyzers.http_analyzer import _detect_and_decode, _extract_header_canonical
+    from engine.analyzers.content_analyzer import analyze_content
+    from engine.analyzers.html_analyzer import analyze_target_html
+    from engine.analyzers.sitemap_analyzer import merge_sitemap_results, SitemapAnalysisResult
+    from engine.ledger import LedgerBuilder, STATUS_CRITICAL, STATUS_WARNING, STATUS_PASS, CONFIDENCE_VERIFIED
+
+    # 1. Sitemap lastmod parsing with standard ISO 8601 offset
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>https://example.com/item1</loc>
+      <lastmod>2026-05-15T08:00:00+00:00</lastmod>
+   </url>
+   <url>
+      <loc>https://example.com/item2</loc>
+      <lastmod>2026-05-15T08:00:00Z</lastmod>
+   </url>
+</urlset>"""
+    sm_res = parse_sitemap_xml(sitemap_xml, sitemap_url="https://example.com/sitemap.xml", target_url="https://example.com/item1", base_domain="example.com", status_code=200)
+    assert len(sm_res.warnings) == 0, f"Expected 0 lastmod warnings for valid ISO strings, got: {sm_res.warnings}"
+    assert sm_res.target_in_sitemap is True
+
+    # 1b. Sitemap index merging
+    parent = SitemapAnalysisResult(present=True, status_code=200, url="https://example.com/index.xml", is_valid_xml=True, is_sitemap_index=True)
+    child = SitemapAnalysisResult(present=True, status_code=200, url="https://example.com/child1.xml", is_valid_xml=True, is_sitemap_index=False, target_in_sitemap=True)
+    merged = merge_sitemap_results(parent, [child])
+    assert merged.target_in_sitemap is True
+
+    # 2. Charset detection (windows-1251)
+    ru_text = "Пример текста на русском языке"
+    raw_cp1251 = ru_text.encode("windows-1251")
+    decoded, charset = _detect_and_decode(raw_cp1251, "text/html; charset=windows-1251")
+    assert charset == "windows-1251"
+    assert decoded == ru_text
+
+    # Sniff meta charset from bytes
+    raw_with_meta = b'<html><head><meta charset="windows-1251"></head><body>' + raw_cp1251 + b'</body></html>'
+    decoded_meta, charset_meta = _detect_and_decode(raw_with_meta, None)
+    assert charset_meta == "windows-1251"
+    assert ru_text in decoded_meta
+
+    # 3. Header Link canonical parsing
+    header_canon = _extract_header_canonical(None, {"link": '<https://example.com/canonical>; rel="canonical"'})
+    assert header_canon == "https://example.com/canonical"
+
+    # 4. Robots.txt exact product token and multiple wildcard groups
+    robots_content = """
+User-agent: *
+Disallow: /admin/
+
+User-agent: bot
+Disallow: /all-bots-trap/
+
+User-agent: Googlebot
+Disallow: /google-only/
+
+User-agent: Googlebot-Image
+Disallow: /images/
+
+User-agent: *
+Disallow: /private/
+
+Clean-param: ref /catalog
+"""
+    rdata = parse_robots_txt(robots_content)
+    assert "ref /catalog" in rdata.clean_params
+
+    # Googlebot should NOT match Googlebot-Image rules
+    allowed_gb_img, _, _ = is_allowed(rdata, "Googlebot", "/images/pic.png")
+    assert allowed_gb_img is True, "Googlebot must NOT match Googlebot-Image group rules"
+
+    # Googlebot should match Googlebot group
+    allowed_gb, _, _ = is_allowed(rdata, "Googlebot", "/google-only/")
+    assert allowed_gb is False, "Googlebot must match Googlebot group rule"
+
+    # Googlebot should NOT match generic 'bot' group
+    allowed_gb_trap, _, _ = is_allowed(rdata, "Googlebot", "/all-bots-trap/")
+    assert allowed_gb_trap is True, "Googlebot must NOT match 'bot' group rules"
+
+    # Wildcard groups must be merged: /admin/ and /private/ both disallowed for other bots
+    allowed_w1, _, _ = is_allowed(rdata, "OtherBot", "/admin/sec")
+    allowed_w2, _, _ = is_allowed(rdata, "OtherBot", "/private/sec")
+    assert allowed_w1 is False, "Merged wildcard group 1 (/admin/) must disallow"
+    assert allowed_w2 is False, "Merged wildcard group 2 (/private/) must disallow"
+
+    # 5. HTML analyzer in_head tracking, rel tokens, duplicates, lang, meta charset, link classification
+    test_html = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Первый заголовок</title>
+    <title>Второй дубликат заголовка</title>
+    <meta name="description" content="Описание 1">
+    <meta name="description" content="Описание 2">
+    <link rel="canonical alternate" href="https://example.com/head-canonical">
+</head>
+<body>
+    <link rel="canonical" href="https://example.com/body-canonical">
+    <a href="mailto:test@example.com">Email</a>
+    <a href="tel:+123456789">Phone</a>
+    <a href="javascript:void(0)">JS</a>
+    <a href="#section">Anchor</a>
+    <a href="/internal/path">Internal</a>
+    <a href="https://external.com/out">External</a>
+</body>
+</html>"""
+    parsed_h = analyze_target_html(test_html, base_url="https://example.com")
+    assert parsed_h["lang"] == "ru"
+    assert parsed_h["meta_charset"] == "utf-8"
+    assert parsed_h["title"]["count"] == 2
+    assert parsed_h["meta_description"]["count"] == 2
+    assert parsed_h["canonical"]["in_body"] is True
+    assert parsed_h["canonical"]["value"] == "https://example.com/head-canonical"
+    # Links: only /internal/path is internal. mailto, tel, javascript, anchor must be excluded!
+    assert parsed_h["links"]["internal_count"] == 1
+    assert parsed_h["links"]["external_count"] == 1
+
+    # 6. Schema Analyzer: author deduplication & multiple scripts severity INFO
+    multi_schema = [
+        """{"@context": "https://schema.org", "@type": "Article", "headline": "Test", "author": {"@type": "Person", "name": "Alice", "@id": "#alice"}}""",
+        """{"@context": "https://schema.org", "@type": "Person", "name": "Alice", "@id": "#alice"}"""
+    ]
+    schema_res = analyze_json_ld(multi_schema)
+    multi_script_finding = next((f for f in schema_res.findings if f.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
+    assert multi_script_finding is not None
+    assert multi_script_finding.severity == "INFO", "Multiple scripts should have severity INFO, not WARNING"
+    # Author findings should be deduplicated: only 1 warning for Alice missing sameAs
+    author_findings = [f for f in schema_res.findings if f.rule_id == "SCHEMA-AUTHOR-SAMEAS-004"]
+    assert len(author_findings) == 1, f"Expected 1 deduplicated author finding, got {len(author_findings)}"
+
+    # 7. Scoring improvements: H1 split & GEO baseline on error
+    lb = LedgerBuilder("https://example.com")
+    lb.set_raw(200, {}, "<html></html>", 10.0)
+    # Test > 1 H1 has 0 penalty
+    lb.add_evidence(
+        rule_id="TECH-H1-OUTLINE-005",
+        category="technical",
+        title="H1 Heading Count",
+        status=STATUS_WARNING,
+        confidence=CONFIDENCE_VERIFIED,
+        observed="2 H1 headings",
+        expected="Exactly 1 H1 heading",
+        message="Multiple H1s"
+    )
+    test_scores = calculate_scores(lb.build())
+    assert test_scores.observable_technical_score == 100, f"Expected 100 for >1 H1, got {test_scores.observable_technical_score}"
+
+    # Test error response gets 0 GEO readiness index
+    lb_err = LedgerBuilder("https://example.com")
+    lb_err.set_raw(404, {}, "", 10.0)
+    lb_err.add_signal("http_status_code", "HTTP Status", 404)
+    lb_err.add_signal("content_total_words", "Word Count", 0)
+    err_scores = calculate_scores(lb_err.build())
+    assert err_scores.geo_readiness_index == 0, f"Expected 0 GEO score on 404, got {err_scores.geo_readiness_index}"
+
+    # 8. Russian content fluff and pronoun leads
+    ru_fluff_content = "В современном мире каждый задумывается о технологиях.\n\nЭто очень важная тема для каждого пользователя."
+    c_res = analyze_content(ru_fluff_content)
+    assert c_res.opening_has_fluff is True
+    assert c_res.pronoun_lead_count >= 1
+
+    print("[PASS] test_audit_v2_16_fixes")
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -486,4 +652,5 @@ if __name__ == "__main__":
     test_schema_empty_and_calendar_validation()
     test_http_status_blocking_and_coverage()
     test_sitemap_analyzer_inspector_integration()
+    test_audit_v2_16_fixes()
     print("All Engine v2.1.0 tests passed successfully!")

@@ -113,7 +113,7 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
     if result.total_scripts > 1:
         result.findings.append(SchemaFinding(
             rule_id="SCHEMA-GRAPH-INTERCONNECT-002",
-            severity="WARNING",
+            severity="INFO",
             entity_type=None,
             message=f"Multiple separate <script type='application/ld+json'> tags ({result.total_scripts}) detected. Recommended: unify into single @graph.",
             details={"script_count": result.total_scripts}
@@ -218,16 +218,25 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                 ))
 
     # 5. Check Author sameAs authority profiles (SCHEMA-AUTHOR-SAMEAS-004)
-    authors: List[Dict[str, Any]] = []
+    raw_authors: List[Dict[str, Any]] = []
     for entity in result.entities:
         auth = entity.get("author")
         if isinstance(auth, dict):
             if not ("@id" in auth and len(auth) == 1):
-                authors.append(auth)
+                raw_authors.append(auth)
         elif isinstance(auth, list):
-            authors.extend([a for a in auth if isinstance(a, dict) and not ("@id" in a and len(a) == 1)])
+            raw_authors.extend([a for a in auth if isinstance(a, dict) and not ("@id" in a and len(a) == 1)])
         if entity.get("@type") in ("Person", "Organization"):
-            authors.append(entity)
+            raw_authors.append(entity)
+
+    # Deduplicate authors to avoid repetitive findings for the same entity
+    seen_authors = set()
+    authors: List[Dict[str, Any]] = []
+    for author in raw_authors:
+        auth_key = author.get("@id") or f"{author.get('@type', '')}:{author.get('name', '')}"
+        if auth_key not in seen_authors:
+            seen_authors.add(auth_key)
+            authors.append(author)
 
     for author in authors:
         same_as = author.get("sameAs")

@@ -22,7 +22,8 @@ DEFINITION_PATTERNS = [
 
 FLUFF_INTRO_PATTERNS = [
     re.compile(r"\b(in today'?s fast-paced world|have you ever wondered|as we all know|it goes without saying|imagine a world where)\b", re.IGNORECASE),
-    re.compile(r"\b(in this article|in this post|we will explore|let's dive into|let's take a look)\b", re.IGNORECASE)
+    re.compile(r"\b(in this article|in this post|we will explore|let's dive into|let's take a look)\b", re.IGNORECASE),
+    re.compile(r"\b(в современном мире|в этой статье|в этой публикации|как известно|ни для кого не секрет|давайте разберемся|сегодня мы поговорим|никому не секрет)\b", re.IGNORECASE),
 ]
 
 PERCENTAGE_PATTERN = re.compile(r"\b\d+([.,]\d+)?\s?%\b")
@@ -30,10 +31,11 @@ NUMERIC_STAT_PATTERN = re.compile(r"\b\d{1,3}(,\d{3})+(\.\d+)?\b|\b\d+(\.\d+)?\s
 
 CITATION_CUES = [
     "according to", "study by", "research by", "report from", "published in",
-    "data from", "source:", "survey conducted", "arxiv", "et al", "doi:"
+    "data from", "source:", "survey conducted", "arxiv", "et al", "doi:",
+    "согласно", "исследование", "по данным", "источник:", "отчет"
 ]
 
-PRONOUN_LEAD_PATTERN = re.compile(r"^(it|this|that|these|those|they|he|she)\b", re.IGNORECASE)
+PRONOUN_LEAD_PATTERN = re.compile(r"^(it|this|that|these|those|they|he|she|это|он|она|оно|они|данный|эта|тот|эти|тех)\b", re.IGNORECASE)
 
 
 @dataclass

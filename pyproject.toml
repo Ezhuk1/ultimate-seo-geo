@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultimate-seo-geo"
+version = "2.1.0"
+description = "Empirical SEO & Generative Engine Optimization (GEO) Autonomous Inspection Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Ezhuk1" }
+]
+keywords = [
+    "seo",
+    "geo",
+    "generative-engine-optimization",
+    "search-engine-optimization",
+    "schema-org",
+    "json-ld",
+    "robots-txt",
+    "rfc9309",
+    "sitemap",
+    "llm-search",
+    "chatgpt-search",
+    "perplexity"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Ezhuk1/ultimate-seo-geo"
+Repository = "https://github.com/Ezhuk1/ultimate-seo-geo.git"
+Issues = "https://github.com/Ezhuk1/ultimate-seo-geo/issues"
+
+[project.scripts]
+ultimate-seo-geo = "engine.inspector:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["engine*"]

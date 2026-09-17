@@ -18,12 +18,18 @@ KNOWN_AI_CRAWLERS = [
     ("OAI-SearchBot", "OpenAI Search Engine Indexer (ChatGPT Search)"),
     ("ChatGPT-User", "OpenAI User-Triggered Web Browser"),
     ("GPTBot", "OpenAI Model Training & Corpus Crawler"),
-    ("ClaudeBot", "Anthropic AI Crawler"),
+    ("Claude-SearchBot", "Anthropic AI Search Crawler"),
+    ("Claude-User", "Anthropic User-Triggered Web Browser"),
+    ("ClaudeBot", "Anthropic Model Training & Corpus Crawler"),
     ("PerplexityBot", "Perplexity AI Search Crawler"),
     ("Googlebot", "Google Web Search Crawler"),
-    ("Bingbot", "Microsoft Bing & Copilot Crawler"),
     ("Google-Extended", "Google Gemini / Vertex AI Training"),
+    ("Bingbot", "Microsoft Bing & Copilot Crawler"),
+    ("Applebot", "Apple Search & Siri Indexer"),
+    ("Applebot-Extended", "Apple AI Training Crawler"),
     ("Amazonbot", "Amazon Alexa & AI Crawler"),
+    ("YandexBot", "Yandex Web Search Crawler"),
+    ("DuckAssistBot", "DuckDuckGo AI Search Assistant"),
     ("Bytespider", "ByteDance AI Crawler"),
     ("CCBot", "Common Crawl Dataset Crawler"),
 ]
@@ -51,6 +57,7 @@ class RobotsData:
     groups: List[UserAgentGroup] = field(default_factory=list)
     sitemaps: List[str] = field(default_factory=list)
     disallowed_paths: List[str] = field(default_factory=list)
+    clean_params: List[str] = field(default_factory=list)
 
 
 def _pattern_to_regex(pattern: str) -> re.Pattern:
@@ -138,6 +145,9 @@ def parse_robots_txt(content: str) -> RobotsData:
         elif directive == "sitemap":
             if value and value not in data.sitemaps:
                 data.sitemaps.append(value)
+        elif directive == "clean-param":
+            if value and value not in data.clean_params:
+                data.clean_params.append(value)
 
     commit_current_group()
     return data
@@ -146,29 +156,40 @@ def parse_robots_txt(content: str) -> RobotsData:
 def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[bool, Optional[Rule], str]:
     """
     Evaluates RFC 9309 access rule for a specific user-agent and path.
+    Uses RFC 9309 product token matching and merges all wildcard groups if no specific match.
     Returns: (is_allowed, matching_rule, reason)
     """
     ua_clean = user_agent.strip().lower()
+    if not path.startswith("/"):
+        path = "/" + path
     
-    # 1. Collect all rules from all matching groups (RFC 9309 rule merging)
+    # Extract product tokens from User-Agent string (RFC 9309 Section 2.2.1)
+    ua_tokens = set(re.findall(r'[a-zA-Z0-9_\-]+', ua_clean))
+    if ua_clean:
+        ua_tokens.add(ua_clean)
+
+    # 1. Collect rules from matching groups or merged wildcard groups
     matching_rules: List[Rule] = []
+    wildcard_rules: List[Rule] = []
     matched_any_specific = False
-    wildcard_group: Optional[UserAgentGroup] = None
 
     for group in robots_data.groups:
-        group_matched = False
+        is_wildcard = False
+        is_specific_match = False
         for group_ua in group.user_agents:
             if group_ua == "*":
-                wildcard_group = group
-            elif group_ua in ua_clean or ua_clean in group_ua:
-                group_matched = True
-                matched_any_specific = True
+                is_wildcard = True
+            elif group_ua in ua_tokens:
+                is_specific_match = True
                 break
-        if group_matched:
+        if is_specific_match:
             matching_rules.extend(group.rules)
+            matched_any_specific = True
+        elif is_wildcard:
+            wildcard_rules.extend(group.rules)
 
-    if not matched_any_specific and wildcard_group:
-        matching_rules.extend(wildcard_group.rules)
+    if not matched_any_specific:
+        matching_rules.extend(wildcard_rules)
 
     if not matching_rules:
         return True, None, "No matching group or rules found (default allow)"

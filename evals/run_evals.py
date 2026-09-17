@@ -923,6 +923,7 @@ def main():
         test_schema_empty_and_calendar_validation,
         test_http_status_blocking_and_coverage,
         test_sitemap_analyzer_inspector_integration,
+        test_audit_v2_16_fixes,
     )
 
     engine_tests = [
@@ -938,6 +939,7 @@ def main():
         ("test_schema_empty_and_calendar_validation", test_schema_empty_and_calendar_validation),
         ("test_http_status_blocking_and_coverage", test_http_status_blocking_and_coverage),
         ("test_sitemap_analyzer_inspector_integration", test_sitemap_analyzer_inspector_integration),
+        ("test_audit_v2_16_fixes", test_audit_v2_16_fixes),
     ]
 
     engine_passed = 0

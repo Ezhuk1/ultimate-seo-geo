@@ -181,13 +181,37 @@ def run_inspection(
             status_code=200
         )
 
+    # Expand sitemap index children if present
+    if sitemap_res and sitemap_res.is_sitemap_index and sitemap_res.nested_sitemaps and not http_res["is_local"]:
+        child_results = []
+        for child_sm_url in sitemap_res.nested_sitemaps[:5]:
+            c_res = analyze_target_http(child_sm_url, timeout=timeout)
+            if c_res["status_code"] == 200 and c_res["raw_content"]:
+                c_parsed = parse_sitemap_xml(
+                    c_res["raw_content"],
+                    sitemap_url=child_sm_url,
+                    target_url=final_url,
+                    base_domain=parsed_target.netloc,
+                    status_code=c_res["status_code"]
+                )
+                child_results.append(c_parsed)
+        if child_results:
+            from .analyzers.sitemap_analyzer import merge_sitemap_results
+            sitemap_res = merge_sitemap_results(sitemap_res, child_results)
+
     # 6. Record Signals
     builder.add_signal("http_status_code", "HTTP Status Code", status_code, unit="code")
     builder.add_signal("http_response_time_ms", "Response Time", response_time_ms, unit="ms")
     builder.add_signal("html_title_length", "Title Character Length", html_data["title"]["length"], unit="chars")
+    builder.add_signal("html_title_count", "Title Tags Count", html_data["title"].get("count", 1 if html_data["title"]["present"] else 0), unit="count")
     builder.add_signal("html_meta_desc_length", "Meta Description Length", html_data["meta_description"]["length"], unit="chars")
+    builder.add_signal("html_desc_count", "Meta Description Tags Count", html_data["meta_description"].get("count", 1 if html_data["meta_description"]["present"] else 0), unit="count")
     builder.add_signal("html_h1_count", "H1 Headings Count", html_data["headings"]["h1_count"], unit="count")
     builder.add_signal("html_canonical_present", "Canonical URL Present", html_data["canonical"]["present"])
+    builder.add_signal("html_lang", "HTML Document Language", html_data.get("lang"))
+    builder.add_signal("html_meta_charset", "Meta Charset Declaration", html_data.get("meta_charset") or http_res.get("detected_charset"))
+    builder.add_signal("http_header_canonical", "Header Link Canonical", http_res.get("header_canonical"))
+    builder.add_signal("http_redirect_hops", "Redirect Hops", len(http_res.get("redirect_chain", [])), unit="hops")
     builder.add_signal("html_images_total", "Total Images", html_data["images"]["total_count"], unit="count")
     builder.add_signal("html_images_missing_alt", "Images Missing Alt", html_data["images"]["missing_alt"], unit="count")
     builder.add_signal("schema_scripts_count", "JSON-LD Scripts Count", schema_data.total_scripts, unit="count")
@@ -213,10 +237,55 @@ def run_inspection(
     # 7. Evaluate Rules -> EVIDENCE & FINDINGS
 
     # TECH-CANONICAL-001
-    canonical_val = html_data["canonical"]["value"]
-    canonical_count = html_data["canonical"].get("count", 1 if canonical_val else 0)
+    html_can = html_data["canonical"]["value"]
+    header_can = http_res.get("header_canonical")
+    canonical_val = html_can or header_can
+    canonical_count = html_data["canonical"].get("count", 1 if html_can else 0)
 
-    if not canonical_val:
+    # Check for conflict between HTTP Header and HTML canonical
+    if header_can and html_can and header_can.rstrip("/") != html_can.rstrip("/"):
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Conflicting Canonical URLs",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"Header: {header_can} vs HTML: {html_can}",
+            expected="Consistent canonical URL across HTTP Header and HTML",
+            message=f"Conflicting canonical declarations: HTTP Link header specifies '{header_can}' while HTML specifies '{html_can}'."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Conflicting Canonical URLs (Header vs HTML)",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=["Align HTTP Link header and HTML <link rel='canonical'> to specify the exact same canonical URL."],
+            impact_estimate="Search engines will discard canonical hints due to direct contradiction."
+        )
+    elif html_data["canonical"].get("in_body", False):
+        builder.add_evidence(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            title="Canonical Tag Placement",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="<link rel='canonical'> located in <body>",
+            expected="<link rel='canonical'> located strictly inside <head>",
+            message="Canonical link tag is located inside <body>. Search engines strictly require canonical tags inside <head> and ignore body tags."
+        )
+        builder.add_finding(
+            rule_id="TECH-CANONICAL-001",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Canonical Tag Located Outside <head>",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Move <link rel='canonical'> into the document <head> section."],
+            impact_estimate="Search engines may ignore canonical declarations outside of <head>."
+        )
+    elif not canonical_val:
         builder.add_evidence(
             rule_id="TECH-CANONICAL-001",
             category="technical",
@@ -476,8 +545,20 @@ def run_inspection(
 
     # TECH-CSR-SHELL-008: Client-Side Rendering (CSR) Empty Shell
     csr_info = html_data.get("csr_detection", {})
-    builder.add_signal("html_is_csr_shell", "Client-Side Rendering (CSR) Empty Shell Detected", csr_info.get("is_csr_shell", False))
-    if csr_info.get("is_csr_shell", False):
+    is_challenge = http_res.get("is_challenge_page", False)
+    builder.add_signal("html_is_csr_shell", "Client-Side Rendering (CSR) Empty Shell Detected", csr_info.get("is_csr_shell", False) and not is_challenge)
+    if is_challenge:
+        builder.add_evidence(
+            rule_id="TECH-CSR-SHELL-008",
+            category="technical",
+            title="Client-Side Rendering (CSR) Empty Shell Invisibility",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="WAF / Cloudflare challenge page intercepted crawl",
+            expected="Direct server HTML response",
+            message="Inspection encountered a Cloudflare / WAF verification challenge. CSR shell detection skipped."
+        )
+    elif csr_info.get("is_csr_shell", False):
         mounts_str = ", ".join(csr_info.get("mount_elements", [])) or "JS bundle container"
         w_count = csr_info.get("visible_word_count", 0)
         builder.add_evidence(
@@ -849,6 +930,28 @@ def run_inspection(
                 expected="Valid XML sitemap",
                 message="XML sitemap is syntactically valid and properly configured."
             )
+
+        if not sitemap_res.target_in_sitemap and sitemap_res.total_urls > 0 and not sitemap_res.is_sitemap_index and not http_res["is_local"]:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                title="Target URL Inclusion in XML Sitemap",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Target URL '{final_url}' not found in sitemap",
+                expected="Target URL included in sitemap.xml",
+                message=f"Current target URL '{final_url}' was not found in the XML sitemap ({sitemap_res.total_urls} URLs indexed)."
+            )
+            builder.add_finding(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Target URL Missing from XML Sitemap",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[f"Add '{final_url}' to sitemap.xml with updated <lastmod> date."],
+                impact_estimate="Search engines may not prioritize crawling or refreshing this unlisted document."
+            )
     elif not http_res["is_local"]:
         builder.add_evidence(
             rule_id="TECH-SITEMAP-011",
@@ -859,6 +962,254 @@ def run_inspection(
             observed="No XML sitemap detected",
             expected="Discoverable XML sitemap",
             message="No XML sitemap detected at standard locations or referenced in robots.txt."
+        )
+
+    # TECH-LANG-012: HTML Document Language
+    html_lang = html_data.get("lang")
+    if not html_lang:
+        builder.add_evidence(
+            rule_id="TECH-LANG-012",
+            category="technical",
+            title="HTML Language Declaration",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="None",
+            expected="<html lang='...'> attribute",
+            message="<html> tag is missing the 'lang' attribute. Search engines and screen readers use this attribute for localization and speech synthesis."
+        )
+        builder.add_finding(
+            rule_id="TECH-LANG-012",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Missing HTML lang Attribute",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Add a valid lang attribute to the <html> tag (e.g., <html lang='en'> or <html lang='ru'>)."],
+            impact_estimate="Impairs language identification, regional targeting, and accessibility tools."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-LANG-012",
+            category="technical",
+            title="HTML Language Declaration",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"lang='{html_lang}'",
+            expected="<html lang='...'> attribute",
+            message=f"HTML document declares language: '{html_lang}'."
+        )
+
+    # TECH-CHARSET-013: Character Encoding Declaration
+    meta_charset = html_data.get("meta_charset") or http_res.get("detected_charset")
+    if not meta_charset:
+        builder.add_evidence(
+            rule_id="TECH-CHARSET-013",
+            category="technical",
+            title="Character Encoding Declaration",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="None",
+            expected="<meta charset='utf-8'> or HTTP Content-Type charset",
+            message="Document lacks an explicit character encoding declaration. May cause mojibake in search snippets."
+        )
+        builder.add_finding(
+            rule_id="TECH-CHARSET-013",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Missing Character Encoding Declaration",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Add `<meta charset='utf-8'>` as the first tag inside `<head>`."],
+            impact_estimate="Risk of text garbling (mojibake) in search snippets and LLM extraction."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-CHARSET-013",
+            category="technical",
+            title="Character Encoding Declaration",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=meta_charset,
+            expected="Explicit charset declaration (e.g. utf-8)",
+            message=f"Character encoding declared: {meta_charset}."
+        )
+
+    # TECH-TITLE-DUP-014: Single Title Tag Contract
+    title_count = html_data["title"].get("count", 1 if html_data["title"]["present"] else 0)
+    if title_count > 1:
+        builder.add_evidence(
+            rule_id="TECH-TITLE-DUP-014",
+            category="technical",
+            title="Single Title Tag Contract",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{title_count} <title> tags detected",
+            expected="Exactly 1 <title> tag",
+            message=f"Document contains {title_count} separate <title> tags. Browsers and crawlers exhibit non-deterministic snippet behavior when multiple titles exist."
+        )
+        builder.add_finding(
+            rule_id="TECH-TITLE-DUP-014",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Duplicate Title Tags Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=["Consolidate multiple <title> tags into a single authoritative title tag in <head>."],
+            impact_estimate="Search engines select an unpredictable title variant for search results."
+        )
+    elif title_count == 1:
+        builder.add_evidence(
+            rule_id="TECH-TITLE-DUP-014",
+            category="technical",
+            title="Single Title Tag Contract",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Single title tag",
+            expected="Exactly 1 <title> tag",
+            message="Single title tag present in document."
+        )
+
+    # TECH-DESC-DUP-015: Single Meta Description Contract
+    desc_count = html_data["meta_description"].get("count", 1 if html_data["meta_description"]["present"] else 0)
+    if desc_count > 1:
+        builder.add_evidence(
+            rule_id="TECH-DESC-DUP-015",
+            category="technical",
+            title="Single Meta Description Contract",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{desc_count} meta description tags detected",
+            expected="At most 1 meta description tag",
+            message=f"Document contains {desc_count} duplicate meta description tags."
+        )
+        builder.add_finding(
+            rule_id="TECH-DESC-DUP-015",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Duplicate Meta Description Tags Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Remove extra meta description tags, keeping only one concise description."],
+            impact_estimate="Search engines may ignore contradictory description tags."
+        )
+    elif desc_count == 1:
+        builder.add_evidence(
+            rule_id="TECH-DESC-DUP-015",
+            category="technical",
+            title="Single Meta Description Contract",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Single meta description tag",
+            expected="At most 1 meta description tag",
+            message="Single meta description tag configured."
+        )
+
+    # PERF-TTFB-016: Server Response Time (TTFB)
+    if not http_res["is_local"] and response_time_ms > 0:
+        if response_time_ms > 1500.0:
+            builder.add_evidence(
+                rule_id="PERF-TTFB-016",
+                category="performance",
+                title="Time to First Byte (TTFB)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{response_time_ms} ms",
+                expected="TTFB <= 1500 ms",
+                message=f"Server response time ({response_time_ms} ms) exceeds recommended 1500 ms threshold."
+            )
+            builder.add_finding(
+                rule_id="PERF-TTFB-016",
+                category="performance",
+                severity=STATUS_WARNING,
+                title="Slow Server Response Time (TTFB > 1500ms)",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Optimize database queries, configure edge CDN caching, or upgrade hosting infrastructure."],
+                impact_estimate="Crawl budget exhaustion and higher bounce rate."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="PERF-TTFB-016",
+                category="performance",
+                title="Time to First Byte (TTFB)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{response_time_ms} ms",
+                expected="TTFB <= 1500 ms",
+                message=f"Server response time is fast ({response_time_ms} ms)."
+            )
+
+    # SOCIAL-OG-017: Open Graph Metadata
+    og_data = html_data.get("open_graph", {})
+    has_og_title = bool(og_data.get("og:title"))
+    has_og_image = bool(og_data.get("og:image"))
+    if not (has_og_title and has_og_image):
+        builder.add_evidence(
+            rule_id="SOCIAL-OG-017",
+            category="technical",
+            title="Open Graph Metadata",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Incomplete Open Graph tags" if og_data else "No Open Graph tags",
+            expected="og:title and og:image declared",
+            message="Document lacks essential Open Graph metadata (og:title, og:image) for rich social media cards."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="SOCIAL-OG-017",
+            category="technical",
+            title="Open Graph Metadata",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="og:title and og:image present",
+            expected="og:title and og:image declared",
+            message="Essential Open Graph metadata tags are configured."
+        )
+
+    # TECH-REDIRECT-018: Redirect Chain Integrity
+    chain = http_res.get("redirect_chain", [])
+    if len(chain) > 2:
+        builder.add_evidence(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            title="Redirect Chain Length",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{len(chain)} redirect hops",
+            expected="At most 2 redirect hops",
+            message=f"Excessive redirect chain detected ({len(chain)} hops). Can delay crawling and waste crawl budget."
+        )
+        builder.add_finding(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Excessive Redirect Chain Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Point internal links and canonical references directly to the final destination URL."],
+            impact_estimate="Crawl latency and risk of redirect loops or dropped link equity."
+        )
+    elif any(hop.get("code") == 302 for hop in chain):
+        builder.add_evidence(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            title="Redirect Chain Status Integrity",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Temporary 302 redirect in chain",
+            expected="Permanent 301 redirect",
+            message="A temporary 302 redirect was detected. Use permanent 301 redirects for permanent site moves."
+        )
+    elif len(chain) > 0:
+        builder.add_evidence(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            title="Redirect Chain Integrity",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{len(chain)} hop(s)",
+            expected="Clean redirect chain (<= 2 hops)",
+            message="Redirect chain is concise and well-formed."
         )
 
     # SCHEMA EVIDENCE
