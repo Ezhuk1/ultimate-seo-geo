@@ -71,19 +71,22 @@ Modern AI Search operates in **two interconnected stages**:
 
 ## 🖥️ Autonomous Inspection Engine CLI (`engine/`)
 
-The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library) and runs in **<50ms**:
+The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library). Execution latency is **<15ms for in-memory & local file inspection** (zero network overhead) and **<500ms for live network audits** (including HTTP fetch, TLS handshake, and robots/sitemap discovery):
 
 ```bash
 # 1. Audit a live website with AI bot access simulation, Indexability Matrix & E-E-A-T
 python -m engine.inspector https://example.com
 
-# 2. Multi-page polite BFS site crawl (crawls link graph, calculates depth & orphan pages)
+# 2. Offline audit of a local HTML file or CI build artifact (<15ms, zero network overhead)
+python -m engine.inspector path/to/page.html
+
+# 3. Multi-page polite BFS site crawl (crawls link graph, calculates depth & orphan pages)
 python -m engine.inspector https://example.com --crawl --max-pages 50 --depth 3
 
-# 3. Pre-flight standalone Schema.org JSON-LD validator
+# 4. Pre-flight standalone Schema.org JSON-LD validator
 python -m engine.inspector --validate-schema path/to/schema.json
 
-# 4. CI/CD Quality Gate with SARIF export and exit-code thresholds
+# 5. CI/CD Quality Gate with SARIF export and exit-code thresholds
 python -m engine.inspector https://example.com \
   --strict \
   --fail-on P0 \
@@ -91,7 +94,7 @@ python -m engine.inspector https://example.com \
   --sarif code-scanning.sarif \
   --previous-audit previous.json
 
-# 5. Output machine-readable JSON with full Evidence Ledger & Provenance SHA-256
+# 6. Output machine-readable JSON with full Evidence Ledger & Provenance SHA-256
 python -m engine.inspector https://example.com --format json --output audit.json
 ```
 

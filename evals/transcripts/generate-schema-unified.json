@@ -1,0 +1,69 @@
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://example.com/#organization",
+      "name": "Network Shield Inc",
+      "url": "https://example.com"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://example.com/#website",
+      "name": "Network Shield",
+      "url": "https://example.com",
+      "publisher": {
+        "@id": "https://example.com/#organization"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://example.com/#webpage",
+      "name": "Privacy DNS Service",
+      "url": "https://example.com/dns",
+      "isPartOf": {
+        "@id": "https://example.com/#website"
+      }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://example.com/#service",
+      "name": "Fast Encrypted DNS",
+      "provider": {
+        "@id": "https://example.com/#organization"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0.00",
+        "priceCurrency": "USD"
+      }
+    },
+    {
+      "@type": "HowTo",
+      "@id": "https://example.com/#howto",
+      "name": "How to Configure Private DNS on Android",
+      "isPartOf": {
+        "@id": "https://example.com/#webpage"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://example.com/#faq",
+      "isPartOf": {
+        "@id": "https://example.com/#webpage"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://example.com/#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://example.com"
+        }
+      ]
+    }
+  ]
+}

@@ -137,10 +137,11 @@ def analyze_content(
             ))
             break
 
-    for def_pat in DEFINITION_PATTERNS:
-        if def_pat.search(opening_str):
-            result.opening_has_direct_answer = True
-            break
+    if len(words) >= 25:
+        for def_pat in DEFINITION_PATTERNS:
+            if def_pat.search(opening_str):
+                result.opening_has_direct_answer = True
+                break
 
     if not result.opening_has_direct_answer and not result.opening_has_fluff and len(words) > 80:
         result.findings.append(ContentFinding(
@@ -261,7 +262,7 @@ def analyze_content(
         result.is_thin_content = True
         result.findings.append(ContentFinding(
             rule_id="GEO-ADAPTIVE-CHUNKING-002",
-            severity="WARNING" if result.total_words < 50 else "INFO",
+            severity="WARNING" if result.total_words < 25 else "INFO",
             message=f"Page has thin content ({result.total_words} words). Search engines and AI retrieval bots may consider it low utility.",
             details={"word_count": result.total_words}
         ))

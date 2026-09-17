@@ -184,51 +184,71 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             elif ev_ans.status == STATUS_CRITICAL:
                 dim_ans = 0
             else:
-                dim_ans = 14
+                dim_ans = 5
         else:
-            dim_ans = 15
+            dim_ans = 0
+            unknown_dims.append("answerability")
 
         # Component 2: Evidence Density (Weight: 20)
         ev_sig = ledger.signals.get("content_evidence_density_score")
         ev_rule = next((e for e in ledger.evidence if e.rule_id == "GEO-EVIDENCE-METRICS-004"), None)
         if ev_sig and ev_sig.value is not None:
-            dim_ev = min(20, max(5, round(20 * (ev_sig.value / 100))))
+            dim_ev = min(20, max(0, round(20 * (ev_sig.value / 100))))
         elif ev_rule:
-            dim_ev = 20 if ev_rule.status == STATUS_PASS else (10 if ev_rule.status == STATUS_WARNING else 12)
+            dim_ev = 20 if ev_rule.status == STATUS_PASS else (8 if ev_rule.status == STATUS_WARNING else 0)
         else:
-            dim_ev = 12
+            dim_ev = 0
+            unknown_dims.append("evidence_density")
 
         # Component 3: Entity Clarity (Weight: 15)
         ev_coref = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
         if ev_coref:
-            dim_ent = 15 if ev_coref.status == STATUS_PASS else (8 if ev_coref.status == STATUS_WARNING else 5)
+            dim_ent = 15 if ev_coref.status == STATUS_PASS else (8 if ev_coref.status == STATUS_WARNING else 0)
         else:
-            dim_ent = 12
+            dim_ent = 0
+            unknown_dims.append("entity_clarity")
 
         # Component 4: Passage Extractability (Weight: 15)
         chunk_evs = [e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"]
         if any(e.status == STATUS_CRITICAL for e in chunk_evs):
-            dim_chunk = 5
+            dim_chunk = 0
         elif any(e.status == STATUS_WARNING for e in chunk_evs):
-            dim_chunk = 8
+            dim_chunk = 5
         elif any(e.status == STATUS_PASS for e in chunk_evs):
-            dim_chunk = 15 if not any(e.status == STATUS_INFO for e in chunk_evs) else 12
+            dim_chunk = 15 if not any(e.status == STATUS_INFO for e in chunk_evs) else 10
         else:
-            dim_chunk = 12
+            dim_chunk = 0
+            unknown_dims.append("passage_extractability")
 
         # Component 5: Source Attribution (Weight: 10)
-        has_citations = any("citation" in e.message.lower() or "rfc" in e.message.lower() for e in ledger.evidence)
-        dim_src = 10 if has_citations else 6
+        # Bugfix: evaluate citations via typed signal and PASS status, never grep error messages
+        cit_rule = next((e for e in ledger.evidence if e.rule_id in ("GEO-EVIDENCE-METRICS-004", "GEO-SOURCE-ATTRIBUTION-005")), None)
+        cit_signal = ledger.signals.get("content_citations_count")
+        ev_sig_val = ledger.signals.get("content_evidence_density_score")
+        has_citations = (
+            (cit_rule and cit_rule.status == STATUS_PASS)
+            or (cit_signal and cit_signal.value and cit_signal.value > 0)
+            or (ev_sig_val and ev_sig_val.value and ev_sig_val.value >= 30)
+        )
+        if has_citations:
+            dim_src = 10
+        elif cit_rule and cit_rule.status == STATUS_WARNING:
+            dim_src = 4
+        else:
+            dim_src = 0
+            unknown_dims.append("source_attribution")
 
         # Component 6: Schema Graph (Weight: 10)
         ev_graph = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
         schema_count = ledger.signals.get("schema_entity_count")
         if ev_graph and ev_graph.status == STATUS_PASS:
             dim_schema = 10
+        elif ev_graph and ev_graph.status == STATUS_WARNING:
+            dim_schema = 5
         elif schema_count and schema_count.value and schema_count.value > 0:
-            dim_schema = 8
+            dim_schema = 5
         else:
-            dim_schema = 2
+            dim_schema = 0
 
         # Component 7: Freshness (Weight: 5)
         fresh_sig = ledger.signals.get("freshness_score")
@@ -236,18 +256,26 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             f_val = fresh_sig.value or 50
             dim_fresh = 5 if f_val >= 80 else (3 if f_val >= 50 else 1)
         else:
-            dim_fresh = 4
+            dim_fresh = 0
             unknown_dims.append("freshness")
 
         # Component 8: AI Crawler Access (Weight: 5)
         rob_sig = ledger.signals.get("ai_crawler_summary")
-        dim_crawl = 5
-        if rob_sig and isinstance(rob_sig.value, dict):
+        dim_crawl = 5  # RFC 9309 neutral default allow
+        if rob_sig and isinstance(rob_sig.value, dict) and rob_sig.value:
             blocked = sum(1 for b, info in rob_sig.value.items() if not info.get("root_allowed", True))
             if blocked > 5:
-                dim_crawl = 1
+                dim_crawl = 0
             elif blocked > 0:
-                dim_crawl = 3
+                dim_crawl = 2
+            else:
+                dim_crawl = 5
+
+        # Content Depth Guard: True content stubs (<25 words) cannot claim answerability or coreference independence
+        if content_signal and content_signal.value is not None and content_signal.value < 25:
+            dim_ans = 0
+            dim_ent = 0
+            dim_chunk = min(dim_chunk, 5)
 
         geo_score = min(100, max(0, dim_ans + dim_ev + dim_ent + dim_chunk + dim_src + dim_schema + dim_fresh + dim_crawl))
 

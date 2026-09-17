@@ -1,0 +1,25 @@
+{
+  "clusters": [
+    {
+      "title": "DoT vs DoH Protocol Comparison",
+      "Primary AI Query": "How does DoT compare to DoH?",
+      "Direct Answer Target": "DoT operates on dedicated port 853 with lower overhead...",
+      "Required Proof Assets": "RFC 7858 vs RFC 8484 specification tables",
+      "Schema Blueprint": "TechArticle"
+    },
+    {
+      "title": "Configuring Private DNS on Android",
+      "Primary AI Query": "How to set private DNS on Android?",
+      "Direct Answer Target": "Navigate to Network & Internet settings...",
+      "Required Proof Assets": "Step screenshots and port verification trace",
+      "Schema Blueprint": "HowTo"
+    },
+    {
+      "title": "DNS Leak Protection and ISP Tracking",
+      "Primary AI Query": "Can ISPs see encrypted DNS traffic?",
+      "Direct Answer Target": "ISPs can observe server IP addresses but not queried domains...",
+      "Required Proof Assets": "Wireshark PCAP trace and leak test reports",
+      "Schema Blueprint": "FAQPage"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v2.1.0)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v3.0.0)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
 Evidence Ledger formatting, UNKNOWN signal handling, negative mutation test cases,
-and Autonomous Engine v2.1.0 deterministic inspection suite.
+recorded model transcripts, and Autonomous Engine v3.0.0 deterministic inspection suite.
 """
 
 import json
@@ -851,6 +851,11 @@ def run_mutation_tests(evals_data: dict) -> list[tuple[str, bool, str]]:
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="ultimate-seo-geo Evaluation & Assertion Harness")
+    parser.add_argument("--transcripts", default=None, help="Directory containing recorded LLM completion transcripts to evaluate instead of static fixtures")
+    args, unknown = parser.parse_known_args()
+
     repo_root = Path(__file__).resolve().parent.parent
     evals_path = repo_root / "evals" / "evals.json"
 
@@ -880,15 +885,45 @@ def main():
         sys.exit(1)
     print("[OK] Schema & reference file integrity: PASS\n")
 
-    # 2. Canonical Assertion Verification
-    print("--- 1. Canonical Fixture Evaluation ---")
+    # 2. Canonical / Transcript Assertion Verification
+    if args.transcripts:
+        transcripts_dir = Path(args.transcripts)
+        if not transcripts_dir.is_dir():
+            print(f"FAIL: Transcripts directory not found: {transcripts_dir}", file=sys.stderr)
+            sys.exit(1)
+        print(f"--- 1. Live/Recorded Model Transcript Evaluation ({transcripts_dir}) ---")
+    else:
+        print("--- 1. Assertion Harness & Contract Verification (Canonical Dry-Run) ---")
+        print("  [NOTE] Canonical fixtures verify assertion rules & schema contracts (dry-run mode).")
+        print("  To evaluate actual model completion transcripts (LLM benchmark mode), pass:")
+        print("  python evals/run_evals.py --transcripts evals/transcripts/\n")
+
     passed = 0
     for item in evals_list:
         eval_id = item["id"]
-        fixture = CANONICAL_FIXTURES.get(eval_id)
-        if fixture is None:
-            print(f"  [FAIL] {eval_id:<38} -> Missing canonical fixture in CANONICAL_FIXTURES")
-            continue
+        if args.transcripts:
+            transcripts_dir = Path(args.transcripts)
+            t_candidates = [
+                transcripts_dir / f"{eval_id}.json",
+                transcripts_dir / f"{eval_id}.md",
+                transcripts_dir / f"{eval_id}.txt"
+            ]
+            t_file = next((f for f in t_candidates if f.exists()), None)
+            if not t_file:
+                print(f"  [FAIL] {eval_id:<38} -> Missing transcript file in {transcripts_dir}")
+                continue
+            if t_file.suffix == ".json":
+                try:
+                    fixture = json.loads(t_file.read_text(encoding="utf-8"))
+                except Exception:
+                    fixture = t_file.read_text(encoding="utf-8")
+            else:
+                fixture = t_file.read_text(encoding="utf-8")
+        else:
+            fixture = CANONICAL_FIXTURES.get(eval_id)
+            if fixture is None:
+                print(f"  [FAIL] {eval_id:<38} -> Missing canonical fixture in CANONICAL_FIXTURES")
+                continue
 
         ok, msg = evaluate_assertions(eval_id, fixture, item["assertions"])
         status = "PASS" if ok else "FAIL"

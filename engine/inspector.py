@@ -1754,7 +1754,7 @@ def run_inspection(
             impact_estimate="Reduced citation frequency in LLM synthesis."
         )
 
-    if content_data.opening_has_direct_answer:
+    if content_data.opening_has_direct_answer and content_data.total_words >= 25:
         builder.add_evidence(
             rule_id="GEO-ANSWER-FRONTLOAD-001",
             category="geo",
@@ -1766,7 +1766,7 @@ def run_inspection(
             message="Content opening successfully frontloads direct answer."
         )
 
-    if content_data.monolithic_chunks_count == 0 and content_data.total_chunks > 0:
+    if content_data.monolithic_chunks_count == 0 and content_data.total_chunks > 0 and content_data.total_words >= 25:
         builder.add_evidence(
             rule_id="GEO-ADAPTIVE-CHUNKING-002",
             category="geo",
@@ -1778,7 +1778,7 @@ def run_inspection(
             message="Content sections are well-proportioned for vector chunking."
         )
 
-    if content_data.pronoun_lead_count <= 2:
+    if content_data.pronoun_lead_count <= 2 and content_data.total_words >= 25:
         builder.add_evidence(
             rule_id="GEO-COREFERENCE-INDEPENDENCE-003",
             category="geo",
@@ -1788,6 +1788,38 @@ def run_inspection(
             observed=f"{content_data.pronoun_lead_count} pronoun leads detected",
             expected="Self-contained entity grounding per section",
             message="Passages exhibit strong coreference independence."
+        )
+
+    from .analyzers.content_analyzer import CITATION_CUES
+    citations_count = sum(1 for c in content_data.chunks if c.has_citation)
+    raw_citations_found = sum(1 for cue in CITATION_CUES if cue in content_text.lower())
+    citations_count = max(citations_count, raw_citations_found)
+
+    builder.add_signal("content_citations_count", "Citation Cues Count", citations_count, unit="count")
+    builder.add_signal("content_unverified_stats_count", "Unverified Stats Count", content_data.unverified_stats_count, unit="count")
+
+    if citations_count > 0:
+        builder.add_evidence(
+            rule_id="GEO-SOURCE-ATTRIBUTION-005",
+            category="geo",
+            title="Source Attribution & Citations",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"{citations_count} citation cue(s) found",
+            expected="Explicit source citations and attribution",
+            message="Content incorporates explicit source citations and verifiable references."
+        )
+
+    if content_data.evidence_density_score >= 20 and content_data.unverified_stats_count == 0:
+        builder.add_evidence(
+            rule_id="GEO-EVIDENCE-METRICS-004",
+            category="geo",
+            title="Evidence & Fact Density",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"Evidence density score: {content_data.evidence_density_score}/100",
+            expected="Empirical metrics and verified factual assertions",
+            message="Content incorporates verified empirical data and statistical support."
         )
 
     # E-E-A-T & Trust Evidence
