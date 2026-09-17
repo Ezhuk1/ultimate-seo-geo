@@ -20,6 +20,7 @@ from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
+from .indexability import evaluate_indexability_matrix
 from .ledger import (
     LedgerBuilder,
     EvidenceLedger,
@@ -226,15 +227,31 @@ def run_inspection(
         builder.add_signal("sitemap_total_urls", "Sitemap URL Count", sitemap_res.total_urls, unit="count")
         builder.add_signal("sitemap_target_in_sitemap", "Target URL in Sitemap", sitemap_res.target_in_sitemap)
 
-    # Unmeasured Field Signal (Crucial for Invariant Demonstration)
-    builder.add_signal(
-        signal_id="cwv_real_user_lcp_p75",
-        name="Core Web Vitals Real-User LCP (P75)",
-        value=None,
-        is_measured=False,
-        unit="ms",
-        source="CrUX API (Unmeasured - Requires Field Dataset / API key)"
+    # Week 2 Signals
+    builder.add_signal("target_is_https", "Target Protocol HTTPS", final_url.lower().startswith("https://"))
+    builder.add_signal("http_hsts_present", "HSTS Header Present", bool(headers.get("strict-transport-security")))
+    builder.add_signal("html_insecure_resources_count", "Mixed Insecure Content Count", html_data.get("mixed_content", {}).get("insecure_count", 0), unit="count")
+    sec_hdrs_count = sum(1 for h in ("x-content-type-options", "x-frame-options", "content-security-policy", "referrer-policy") if h in headers)
+    builder.add_signal("http_security_headers_count", "Security Headers Count", sec_hdrs_count, unit="count")
+    builder.add_signal("http_cache_control", "Cache-Control Header", headers.get("cache-control"))
+    builder.add_signal("http_content_encoding", "Content-Encoding", headers.get("content-encoding"))
+    builder.add_signal("html_landmarks_has_main", "HTML5 <main> Landmark Present", html_data.get("landmarks", {}).get("has_main", False))
+    builder.add_signal("html_empty_headings_count", "Empty Headings Count", html_data.get("headings", {}).get("empty_count", 0), unit="count")
+    builder.add_signal("html_heading_jumps_count", "Heading Hierarchy Jumps Count", html_data.get("headings", {}).get("hierarchy_jumps_count", 0), unit="count")
+    builder.add_signal("html_empty_anchors_count", "Empty Links Count", html_data.get("links", {}).get("empty_anchors_count", 0), unit="count")
+    builder.add_signal("html_unlabelled_inputs_count", "Unlabelled Form Inputs Count", html_data.get("forms", {}).get("unlabelled_count", 0), unit="count")
+    builder.add_signal("http_is_soft_404", "Soft 404 Error Detected", http_res.get("is_soft_404", False))
+
+    # Evaluate 8-Vector Indexability Matrix
+    idx_matrix = evaluate_indexability_matrix(
+        target_url=final_url,
+        http_res=http_res,
+        html_data=html_data,
+        robots_simulation=robots_sim,
+        sitemap_res=sitemap_res
     )
+    builder.metadata["indexability_matrix"] = idx_matrix.to_dict()
+    builder.metadata["indexability_verdict"] = idx_matrix.verdict
 
     # 7. Evaluate Rules -> EVIDENCE & FINDINGS
 
@@ -406,6 +423,80 @@ def run_inspection(
             expected="Absolute HTTPS URL",
             message="Canonical tag present and absolute."
         )
+
+    # TECH-CANONICAL-TRAILING-019 & TECH-CANONICAL-WWW-020
+    if canonical_val and canonical_val.startswith(("http://", "https://")):
+        parsed_can = urlparse(canonical_val)
+        can_path = parsed_can.path or "/"
+        tgt_path = parsed_target.path or "/"
+        if parsed_can.netloc.lower() == parsed_target.netloc.lower() and can_path.rstrip("/") == tgt_path.rstrip("/"):
+            if (can_path.endswith("/") and not tgt_path.endswith("/")) or (not can_path.endswith("/") and tgt_path.endswith("/")):
+                builder.add_evidence(
+                    rule_id="TECH-CANONICAL-TRAILING-019",
+                    category="technical",
+                    title="Canonical Trailing Slash Consistency",
+                    status=STATUS_WARNING,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"Requested '{tgt_path}' vs Canonical '{can_path}'",
+                    expected="Matching trailing slash convention",
+                    message=f"Canonical URL trailing slash mismatch: requested '{tgt_path}' differs from canonical '{can_path}'."
+                )
+                builder.add_finding(
+                    rule_id="TECH-CANONICAL-TRAILING-019",
+                    category="technical",
+                    severity=STATUS_WARNING,
+                    title="Canonical Trailing Slash Mismatch",
+                    confidence=CONFIDENCE_VERIFIED,
+                    action_priority="P2_MEDIUM",
+                    remediation_steps=["Align trailing slash in canonical link with server URL routing policy."],
+                    impact_estimate="Causes redundant redirect loops and split indexation signals."
+                )
+            else:
+                builder.add_evidence(
+                    rule_id="TECH-CANONICAL-TRAILING-019",
+                    category="technical",
+                    title="Canonical Trailing Slash Consistency",
+                    status=STATUS_PASS,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed="Consistent trailing slash",
+                    expected="Consistent trailing slash",
+                    message="Canonical URL trailing slash matches requested path."
+                )
+        can_host = parsed_can.netloc.lower().split(":")[0]
+        tgt_host = parsed_target.netloc.lower().split(":")[0]
+        if can_host and tgt_host:
+            if can_host != tgt_host and can_host.replace("www.", "") == tgt_host.replace("www.", ""):
+                builder.add_evidence(
+                    rule_id="TECH-CANONICAL-WWW-020",
+                    category="technical",
+                    title="Canonical Host & Subdomain Consistency",
+                    status=STATUS_WARNING,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"Requested '{tgt_host}' vs Canonical '{can_host}'",
+                    expected="Matching canonical host (www vs non-www)",
+                    message=f"Canonical hostname mismatch: requested host '{tgt_host}' differs from canonical host '{can_host}'."
+                )
+                builder.add_finding(
+                    rule_id="TECH-CANONICAL-WWW-020",
+                    category="technical",
+                    severity=STATUS_WARNING,
+                    title="Canonical Host WWW/Non-WWW Mismatch",
+                    confidence=CONFIDENCE_VERIFIED,
+                    action_priority="P1_HIGH",
+                    remediation_steps=["Standardize canonical URL domain to match the canonical host (www vs non-www)."],
+                    impact_estimate="Splits search index authority between www and naked domain variants."
+                )
+            elif can_host == tgt_host:
+                builder.add_evidence(
+                    rule_id="TECH-CANONICAL-WWW-020",
+                    category="technical",
+                    title="Canonical Host & Subdomain Consistency",
+                    status=STATUS_PASS,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=can_host,
+                    expected=tgt_host,
+                    message="Canonical host matches requested domain."
+                )
 
     # TECH-TITLE-003
     t_len = html_data["title"]["length"]
@@ -1246,6 +1337,319 @@ def run_inspection(
             message="Redirect chain is concise and well-formed."
         )
 
+    if http_res.get("has_redirect_loop", False):
+        builder.add_evidence(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            title="Redirect Loop Detected",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Redirect loop in HTTP hops",
+            expected="Acyclic redirect path",
+            message="Server encountered a circular redirect loop. Crawlers terminate and abandon crawl."
+        )
+        builder.add_finding(
+            rule_id="TECH-REDIRECT-018",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Redirect Loop Failure",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=["Resolve circular redirection in server config or application routing."],
+            impact_estimate="Complete failure to crawl or index target URL."
+        )
+
+    # TECH-SOFT-404-025: Soft 404 Detection
+    if http_res.get("is_soft_404", False):
+        builder.add_evidence(
+            rule_id="TECH-SOFT-404-025",
+            category="technical",
+            title="Soft 404 Error Detection",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="HTTP 200 returned for missing or error content",
+            expected="HTTP 404 / 410 status code",
+            message="Soft 404 detected: page returns HTTP 200 OK but displays missing content or error page text."
+        )
+        builder.add_finding(
+            rule_id="TECH-SOFT-404-025",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Soft 404 Error Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=["Return genuine HTTP 404 Not Found or 410 Gone status code for nonexistent resources."],
+            impact_estimate="Search engines index error pages, wasting crawl budget and harming site domain quality."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-SOFT-404-025",
+            category="technical",
+            title="Soft 404 Error Detection",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="HTTP status aligns with content payload",
+            expected="HTTP 200 with valid content",
+            message="No soft 404 error patterns detected."
+        )
+
+    # PERF-COMPRESSION-021: HTTP Response Compression
+    c_encoding = headers.get("content-encoding", "").lower()
+    body_bytes_len = len(body_text.encode("utf-8"))
+    if not http_res["is_local"] and body_bytes_len > 1024:
+        if any(comp in c_encoding for comp in ("gzip", "br", "zstd", "deflate")):
+            builder.add_evidence(
+                rule_id="PERF-COMPRESSION-021",
+                category="performance",
+                title="HTTP Response Compression",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=c_encoding,
+                expected="br, gzip, or zstd compression",
+                message=f"HTTP response is compressed using {c_encoding}."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="PERF-COMPRESSION-021",
+                category="performance",
+                title="HTTP Response Compression",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="Uncompressed",
+                expected="br, gzip, or zstd compression",
+                message=f"HTTP response payload ({body_bytes_len} bytes) is uncompressed."
+            )
+            builder.add_finding(
+                rule_id="PERF-COMPRESSION-021",
+                category="performance",
+                severity=STATUS_WARNING,
+                title="Missing HTTP Response Compression",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Enable gzip, Brotli (br), or zstd compression on web server or CDN."],
+                impact_estimate="Increases payload transfer size and mobile page load latency."
+            )
+    else:
+        builder.add_evidence(
+            rule_id="PERF-COMPRESSION-021",
+            category="performance",
+            title="HTTP Response Compression",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=c_encoding or "Local or compact payload",
+            expected="N/A",
+            message="Payload size is compact or inspected locally."
+        )
+
+    # PERF-CACHE-022: HTTP Cache-Control Header
+    cache_ctrl = headers.get("cache-control", "")
+    if not http_res["is_local"]:
+        if cache_ctrl:
+            builder.add_evidence(
+                rule_id="PERF-CACHE-022",
+                category="performance",
+                title="HTTP Cache-Control Header",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=cache_ctrl,
+                expected="Valid Cache-Control header",
+                message=f"Cache-Control configured: {cache_ctrl}."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="PERF-CACHE-022",
+                category="performance",
+                title="HTTP Cache-Control Header",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="None",
+                expected="Cache-Control header configured",
+                message="HTTP response does not specify a Cache-Control header."
+            )
+
+    # TECH-SITEMAP-LIMIT-026: XML Sitemap URL Limit
+    if sitemap_res and sitemap_res.present:
+        if sitemap_res.exceeds_url_limit:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                title="XML Sitemap URL Limit",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{sitemap_res.total_urls} URLs",
+                expected="<= 50,000 URLs per sitemap",
+                message=f"Sitemap exceeds 50,000 URL limit ({sitemap_res.total_urls} URLs found)."
+            )
+            builder.add_finding(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Sitemap Exceeds 50,000 URL Limit",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH",
+                remediation_steps=["Split sitemap into multiple files and use a sitemap index (<sitemapindex>)."],
+                impact_estimate="Search engines will reject or truncate sitemap processing beyond 50,000 URLs."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                title="XML Sitemap URL Limit",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{sitemap_res.total_urls} URLs",
+                expected="<= 50,000 URLs per sitemap",
+                message="Sitemap URL count is within the 50,000 limit."
+            )
+
+    # TECH-HEADING-HIERARCHY-027: Semantic Heading Hierarchy
+    hdg_info = html_data.get("headings", {})
+    empty_hdgs = hdg_info.get("empty_count", 0)
+    jumps_count = hdg_info.get("hierarchy_jumps_count", 0)
+    if empty_hdgs > 0 or jumps_count > 0:
+        builder.add_evidence(
+            rule_id="TECH-HEADING-HIERARCHY-027",
+            category="technical",
+            title="Semantic Heading Hierarchy",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{empty_hdgs} empty heading(s), {jumps_count} level jump(s)",
+            expected="Sequential heading hierarchy without empty tags",
+            message=f"Heading outline contains {empty_hdgs} empty heading tag(s) and {jumps_count} hierarchy level jump(s)."
+        )
+        builder.add_finding(
+            rule_id="TECH-HEADING-HIERARCHY-027",
+            category="technical",
+            severity=STATUS_INFO,
+            title="Heading Hierarchy Irregularities",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P3_LOW",
+            remediation_steps=[
+                "Ensure headings don't skip levels (e.g. H1 followed immediately by H3).",
+                "Remove empty heading elements."
+            ],
+            impact_estimate="Minor accessibility and section chunking imperfection; no penalty to technical score."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-HEADING-HIERARCHY-027",
+            category="technical",
+            title="Semantic Heading Hierarchy",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Clean sequential heading outline",
+            expected="Sequential heading hierarchy",
+            message="Heading outline is structurally sound without empty headings or level jumps."
+        )
+
+    # TECH-LINK-ANCHOR-028: Descriptive Link Anchor Text
+    empty_anchors = html_data.get("links", {}).get("empty_anchors_count", 0)
+    tot_links = html_data.get("links", {}).get("total_count", 0)
+    if empty_anchors > 0:
+        builder.add_evidence(
+            rule_id="TECH-LINK-ANCHOR-028",
+            category="technical",
+            title="Descriptive Link Anchor Text",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{empty_anchors} empty anchor link(s) of {tot_links} total",
+            expected="All links have anchor text, aria-label, or img alt",
+            message=f"Document contains {empty_anchors} link(s) without descriptive text, aria-label, or child image alt."
+        )
+        builder.add_finding(
+            rule_id="TECH-LINK-ANCHOR-028",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Links Missing Descriptive Anchor Text",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Add descriptive anchor text or aria-label attributes to all <a> elements."],
+            impact_estimate="Weakens internal link context for crawlers and fails WCAG 2.4.4 accessibility."
+        )
+    elif tot_links > 0:
+        builder.add_evidence(
+            rule_id="TECH-LINK-ANCHOR-028",
+            category="technical",
+            title="Descriptive Link Anchor Text",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"All {tot_links} links have descriptive text or aria-label",
+            expected="Descriptive anchor text",
+            message="All links provide descriptive text or accessible labels."
+        )
+
+    # TECH-FORM-LABEL-029: Accessible Form Input Labels
+    unlabelled_inputs = html_data.get("forms", {}).get("unlabelled_count", 0)
+    tot_inputs = html_data.get("forms", {}).get("total_inputs", 0)
+    if unlabelled_inputs > 0:
+        builder.add_evidence(
+            rule_id="TECH-FORM-LABEL-029",
+            category="technical",
+            title="Accessible Form Input Labels",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{unlabelled_inputs} of {tot_inputs} input(s) lack labels",
+            expected="Every form input has an associated <label> or aria-label",
+            message=f"{unlabelled_inputs} form input(s) lack an associated <label for='...'> or aria-label attribute."
+        )
+        builder.add_finding(
+            rule_id="TECH-FORM-LABEL-029",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Form Inputs Missing Accessible Labels",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Associate each input with `<label for='id'>` or add `aria-label='...'`."],
+            impact_estimate="Fails accessibility audits and impairs screen readers and autonomous form-filling agents."
+        )
+    elif tot_inputs > 0:
+        builder.add_evidence(
+            rule_id="TECH-FORM-LABEL-029",
+            category="technical",
+            title="Accessible Form Input Labels",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"All {tot_inputs} inputs have accessible labels",
+            expected="Accessible labels for inputs",
+            message="All form inputs have accessible labels."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-FORM-LABEL-029",
+            category="technical",
+            title="Accessible Form Input Labels",
+            status=STATUS_NOT_APPLICABLE,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="0 form inputs present",
+            expected="N/A",
+            message="No form inputs on page; label requirement is not applicable."
+        )
+
+    # TECH-LANDMARKS-030: HTML5 Semantic Landmarks
+    landmarks = html_data.get("landmarks", {})
+    if landmarks.get("has_main"):
+        builder.add_evidence(
+            rule_id="TECH-LANDMARKS-030",
+            category="technical",
+            title="HTML5 Semantic Landmarks",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="<main> landmark present",
+            expected="<main> landmark present",
+            message="Document utilizes semantic <main> landmark."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-LANDMARKS-030",
+            category="technical",
+            title="HTML5 Semantic Landmarks",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Missing <main> tag",
+            expected="<main> landmark",
+            message="Document does not declare a semantic <main> landmark tag."
+        )
+
     # SCHEMA EVIDENCE
     for sf in schema_data.findings:
         builder.add_evidence(
@@ -1378,11 +1782,42 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     md.append("| Metric | Score / Tier | Evaluation Basis |")
     md.append("| :--- | :--- | :--- |")
     md.append(f"| **Observable Technical Score** | **{scores.observable_technical_score} / 100** ({scores.technical_health_tier}) | Deterministic pass/fail checks strictly from verified payload |")
+    md.append(f"| **Security Hygiene Score** | **{scores.security_score} / 100** ({scores.security_tier}) | Independent dimension: HTTPS (25%), HSTS (25%), Mixed Content (25%), Headers (25%) |")
     md.append(f"| **GEO Readiness Index** | **{scores.geo_readiness_index} / 100** ({scores.geo_maturity_tier}) | Direct answer frontloading, chunking, coreference, Schema graph |")
     crit_obs = ledger.metadata.get("criteria_observed", ledger.metadata.get("signals_measured", 0))
     crit_tot = ledger.metadata.get("criteria_total", ledger.metadata.get("signals_total", 0))
     md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({crit_obs}/{crit_tot} criteria) | Empirical completeness of audit scope |")
     md.append("")
+
+    idx_dict = ledger.metadata.get("indexability_matrix")
+    if idx_dict:
+        verdict = idx_dict.get("verdict", "UNKNOWN")
+        v_badge = "**[INDEXABLE]**" if verdict == "INDEXABLE" else ("**[BLOCKED]**" if verdict == "BLOCKED" else "**[AMBIGUOUS]**")
+        md.append("## Indexability Matrix")
+        md.append("")
+        md.append(f"> **Final Indexability Verdict**: {v_badge} (Confidence: **{idx_dict.get('confidence_score', 0)}%**)")
+        if idx_dict.get("blockers"):
+            md.append(f"> **Active Indexability Blockers**: {', '.join(idx_dict['blockers'])}")
+        md.append("")
+        md.append("| Vector | Status | Evaluated Value / Reason |")
+        md.append("| :--- | :--- | :--- |")
+        for v_name, v_data in idx_dict.get("vectors", {}).items():
+            st = v_data.get("status", "")
+            st_b = "[PASS]" if st in ("PASS", "200_OK", "MATCH", "SELF_CANONICAL") else ("[BLOCKED]" if st in ("BLOCK", "NOINDEX", "DISALLOWED", "SOFT_404") else f"[{st}]")
+            md.append(f"| **{v_name.replace('_', ' ').title()}** | `{st_b}` | {v_data.get('detail', '')} |")
+        md.append("")
+
+    if scores.security_hygiene:
+        sec = scores.security_hygiene
+        md.append("### Security Hygiene Breakdown")
+        md.append("")
+        md.append("| Dimension | Score | Status | Details |")
+        md.append("| :--- | :--- | :--- | :--- |")
+        md.append(f"| **HTTPS Protocol** | {sec.https_score} / 25 pts | `{'[PASS]' if sec.https_score == 25 else '[FAIL]'}` | Served over secure HTTPS wire |")
+        md.append(f"| **HSTS Header** | {sec.hsts_score} / 25 pts | `{'[PASS]' if sec.hsts_score == 25 else '[WARN]'}` | Strict-Transport-Security configured |")
+        md.append(f"| **Mixed Content** | {sec.mixed_content_score} / 25 pts | `{'[PASS]' if sec.mixed_content_score == 25 else '[FAIL]'}` | Zero insecure http:// resource links |")
+        md.append(f"| **Security Headers** | {sec.headers_score} / 25 pts | `{'[PASS]' if sec.headers_score >= 18 else '[WARN]'}` | X-Content-Type-Options, CSP, Frame Options |")
+        md.append("")
 
     md.append("> [!NOTE]")
     md.append("> **Evidence Ledger Invariant: 'Unknown != Failure'**  ")

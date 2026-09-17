@@ -36,6 +36,7 @@ class SitemapAnalysisResult:
     duplicate_urls: List[str] = field(default_factory=list)
     invalid_urls: List[str] = field(default_factory=list)
     non_https_urls: List[str] = field(default_factory=list)
+    exceeds_url_limit: bool = False
 
 
 def _normalize_url_for_compare(u: str) -> str:
@@ -86,6 +87,7 @@ def parse_sitemap_xml(
 
     norm_target = _normalize_url_for_compare(target_url) if target_url else None
     seen_locs: Set[str] = set()
+    seen_norm_locs: Set[str] = set()
 
     if res.is_sitemap_index:
         for child in root:
@@ -146,10 +148,12 @@ def parse_sitemap_xml(
                     res.warnings.append(f"Cross-domain URL in sitemap: '{loc_val}' does not match '{base_domain}'.")
 
         # Check duplicate
-        if loc_val in seen_locs:
+        norm_loc = _normalize_url_for_compare(loc_val)
+        if loc_val in seen_locs or norm_loc in seen_norm_locs:
             res.duplicate_urls.append(loc_val)
             res.warnings.append(f"Duplicate URL in sitemap: '{loc_val}'.")
         seen_locs.add(loc_val)
+        seen_norm_locs.add(norm_loc)
 
         # Check lastmod format if present
         if lastmod_val:
@@ -180,6 +184,9 @@ def parse_sitemap_xml(
             res.target_in_sitemap = True
 
     res.total_urls = len(res.urls)
+    if res.total_urls > 50000:
+        res.exceeds_url_limit = True
+        res.warnings.append(f"Sitemap exceeds 50,000 URL limit: {res.total_urls} URLs found.")
     return res
 
 
@@ -202,6 +209,7 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         duplicate_urls=list(parent.duplicate_urls),
         invalid_urls=list(parent.invalid_urls),
         non_https_urls=list(parent.non_https_urls),
+        exceeds_url_limit=parent.exceeds_url_limit,
     )
 
     for ch in children:
@@ -213,6 +221,12 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         merged.non_https_urls.extend(ch.non_https_urls)
         if ch.target_in_sitemap:
             merged.target_in_sitemap = True
+        if ch.exceeds_url_limit:
+            merged.exceeds_url_limit = True
 
     merged.total_urls = len(merged.urls)
+    if merged.total_urls > 50000:
+        merged.exceeds_url_limit = True
+        if not any("exceeds 50,000" in w for w in merged.warnings):
+            merged.warnings.append(f"Sitemap exceeds 50,000 URL limit: {merged.total_urls} URLs found.")
     return merged

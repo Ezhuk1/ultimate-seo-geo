@@ -19,6 +19,19 @@ class DocumentParser(HTMLParser):
         self.in_svg = False
         self.in_main = False
         self.has_main = False
+        self.has_header = False
+        self.has_nav = False
+        self.has_footer = False
+
+        self.form_inputs = []
+        self.label_for_ids = set()
+        self.insecure_resources = []
+        self.in_a = False
+        self.current_a_href = ""
+        self.current_a_rel = ""
+        self.current_a_text = []
+        self.current_a_aria_label = ""
+        self.current_a_has_img_alt = False
 
         self.current_script_type = ""
         self.current_heading_tag = None
@@ -46,7 +59,7 @@ class DocumentParser(HTMLParser):
 
         self.headings = []  # List of {"level": int, "text": str}
         self.images = []    # List of {"src": str, "alt": str | None, "has_dims": bool}
-        self.links = []     # List of {"href": str, "rel": str}
+        self.links = []     # List of {"href": str, "rel": str, "text": str, "aria_label": str, "has_text": bool}
         self.json_ld_blocks = []
         self.visible_text_parts = []
         self.main_text_parts = []
@@ -59,6 +72,13 @@ class DocumentParser(HTMLParser):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
 
+        # Check for mixed content
+        if tag in ("img", "script", "link", "iframe", "video", "audio"):
+            for attr_k in ("src", "href"):
+                attr_v = attr_dict.get(attr_k, "").strip()
+                if attr_v.lower().startswith("http://"):
+                    self.insecure_resources.append({"tag": tag, "url": attr_v})
+
         if tag == "head":
             self.in_head = True
         elif tag == "body":
@@ -67,9 +87,15 @@ class DocumentParser(HTMLParser):
             html_lang = attr_dict.get("lang", "").strip()
             if html_lang:
                 self.lang = html_lang
+        elif tag == "header":
+            self.has_header = True
+        elif tag == "nav":
+            self.has_nav = True
         elif tag == "main":
             self.in_main = True
             self.has_main = True
+        elif tag == "footer":
+            self.has_footer = True
         elif tag == "svg":
             self.in_svg = True
 
@@ -148,6 +174,21 @@ class DocumentParser(HTMLParser):
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.current_heading_tag = tag
             self.current_heading_text = []
+        elif tag in ("input", "textarea", "select"):
+            inp_type = attr_dict.get("type", "").lower()
+            if inp_type != "hidden":
+                self.form_inputs.append({
+                    "tag": tag,
+                    "type": inp_type,
+                    "id": attr_dict.get("id", "").strip(),
+                    "name": attr_dict.get("name", "").strip(),
+                    "aria_label": attr_dict.get("aria-label", "").strip(),
+                    "aria_labelledby": attr_dict.get("aria-labelledby", "").strip()
+                })
+        elif tag == "label":
+            for_id = attr_dict.get("for", "").strip()
+            if for_id:
+                self.label_for_ids.add(for_id)
         elif tag == "img":
             src = attr_dict.get("src", "")
             alt = attr_dict.get("alt")
@@ -158,13 +199,15 @@ class DocumentParser(HTMLParser):
                 "alt": alt,
                 "has_dimensions": (has_w and has_h)
             })
+            if self.in_a and alt is not None and alt.strip():
+                self.current_a_has_img_alt = True
         elif tag == "a":
-            href = attr_dict.get("href", "")
-            rel = attr_dict.get("rel", "")
-            self.links.append({
-                "href": href,
-                "rel": rel
-            })
+            self.in_a = True
+            self.current_a_href = attr_dict.get("href", "")
+            self.current_a_rel = attr_dict.get("rel", "")
+            self.current_a_text = []
+            self.current_a_aria_label = attr_dict.get("aria-label", "").strip() or attr_dict.get("title", "").strip()
+            self.current_a_has_img_alt = False
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
@@ -174,6 +217,18 @@ class DocumentParser(HTMLParser):
             self.in_main = False
         elif tag == "svg":
             self.in_svg = False
+        elif tag == "a":
+            self.in_a = False
+            anchor_text = " ".join("".join(self.current_a_text).split())
+            has_text = bool(anchor_text or self.current_a_aria_label or self.current_a_has_img_alt)
+            self.links.append({
+                "href": self.current_a_href,
+                "rel": self.current_a_rel,
+                "text": anchor_text,
+                "aria_label": self.current_a_aria_label,
+                "has_text": has_text
+            })
+            self.current_a_text = []
         elif tag == "title":
             self.in_title = False
             title_text = " ".join("".join(self._current_title_text).split())
@@ -193,11 +248,10 @@ class DocumentParser(HTMLParser):
             self._current_script_text = []
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6") and self.current_heading_tag == tag:
             heading_str = " ".join("".join(self.current_heading_text).split())
-            if heading_str:
-                self.headings.append({
-                    "level": int(tag[1]),
-                    "text": heading_str
-                })
+            self.headings.append({
+                "level": int(tag[1]),
+                "text": heading_str
+            })
             self.current_heading_tag = None
             self.current_heading_text = []
         elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main"):
@@ -212,6 +266,8 @@ class DocumentParser(HTMLParser):
         elif self.in_script:
             self._current_script_text.append(data)
         elif not self.in_style:
+            if self.in_a:
+                self.current_a_text.append(data)
             if self.current_heading_tag:
                 self.current_heading_text.append(data)
             cleaned = data.strip()
@@ -232,11 +288,25 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         pass
 
     title_clean = parser.title
-    h1_headings = [h["text"] for h in parser.headings if h["level"] == 1]
-    
+    h1_headings = [h["text"] for h in parser.headings if h["level"] == 1 and h["text"]]
+    empty_headings_count = sum(1 for h in parser.headings if not h["text"])
+
+    hierarchy_jumps = []
+    prev_level = 0
+    for h in parser.headings:
+        curr_level = h["level"]
+        if prev_level > 0 and (curr_level - prev_level) > 1:
+            hierarchy_jumps.append({
+                "from_level": prev_level,
+                "to_level": curr_level,
+                "text": h["text"]
+            })
+        prev_level = curr_level
+
     # Analyze links internal vs external
     internal_links = 0
     external_links = 0
+    empty_anchors_count = 0
     base_host = ""
     if base_url:
         parsed_base = urlsplit(base_url)
@@ -250,6 +320,9 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         if not href or any(href_lower.startswith(sch) for sch in ignored_schemes):
             continue
 
+        if not l.get("has_text"):
+            empty_anchors_count += 1
+
         target_host = urlsplit(href).netloc.lower().split(":")[0]
         if not target_host or target_host == base_host or (base_host and target_host.endswith("." + base_host)):
             internal_links += 1
@@ -261,6 +334,13 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
     missing_alt_count = sum(1 for img in parser.images if img["alt"] is None)
     decorative_alt_count = sum(1 for img in parser.images if img["alt"] is not None and img["alt"].strip() == "")
     missing_dims_count = sum(1 for img in parser.images if not img["has_dimensions"])
+
+    unlabelled_inputs_count = 0
+    for inp in parser.form_inputs:
+        has_aria = bool(inp["aria_label"] or inp["aria_labelledby"])
+        has_for = bool(inp["id"] and inp["id"] in parser.label_for_ids)
+        if not (has_aria or has_for):
+            unlabelled_inputs_count += 1
 
     full_text_chunks = []
     for part in parser.visible_text_parts:
@@ -331,7 +411,10 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "headings": {
             "h1_count": len(h1_headings),
             "h1_values": h1_headings,
-            "outline": parser.headings
+            "outline": parser.headings,
+            "empty_count": empty_headings_count,
+            "hierarchy_jumps": hierarchy_jumps,
+            "hierarchy_jumps_count": len(hierarchy_jumps)
         },
         "images": {
             "total_count": len(parser.images),
@@ -342,7 +425,22 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "links": {
             "total_count": len(parser.links),
             "internal_count": internal_links,
-            "external_count": external_links
+            "external_count": external_links,
+            "empty_anchors_count": empty_anchors_count
+        },
+        "landmarks": {
+            "has_header": parser.has_header,
+            "has_nav": parser.has_nav,
+            "has_main": parser.has_main,
+            "has_footer": parser.has_footer
+        },
+        "forms": {
+            "total_inputs": len(parser.form_inputs),
+            "unlabelled_count": unlabelled_inputs_count
+        },
+        "mixed_content": {
+            "insecure_resources": parser.insecure_resources,
+            "insecure_count": len(parser.insecure_resources)
         },
         "json_ld_raw_blocks": parser.json_ld_blocks,
         "visible_text": full_text,

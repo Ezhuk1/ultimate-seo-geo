@@ -26,6 +26,17 @@ from .rules import get_rule_registry
 
 
 @dataclass
+class SecurityHygieneScore:
+    score: int
+    tier: str
+    https_score: int
+    hsts_score: int
+    mixed_content_score: int
+    headers_score: int
+    details: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class ScoreBreakdown:
     observable_technical_score: int
     geo_readiness_index: int
@@ -44,6 +55,10 @@ class ScoreBreakdown:
     criteria_unknown: int = 0
     criteria_not_applicable: int = 0
     category_coverage: Dict[str, Any] = field(default_factory=dict)
+    security_score: int = 100
+    security_tier: str = "EXCELLENT"
+    security_hygiene: Optional[SecurityHygieneScore] = None
+    indexability_matrix: Optional[Dict[str, Any]] = None
 
 
 def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
@@ -158,6 +173,48 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
     else:
         geo_tier = "STAGE_1_RAW_WEB"
 
+    # 3. Security Hygiene Score (Separate 0..100 dimension, not penalized in technical score)
+    https_sig = ledger.signals.get("target_is_https")
+    hsts_sig = ledger.signals.get("http_hsts_present")
+    insecure_res_sig = ledger.signals.get("html_insecure_resources_count")
+    sec_hdrs_sig = ledger.signals.get("http_security_headers_count")
+
+    is_https = bool(https_sig.value) if https_sig and https_sig.is_measured else True
+    has_hsts = bool(hsts_sig.value) if hsts_sig and hsts_sig.is_measured else False
+    insecure_count = insecure_res_sig.value if insecure_res_sig and insecure_res_sig.is_measured else 0
+    no_mixed = (insecure_count == 0)
+    sec_hdrs_count = sec_hdrs_sig.value if sec_hdrs_sig and sec_hdrs_sig.is_measured else 0
+
+    https_pts = 25 if is_https else 0
+    hsts_pts = 25 if has_hsts else 0
+    mixed_pts = 25 if no_mixed else 0
+    hdrs_pts = min(25, round(25 * (min(4, sec_hdrs_count) / 4)))
+
+    sec_score = https_pts + hsts_pts + mixed_pts + hdrs_pts
+    if sec_score >= 90:
+        sec_tier = "EXCELLENT"
+    elif sec_score >= 70:
+        sec_tier = "GOOD"
+    elif sec_score >= 50:
+        sec_tier = "MODERATE_RISK"
+    else:
+        sec_tier = "VULNERABLE"
+
+    sec_hygiene = SecurityHygieneScore(
+        score=sec_score,
+        tier=sec_tier,
+        https_score=https_pts,
+        hsts_score=hsts_pts,
+        mixed_content_score=mixed_pts,
+        headers_score=hdrs_pts,
+        details={
+            "is_https": is_https,
+            "has_hsts": has_hsts,
+            "insecure_resources_count": insecure_count,
+            "security_headers_count": sec_hdrs_count
+        }
+    )
+
     return ScoreBreakdown(
         observable_technical_score=tech_score,
         geo_readiness_index=geo_score,
@@ -175,5 +232,9 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         criteria_failed=ledger.metadata.get("criteria_failed", 0),
         criteria_unknown=ledger.metadata.get("criteria_unknown", 0),
         criteria_not_applicable=ledger.metadata.get("criteria_not_applicable", 0),
-        category_coverage=ledger.metadata.get("category_coverage", {})
+        category_coverage=ledger.metadata.get("category_coverage", {}),
+        security_score=sec_score,
+        security_tier=sec_tier,
+        security_hygiene=sec_hygiene,
+        indexability_matrix=ledger.metadata.get("indexability_matrix")
     )

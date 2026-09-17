@@ -892,6 +892,155 @@ Allow: /catalog
     print("[PASS] test_week1_foundation_edge_cases")
 
 
+def test_week2_indexability_and_security():
+    import tempfile
+    import os
+    from engine.indexability import evaluate_indexability_matrix, VERDICT_INDEXABLE, VERDICT_BLOCKED, VERDICT_AMBIGUOUS
+    from engine.inspector import run_inspection
+    from engine.analyzers.sitemap_analyzer import parse_sitemap_xml
+
+    # 1. Direct Indexability Matrix Unit Tests
+    # A. Clean Indexable
+    mat_clean = evaluate_indexability_matrix(
+        target_url="https://example.com/page",
+        http_res={"status_code": 200, "is_local": False, "redirect_chain": [], "x_robots_directives": []},
+        html_data={
+            "canonical": {"value": "https://example.com/page", "count": 1, "in_body": False},
+            "meta_robots": {"is_noindex": False},
+            "links": {"internal_count": 5},
+            "csr_detection": {"is_csr_shell": False},
+            "word_count": 150
+        }
+    )
+    assert mat_clean.verdict == VERDICT_INDEXABLE
+    assert mat_clean.to_dict()["confidence_score"] == 100
+
+    # B. Blocked via Soft 404
+    mat_soft = evaluate_indexability_matrix(
+        target_url="https://example.com/page",
+        http_res={"status_code": 200, "is_soft_404": True, "redirect_chain": []},
+        html_data={"canonical": {"value": "https://example.com/page", "count": 1}}
+    )
+    assert mat_soft.verdict == VERDICT_BLOCKED
+    assert "soft_404" in mat_soft.rendered_content_status
+
+    # C. Ambiguous via Canonical to Other URL
+    mat_other = evaluate_indexability_matrix(
+        target_url="https://example.com/page-variant",
+        http_res={"status_code": 200, "redirect_chain": []},
+        html_data={"canonical": {"value": "https://example.com/primary-page", "count": 1}, "links": {"internal_count": 2}}
+    )
+    assert mat_other.verdict == VERDICT_AMBIGUOUS
+    assert mat_other.canonical_status == "other"
+
+    # 2. Sitemap 50k URL Limit
+    sitemap_header = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    sitemap_footer = '</urlset>'
+    sitemap_body = "".join(f"<url><loc>https://example.com/page/{i}</loc></url>" for i in range(50005))
+    large_sitemap = sitemap_header + sitemap_body + sitemap_footer
+    sm_res = parse_sitemap_xml(large_sitemap, base_domain="example.com")
+    assert sm_res.exceeds_url_limit is True
+    assert sm_res.total_urls == 50005
+    assert any("50,000" in w for w in sm_res.warnings)
+
+    # 3. Full Inspector Week 2 Rules Verification (Trailing slash, WWW, Anchor text, Form labels, Landmarks, Security)
+    html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Week 2 Comprehensive Audit Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://example.com/test-page/">
+</head>
+<body>
+    <header><h1>Primary Topic Headline</h1></header>
+    <main>
+        <h2>Section Two</h2>
+        <p>This is substantive main content for search and AI discovery engines with sufficient words to establish context and verify indexability rules.</p>
+        <a href="https://example.com/target"></a>
+        <a href="https://example.com/target2">Valid Anchor Link</a>
+        <form>
+            <input type="text" name="unlabelled_field">
+            <input type="text" id="labelled_field" name="field2">
+            <label for="labelled_field">Field 2 Label</label>
+        </form>
+    </main>
+    <footer><p>Footer content</p></footer>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    try:
+        from unittest.mock import patch
+        mock_http = {
+            "target": "https://example.com/test-page",
+            "final_url": "https://example.com/test-page",
+            "is_local": False,
+            "status_code": 200,
+            "headers": {
+                "content-type": "text/html; charset=utf-8",
+                "strict-transport-security": "max-age=31536000; includeSubDomains",
+                "content-encoding": "gzip",
+                "cache-control": "public, max-age=3600",
+                "x-content-type-options": "nosniff",
+                "x-frame-options": "DENY",
+                "content-security-policy": "default-src 'self'",
+                "referrer-policy": "strict-origin-when-cross-origin"
+            },
+            "raw_content": html_content,
+            "response_time_ms": 80.0,
+            "tls_valid": True,
+            "redirect_chain": [],
+            "x_robots_directives": [],
+            "x_robots_bot_directives": {},
+            "error": None,
+            "is_soft_404": False,
+            "has_redirect_loop": False,
+            "is_challenge_page": False
+        }
+
+        with patch("engine.inspector.analyze_target_http", return_value=mock_http):
+            ledger, scores = run_inspection("https://example.com/test-page")
+
+            # Check Security Hygiene Score: HTTPS (25) + HSTS (25) + No mixed content (25) + 4 Security headers (25) = 100
+            assert scores.security_score == 100
+            assert scores.security_tier == "EXCELLENT"
+            assert scores.security_hygiene is not None
+            assert scores.security_hygiene.hsts_score == 25
+            assert scores.security_hygiene.mixed_content_score == 25
+
+            # Rule TECH-CANONICAL-TRAILING-019 (requested /test-page vs canonical /test-page/)
+            rule_ids = {e.rule_id: e for e in ledger.evidence}
+            assert "TECH-CANONICAL-TRAILING-019" in rule_ids
+            assert rule_ids["TECH-CANONICAL-TRAILING-019"].status == "WARNING"
+
+            # Rule TECH-LINK-ANCHOR-028 (1 empty anchor link)
+            assert "TECH-LINK-ANCHOR-028" in rule_ids
+            assert rule_ids["TECH-LINK-ANCHOR-028"].status == "WARNING"
+
+            # Rule TECH-FORM-LABEL-029 (1 unlabelled input)
+            assert "TECH-FORM-LABEL-029" in rule_ids
+            assert rule_ids["TECH-FORM-LABEL-029"].status == "WARNING"
+
+            # Rule TECH-LANDMARKS-030 (<main> present)
+            assert "TECH-LANDMARKS-030" in rule_ids
+            assert rule_ids["TECH-LANDMARKS-030"].status == "PASS"
+
+            # Rule PERF-COMPRESSION-021 (gzip)
+            assert "PERF-COMPRESSION-021" in rule_ids
+            assert rule_ids["PERF-COMPRESSION-021"].status == "PASS"
+
+            # Indexability Matrix present in metadata and score breakdown
+            assert scores.indexability_matrix is not None
+            assert scores.indexability_matrix["verdict"] in (VERDICT_INDEXABLE, VERDICT_AMBIGUOUS)
+    finally:
+        os.remove(path)
+
+    print("[PASS] test_week2_indexability_and_security")
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -908,4 +1057,5 @@ if __name__ == "__main__":
     test_sitemap_analyzer_inspector_integration()
     test_audit_v2_16_fixes()
     test_week1_foundation_edge_cases()
+    test_week2_indexability_and_security()
     print("All Engine v2.1.0 tests passed successfully!")

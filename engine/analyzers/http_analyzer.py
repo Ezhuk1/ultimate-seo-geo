@@ -85,6 +85,45 @@ def _is_challenge_page(status_code: int, headers: dict[str, str], raw_content: s
     return any(ind in content_lower for ind in challenge_indicators)
 
 
+def _is_soft_404(status_code: int, raw_content: str) -> bool:
+    if status_code != 200 or not raw_content:
+        return False
+    lower_content = raw_content[:8192].lower()
+    patterns = [
+        "404 not found",
+        "page not found",
+        "document not found",
+        "страница не найдена",
+        "запрашиваемая страница не найдена",
+        "404 ошибка",
+        "error 404",
+        "not found 404",
+    ]
+    m_title = re.search(r'<title[^>]*>(.*?)</title>', lower_content, re.DOTALL)
+    if m_title and any(p in m_title.group(1) for p in patterns):
+        return True
+    m_h1 = re.search(r'<h1[^>]*>(.*?)</h1>', lower_content, re.DOTALL)
+    if m_h1 and any(p in m_h1.group(1) for p in patterns):
+        return True
+    return False
+
+
+def _has_redirect_loop(redirect_chain: list[dict[str, Any]]) -> bool:
+    if len(redirect_chain) > 5:
+        return True
+    seen_urls = set()
+    for hop in redirect_chain:
+        from_url = hop.get("from")
+        to_url = hop.get("to")
+        if from_url and from_url in seen_urls:
+            return True
+        if to_url and to_url in seen_urls:
+            return True
+        if from_url:
+            seen_urls.add(from_url)
+    return False
+
+
 def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | None = None) -> dict[str, Any]:
     """
     Fetches the target URL or reads the local file, capturing raw HTTP metadata
@@ -123,6 +162,14 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
                 "content_encoding": None,
                 "body_bytes_len": len(raw_bytes),
                 "is_challenge_page": False,
+                "cache_control": None,
+                "expires": None,
+                "hsts": None,
+                "content_language": None,
+                "last_modified": None,
+                "etag": None,
+                "is_soft_404": _is_soft_404(200, content),
+                "has_redirect_loop": False,
                 "timestamp": timestamp,
                 "error": None,
             }
@@ -147,6 +194,14 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
                 "content_encoding": None,
                 "body_bytes_len": 0,
                 "is_challenge_page": False,
+                "cache_control": None,
+                "expires": None,
+                "hsts": None,
+                "content_language": None,
+                "last_modified": None,
+                "etag": None,
+                "is_soft_404": False,
+                "has_redirect_loop": False,
                 "timestamp": timestamp,
                 "error": f"Failed to read local file: {e}",
             }
@@ -223,6 +278,14 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
                 "content_encoding": headers.get("content-encoding"),
                 "body_bytes_len": len(raw_bytes),
                 "is_challenge_page": is_challenge,
+                "cache_control": headers.get("cache-control"),
+                "expires": headers.get("expires"),
+                "hsts": headers.get("strict-transport-security"),
+                "content_language": headers.get("content-language"),
+                "last_modified": headers.get("last-modified"),
+                "etag": headers.get("etag"),
+                "is_soft_404": _is_soft_404(resp.status, content),
+                "has_redirect_loop": _has_redirect_loop(redirect_chain),
                 "timestamp": timestamp,
                 "error": None,
             }
@@ -275,6 +338,14 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
             "content_encoding": headers.get("content-encoding"),
             "body_bytes_len": len(raw_bytes),
             "is_challenge_page": is_challenge,
+            "cache_control": headers.get("cache-control"),
+            "expires": headers.get("expires"),
+            "hsts": headers.get("strict-transport-security"),
+            "content_language": headers.get("content-language"),
+            "last_modified": headers.get("last-modified"),
+            "etag": headers.get("etag"),
+            "is_soft_404": False,
+            "has_redirect_loop": _has_redirect_loop(redirect_chain),
             "timestamp": timestamp,
             "error": f"HTTP Error {e.code}: {e.reason}",
         }
@@ -300,6 +371,14 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
             "content_encoding": None,
             "body_bytes_len": 0,
             "is_challenge_page": False,
+            "cache_control": None,
+            "expires": None,
+            "hsts": None,
+            "content_language": None,
+            "last_modified": None,
+            "etag": None,
+            "is_soft_404": False,
+            "has_redirect_loop": _has_redirect_loop(redirect_chain),
             "timestamp": timestamp,
             "error": str(e),
         }

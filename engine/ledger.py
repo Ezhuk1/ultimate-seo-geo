@@ -113,6 +113,7 @@ class LedgerBuilder:
         self.signals: Dict[str, SignalItem] = {}
         self.evidence: List[EvidenceItem] = []
         self.findings: List[FindingItem] = []
+        self.metadata: Dict[str, Any] = {}
 
     def set_raw(self, status_code: int, headers: Dict[str, str], body_text: str, response_time_ms: float, robots_txt: Optional[str] = None):
         h = hashlib.sha256(body_text.encode("utf-8", errors="replace")).hexdigest()
@@ -263,6 +264,7 @@ class LedgerBuilder:
             "signals_unmeasured": total_signals - measured_signals,
             "signals_coverage_percent": signals_coverage_pct,
         }
+        metadata.update(self.metadata)
 
         ledger = EvidenceLedger(
             metadata=metadata,
