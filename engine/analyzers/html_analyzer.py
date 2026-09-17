@@ -18,6 +18,7 @@ class DocumentParser(HTMLParser):
         self.in_style = False
         self.in_svg = False
         self.in_main = False
+        self.has_main = False
 
         self.current_script_type = ""
         self.current_heading_tag = None
@@ -68,6 +69,7 @@ class DocumentParser(HTMLParser):
                 self.lang = html_lang
         elif tag == "main":
             self.in_main = True
+            self.has_main = True
         elif tag == "svg":
             self.in_svg = True
 
@@ -347,6 +349,7 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "visible_text_preview": full_text[:1000] if full_text else "",
         "word_count": len(full_text.split()),
         "main_text": main_text,
+        "has_main": parser.has_main,
         "csr_detection": {
             "is_csr_shell": (bool(parser.csr_mount_elements) and len(full_text.split()) < 35) or (parser.has_client_bundle and len(full_text.split()) < 25),
             "mount_elements": parser.csr_mount_elements,

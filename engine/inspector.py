@@ -31,6 +31,8 @@ from .ledger import (
     STATUS_WARNING,
     STATUS_CRITICAL,
     STATUS_INFO,
+    STATUS_UNKNOWN,
+    STATUS_NOT_APPLICABLE,
     STATUS_NOT_MEASURED,
 )
 from .scoring import calculate_scores, ScoreBreakdown
@@ -510,26 +512,47 @@ def run_inspection(
 
     # TECH-H1-OUTLINE-005
     h1_count = html_data["headings"]["h1_count"]
-    if h1_count != 1:
+    if h1_count == 0:
         builder.add_evidence(
             rule_id="TECH-H1-OUTLINE-005",
             category="technical",
             title="H1 Heading Count",
             status=STATUS_WARNING,
             confidence=CONFIDENCE_VERIFIED,
-            observed=h1_count,
+            observed=0,
             expected="Exactly 1 H1 heading",
-            message=f"Page has {h1_count} <h1> elements (expected exactly 1 for clear semantic outline)."
+            message="Page has 0 <h1> elements (missing primary topic heading)."
         )
         builder.add_finding(
             rule_id="TECH-H1-OUTLINE-005",
             category="technical",
             severity=STATUS_WARNING,
-            title="Multiple or Missing H1 Headings",
+            title="Missing Primary H1 Heading",
             confidence=CONFIDENCE_VERIFIED,
-            action_priority="P2_MEDIUM",
-            remediation_steps=["Refactor headings so that there is strictly one <h1> representing the primary page entity."],
-            impact_estimate="Weakens document hierarchical outline for AI section extractors."
+            action_priority="P1_HIGH",
+            remediation_steps=["Add a single <h1> heading representing the primary page topic."],
+            impact_estimate="Weakens document hierarchical outline for AI section extractors and search engines."
+        )
+    elif h1_count > 1:
+        builder.add_evidence(
+            rule_id="TECH-H1-OUTLINE-005",
+            category="technical",
+            title="H1 Heading Count",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=h1_count,
+            expected="1 H1 heading recommended",
+            message=f"Page has {h1_count} <h1> elements. While modern HTML permits multiple H1 elements, a single primary H1 is recommended for optimal outline structure."
+        )
+        builder.add_finding(
+            rule_id="TECH-H1-OUTLINE-005",
+            category="technical",
+            severity=STATUS_INFO,
+            title="Multiple H1 Headings Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P3_LOW",
+            remediation_steps=["Consider consolidating headings so that there is strictly one primary <h1>, converting secondary sections to <h2>."],
+            impact_estimate="Minor semantic ambiguity; does not directly block indexation."
         )
     else:
         builder.add_evidence(
@@ -758,6 +781,17 @@ def run_inspection(
             observed=f"All {total_imgs} images have alt attributes defined",
             expected="All images have alt attribute",
             message="All images have alt attributes defined."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-IMG-ALT-010",
+            category="technical",
+            title="Image Accessibility & Alt Text",
+            status=STATUS_NOT_APPLICABLE,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="0 images present on page",
+            expected="N/A",
+            message="No images present on page; image alt text requirement is not applicable."
         )
 
     # TECH-ROBOTS-AI-002: Robots.txt Crawler Access & RFC 9309 Rules
@@ -1345,13 +1379,25 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     md.append("| :--- | :--- | :--- |")
     md.append(f"| **Observable Technical Score** | **{scores.observable_technical_score} / 100** ({scores.technical_health_tier}) | Deterministic pass/fail checks strictly from verified payload |")
     md.append(f"| **GEO Readiness Index** | **{scores.geo_readiness_index} / 100** ({scores.geo_maturity_tier}) | Direct answer frontloading, chunking, coreference, Schema graph |")
-    md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({ledger.metadata['signals_measured']}/{ledger.metadata['signals_total']} signals) | Empirical completeness of audit scope |")
+    crit_obs = ledger.metadata.get("criteria_observed", ledger.metadata.get("signals_measured", 0))
+    crit_tot = ledger.metadata.get("criteria_total", ledger.metadata.get("signals_total", 0))
+    md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({crit_obs}/{crit_tot} criteria) | Empirical completeness of audit scope |")
     md.append("")
 
     md.append("> [!NOTE]")
     md.append("> **Evidence Ledger Invariant: 'Unknown != Failure'**  ")
     md.append(f"> Exactly {scores.not_measured_count} unmeasured external signal(s) (e.g., CWV CrUX field data) were detected. In compliance with the Evidence Protocol, unmeasured signals carry 0 penalty and are explicitly segregated from verified defects.")
     md.append("")
+
+    cat_cov = ledger.metadata.get("category_coverage", {})
+    if cat_cov:
+        md.append("### Criteria Breakdown by Category")
+        md.append("")
+        md.append("| Category | Total | Observed | Passed | Failed | Unknown | N/A | Coverage |")
+        md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+        for cat_name, c_data in cat_cov.items():
+            md.append(f"| **{cat_name.capitalize()}** | {c_data['total']} | {c_data['observed']} | {c_data['passed']} | {c_data['failed']} | {c_data['unknown']} | {c_data['not_applicable']} | **{c_data['coverage_pct']}%** |")
+        md.append("")
 
     # Deductions
     if scores.deductions:

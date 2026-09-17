@@ -924,6 +924,7 @@ def main():
         test_http_status_blocking_and_coverage,
         test_sitemap_analyzer_inspector_integration,
         test_audit_v2_16_fixes,
+        test_week1_foundation_edge_cases,
     )
 
     engine_tests = [
@@ -940,6 +941,7 @@ def main():
         ("test_http_status_blocking_and_coverage", test_http_status_blocking_and_coverage),
         ("test_sitemap_analyzer_inspector_integration", test_sitemap_analyzer_inspector_integration),
         ("test_audit_v2_16_fixes", test_audit_v2_16_fixes),
+        ("test_week1_foundation_edge_cases", test_week1_foundation_edge_cases),
     ]
 
     engine_passed = 0

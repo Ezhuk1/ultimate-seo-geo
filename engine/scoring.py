@@ -9,16 +9,20 @@ Calculates:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Any, List
 from .ledger import (
     EvidenceLedger,
     STATUS_CRITICAL,
     STATUS_WARNING,
     STATUS_PASS,
+    STATUS_INFO,
+    STATUS_UNKNOWN,
+    STATUS_NOT_APPLICABLE,
     STATUS_NOT_MEASURED,
     CONFIDENCE_VERIFIED,
 )
+from .rules import get_rule_registry
 
 
 @dataclass
@@ -33,12 +37,21 @@ class ScoreBreakdown:
     pass_count: int
     not_measured_count: int
     deductions: List[Dict[str, Any]]
+    criteria_total: int = 0
+    criteria_observed: int = 0
+    criteria_passed: int = 0
+    criteria_failed: int = 0
+    criteria_unknown: int = 0
+    criteria_not_applicable: int = 0
+    category_coverage: Dict[str, Any] = field(default_factory=dict)
 
 
 def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
     """
     Computes scores strictly according to empirical evidence rules.
+    Driven dynamically by rules loaded from rules/*.json.
     """
+    registry = get_rule_registry()
     coverage_pct = ledger.metadata.get("observation_coverage_percent", 100.0)
 
     # 1. Technical Score
@@ -54,57 +67,40 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         if ev.status == STATUS_PASS:
             pass_count += 1
             continue
-        elif ev.status == STATUS_NOT_MEASURED:
+        elif ev.status in (STATUS_UNKNOWN, STATUS_NOT_MEASURED, "NOT_MEASURED"):
             unmeasured_count += 1
-            # Invariant: Unmeasured never deducts points!
+            # Invariant: Unmeasured/Unknown never deducts points!
+            continue
+        elif ev.status in (STATUS_NOT_APPLICABLE, STATUS_INFO):
+            # Not applicable or informational recommendations incur 0 penalty
             continue
 
         if ev.category in ("technical", "schema", "performance"):
+            rule = registry.get(ev.rule_id)
+
             if ev.status == STATUS_CRITICAL:
                 crit_count += 1
-                deduction = 25 if ev.confidence == CONFIDENCE_VERIFIED else 15
-                current_penalty = rule_penalties.get(ev.rule_id, 0)
-                max_rule_cap = 25
-                actual_deduction = min(deduction, max(0, max_rule_cap - current_penalty))
-                if actual_deduction > 0:
-                    tech_score -= actual_deduction
-                    rule_penalties[ev.rule_id] = current_penalty + actual_deduction
-                    deductions.append({
-                        "rule_id": ev.rule_id,
-                        "title": ev.title,
-                        "penalty": -actual_deduction,
-                        "reason": ev.message,
-                        "confidence": ev.confidence
-                    })
+                base_deduction = rule.score_weight if rule else (25 if ev.confidence == CONFIDENCE_VERIFIED else 15)
+                max_rule_cap = rule.max_penalty_cap if rule else 25
             elif ev.status == STATUS_WARNING:
                 warn_count += 1
-                # Differentiate penalties:
-                # TECH-H1-OUTLINE-005: 0 H1 is warning (-10 pts), >1 H1 is informational recommendation (0 pts)
-                if ev.rule_id == "TECH-H1-OUTLINE-005":
-                    try:
-                        obs_val = int(str(ev.observed).split()[0])
-                        deduction = 0 if obs_val > 1 else 10
-                    except Exception:
-                        deduction = 10
-                elif ev.confidence != CONFIDENCE_VERIFIED or ev.rule_id in ("TECH-TITLE-003", "TECH-META-DESC-004"):
-                    deduction = 5
-                else:
-                    deduction = 10
+                base_deduction = rule.score_weight if rule else (5 if ev.confidence != CONFIDENCE_VERIFIED else 10)
+                max_rule_cap = rule.max_penalty_cap if rule else 15
+            else:
+                continue
 
-                if deduction > 0:
-                    current_penalty = rule_penalties.get(ev.rule_id, 0)
-                    max_rule_cap = 15
-                    actual_deduction = min(deduction, max(0, max_rule_cap - current_penalty))
-                    if actual_deduction > 0:
-                        tech_score -= actual_deduction
-                        rule_penalties[ev.rule_id] = current_penalty + actual_deduction
-                        deductions.append({
-                            "rule_id": ev.rule_id,
-                            "title": ev.title,
-                            "penalty": -actual_deduction,
-                            "reason": ev.message,
-                            "confidence": ev.confidence
-                        })
+            current_penalty = rule_penalties.get(ev.rule_id, 0)
+            actual_deduction = min(base_deduction, max(0, max_rule_cap - current_penalty))
+            if actual_deduction > 0:
+                tech_score -= actual_deduction
+                rule_penalties[ev.rule_id] = current_penalty + actual_deduction
+                deductions.append({
+                    "rule_id": ev.rule_id,
+                    "title": ev.title,
+                    "penalty": -actual_deduction,
+                    "reason": ev.message,
+                    "confidence": ev.confidence
+                })
 
     tech_score = max(0, min(100, tech_score))
 
@@ -118,47 +114,28 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         geo_score = 0
     else:
         geo_score = 0
-        # Direct Answer Frontload (25 pts)
-        ans_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
-        if ans_ev:
-            if ans_ev.status == STATUS_PASS:
-                geo_score += 25
-            elif ans_ev.status == STATUS_WARNING:
-                geo_score += 10
-        else:
-            geo_score += 15  # Neutral default if measured but not flagged
-
-        # Adaptive Chunking (25 pts)
-        chunk_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"), None)
-        if chunk_ev:
-            if chunk_ev.status == STATUS_PASS:
-                geo_score += 25
-            elif chunk_ev.status == STATUS_WARNING:
-                geo_score += 12
-        else:
-            geo_score += 15
-
-        # Coreference Independence (25 pts)
-        coref_ev = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
-        if coref_ev:
-            if coref_ev.status == STATUS_PASS:
-                geo_score += 25
-            elif coref_ev.status == STATUS_WARNING:
-                geo_score += 12
-        else:
-            geo_score += 15
-
-        # Schema Graph Integration (25 pts)
-        graph_ev = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
-        if graph_ev:
-            if graph_ev.status == STATUS_PASS:
-                geo_score += 25
-            elif graph_ev.status == STATUS_WARNING:
-                geo_score += 10
-        else:
-            schema_ent = ledger.signals.get("schema_entity_count")
-            if schema_ent and schema_ent.value > 0:
-                geo_score += 15
+        geo_rule_ids = [
+            "GEO-ANSWER-FRONTLOAD-001",
+            "GEO-ADAPTIVE-CHUNKING-002",
+            "GEO-COREFERENCE-INDEPENDENCE-003",
+            "SCHEMA-GRAPH-INTERCONNECT-002"
+        ]
+        for r_id in geo_rule_ids:
+            rule = registry.get(r_id)
+            points_map = rule.geo_points if rule and rule.geo_points else {"pass": 25, "warning": 10, "neutral": 15}
+            ev = next((e for e in ledger.evidence if e.rule_id == r_id), None)
+            if ev:
+                if ev.status == STATUS_PASS:
+                    geo_score += points_map.get("pass", 25)
+                elif ev.status == STATUS_WARNING:
+                    geo_score += points_map.get("warning", 10)
+            else:
+                if r_id == "SCHEMA-GRAPH-INTERCONNECT-002":
+                    schema_ent = ledger.signals.get("schema_entity_count")
+                    if schema_ent and schema_ent.value > 0:
+                        geo_score += points_map.get("neutral", 15)
+                else:
+                    geo_score += points_map.get("neutral", 15)
 
     geo_score = max(0, min(100, geo_score))
 
@@ -191,5 +168,12 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         warning_count=warn_count,
         pass_count=pass_count,
         not_measured_count=unmeasured_count,
-        deductions=deductions
+        deductions=deductions,
+        criteria_total=ledger.metadata.get("criteria_total", 0),
+        criteria_observed=ledger.metadata.get("criteria_observed", 0),
+        criteria_passed=ledger.metadata.get("criteria_passed", 0),
+        criteria_failed=ledger.metadata.get("criteria_failed", 0),
+        criteria_unknown=ledger.metadata.get("criteria_unknown", 0),
+        criteria_not_applicable=ledger.metadata.get("criteria_not_applicable", 0),
+        category_coverage=ledger.metadata.get("category_coverage", {})
     )

@@ -607,15 +607,15 @@ Clean-param: ref /catalog
     # 7. Scoring improvements: H1 split & GEO baseline on error
     lb = LedgerBuilder("https://example.com")
     lb.set_raw(200, {}, "<html></html>", 10.0)
-    # Test > 1 H1 has 0 penalty
+    # Test > 1 H1 has 0 penalty (informational recommendation)
     lb.add_evidence(
         rule_id="TECH-H1-OUTLINE-005",
         category="technical",
         title="H1 Heading Count",
-        status=STATUS_WARNING,
+        status="INFO",
         confidence=CONFIDENCE_VERIFIED,
         observed="2 H1 headings",
-        expected="Exactly 1 H1 heading",
+        expected="1 H1 heading recommended",
         message="Multiple H1s"
     )
     test_scores = calculate_scores(lb.build())
@@ -638,6 +638,260 @@ Clean-param: ref /catalog
     print("[PASS] test_audit_v2_16_fixes")
 
 
+def test_week1_foundation_edge_cases():
+    """
+    Validates all 11 Week 1 Foundation edge cases from todo.md:
+    1. Multiple canonicals
+    2. Canonical in <body>
+    3. Relative canonical
+    4. Canonical with fragment (#) and query params
+    5. Scoped noindex in meta and X-Robots-Tag
+    6. Complex robots.txt groups
+    7. Allow/Disallow of identical length (Allow wins)
+    8. Empty CSR shell
+    9. WAF challenge page
+    10. HTML without <main>
+    11. Page without text but with valid Schema
+    """
+    from engine.analyzers.html_analyzer import analyze_target_html
+    from engine.analyzers.robots_simulator import parse_robots_txt, is_allowed
+    from unittest.mock import patch
+
+    # 1. Multiple canonical tags in <head>
+    html_multi_canon = """<!DOCTYPE html>
+<html><head>
+    <title>Multiple Canonicals Test</title>
+    <link rel="canonical" href="https://example.com/canonical-1">
+    <link rel="canonical" href="https://example.com/canonical-2">
+</head><body><h1>Heading</h1></body></html>"""
+    fd1, path1 = tempfile.mkstemp(suffix=".html")
+    with open(fd1, "w", encoding="utf-8") as f:
+        f.write(html_multi_canon)
+    try:
+        ledger1, scores1 = run_inspection(path1)
+        ev1 = next(e for e in ledger1.evidence if e.rule_id == "TECH-CANONICAL-001")
+        assert ev1.status == "CRITICAL", f"Expected CRITICAL for multiple canonicals, got {ev1.status}"
+        assert "Multiple canonical tags" in ev1.message
+    finally:
+        os.remove(path1)
+
+    # 2. Canonical in <body>
+    html_body_canon = """<!DOCTYPE html>
+<html><head><title>Canonical in Body Test</title></head>
+<body>
+    <link rel="canonical" href="https://example.com/body-canon">
+    <h1>Heading</h1>
+</body></html>"""
+    fd2, path2 = tempfile.mkstemp(suffix=".html")
+    with open(fd2, "w", encoding="utf-8") as f:
+        f.write(html_body_canon)
+    try:
+        ledger2, scores2 = run_inspection(path2)
+        ev2 = next(e for e in ledger2.evidence if e.rule_id == "TECH-CANONICAL-001")
+        assert ev2.status == "WARNING"
+        assert "<body>" in str(ev2.observed) or "body" in ev2.message.lower()
+    finally:
+        os.remove(path2)
+
+    # 3. Relative canonical
+    html_rel_canon = """<!DOCTYPE html>
+<html><head>
+    <title>Relative Canonical Test</title>
+    <link rel="canonical" href="/relative-path">
+</head><body><h1>Heading</h1></body></html>"""
+    fd3, path3 = tempfile.mkstemp(suffix=".html")
+    with open(fd3, "w", encoding="utf-8") as f:
+        f.write(html_rel_canon)
+    try:
+        ledger3, scores3 = run_inspection(path3)
+        ev3 = next(e for e in ledger3.evidence if e.rule_id == "TECH-CANONICAL-001")
+        assert ev3.status == "WARNING"
+        assert "relative" in ev3.message.lower()
+    finally:
+        os.remove(path3)
+
+    # 4. Canonical with fragment (#) and query params
+    html_frag_canon = """<!DOCTYPE html>
+<html><head>
+    <title>Fragment Canonical Test</title>
+    <link rel="canonical" href="https://example.com/page#section?utm_source=test">
+</head><body><h1>Heading</h1></body></html>"""
+    fd4, path4 = tempfile.mkstemp(suffix=".html")
+    with open(fd4, "w", encoding="utf-8") as f:
+        f.write(html_frag_canon)
+    try:
+        ledger4, scores4 = run_inspection(path4)
+        ev4 = next(e for e in ledger4.evidence if e.rule_id == "TECH-CANONICAL-001")
+        assert ev4.status == "WARNING"
+        assert "fragment" in ev4.message.lower()
+    finally:
+        os.remove(path4)
+
+    # 5. Scoped noindex in meta and X-Robots-Tag
+    html_scoped_meta = """<!DOCTYPE html>
+<html><head>
+    <title>Scoped Meta Noindex Test</title>
+    <meta name="googlebot" content="noindex, follow">
+</head><body><h1>Heading</h1></body></html>"""
+    parsed_scoped = analyze_target_html(html_scoped_meta)
+    assert parsed_scoped["meta_robots"]["googlebot"] == "noindex, follow"
+
+    mock_scoped_http = {
+        "target": "https://example.com/scoped",
+        "final_url": "https://example.com/scoped",
+        "is_local": False,
+        "status_code": 200,
+        "headers": {"content-type": "text/html"},
+        "raw_content": "<html><head><title>Scoped Header Test</title></head><body><h1>Heading</h1></body></html>",
+        "response_time_ms": 100.0,
+        "tls_valid": True,
+        "redirect_chain": [],
+        "x_robots_directives": ["googlebot: noindex"],
+        "x_robots_bot_directives": {"googlebot": ["noindex"]},
+        "error": None
+    }
+    with patch("engine.inspector.analyze_target_http", return_value=mock_scoped_http):
+        ledger5, scores5 = run_inspection("https://example.com/scoped")
+        ev5 = next((e for e in ledger5.evidence if e.rule_id == "TECH-NOINDEX-009"), None)
+        assert ev5 is not None
+        assert ev5.status == "CRITICAL"
+        assert "googlebot" in str(ev5.observed).lower()
+
+    # 6. Complex robots.txt groups
+    complex_robots = """
+User-agent: Googlebot
+Allow: /public/
+Disallow: /admin/
+
+User-agent: Claude-SearchBot
+Disallow: /no-claude/
+
+User-agent: *
+Disallow: /secret/
+"""
+    r_data = parse_robots_txt(complex_robots)
+    # Googlebot uses Googlebot group
+    allow_gb_pub, _, _ = is_allowed(r_data, "Googlebot", "/public/file")
+    allow_gb_adm, _, _ = is_allowed(r_data, "Googlebot", "/admin/file")
+    allow_gb_sec, _, _ = is_allowed(r_data, "Googlebot", "/secret/file")
+    assert allow_gb_pub is True
+    assert allow_gb_adm is False
+    assert allow_gb_sec is True  # Googlebot group overrides wildcard!
+
+    # Claude-SearchBot uses Claude-SearchBot group
+    allow_csb_nc, _, _ = is_allowed(r_data, "Claude-SearchBot", "/no-claude/file")
+    assert allow_csb_nc is False
+
+    # OtherBot uses wildcard
+    allow_ob_sec, _, _ = is_allowed(r_data, "OtherBot", "/secret/file")
+    allow_ob_adm, _, _ = is_allowed(r_data, "OtherBot", "/admin/file")
+    assert allow_ob_sec is False
+    assert allow_ob_adm is True
+
+    # 7. Allow / Disallow of identical length: RFC 9309 Allow precedence
+    tie_robots = """
+User-agent: *
+Disallow: /catalog
+Allow: /catalog
+"""
+    r_tie = parse_robots_txt(tie_robots)
+    allowed_tie, rule_tie, reason_tie = is_allowed(r_tie, "Googlebot", "/catalog/item-123")
+    assert allowed_tie is True, f"Allow must take precedence on equal length, got reason: {reason_tie}"
+    assert rule_tie is not None and rule_tie.allow is True
+
+    # 8. Empty CSR shell
+    html_csr = """<!DOCTYPE html>
+<html><head><title>CSR App</title><script src="/bundle.js"></script></head>
+<body><div id="root"></div></body></html>"""
+    fd8, path8 = tempfile.mkstemp(suffix=".html")
+    with open(fd8, "w", encoding="utf-8") as f:
+        f.write(html_csr)
+    try:
+        ledger8, scores8 = run_inspection(path8)
+        rule_ids8 = {f.rule_id for f in ledger8.findings}
+        assert "TECH-CSR-SHELL-008" in rule_ids8
+    finally:
+        os.remove(path8)
+
+    # 9. WAF / Cloudflare challenge page detection
+    mock_waf = {
+        "target": "https://example.com/protected",
+        "final_url": "https://example.com/protected",
+        "is_local": False,
+        "status_code": 403,
+        "headers": {"content-type": "text/html", "server": "cloudflare"},
+        "raw_content": "<html><head><title>Just a moment... Attention Required! | Cloudflare</title></head><body><div id='cf-browser-verification'></div></body></html>",
+        "response_time_ms": 150.0,
+        "tls_valid": True,
+        "redirect_chain": [],
+        "x_robots_directives": [],
+        "x_robots_bot_directives": {},
+        "is_challenge_page": True,
+        "error": None
+    }
+    with patch("engine.inspector.analyze_target_http", return_value=mock_waf):
+        ledger9, scores9 = run_inspection("https://example.com/protected")
+        # Ensure 403 error is detected but NOT falsely flagged as client-side CSR shell
+        assert any(e.rule_id == "TECH-HTTP-STATUS-000" for e in ledger9.evidence)
+        assert not any(e.rule_id == "TECH-CSR-SHELL-008" and e.status == "CRITICAL" for e in ledger9.evidence)
+
+    # 10. HTML without <main> element
+    html_no_main = """<!DOCTYPE html>
+<html lang="en"><head><title>No Main Tag</title></head>
+<body><header>Header</header><div class="content"><p>Some body content text.</p></div><footer>Footer</footer></body></html>"""
+    parsed_no_main = analyze_target_html(html_no_main)
+    assert parsed_no_main["has_main"] is False
+    assert parsed_no_main["word_count"] > 0
+
+    # 11. Page without text, but with valid Schema.org graph
+    html_textless_schema = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Textless Page With Schema</title>
+    <link rel="canonical" href="https://example.com/schema-only">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://example.com/#website",
+          "name": "Schema Only Site"
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://example.com/schema-only#webpage",
+          "name": "Schema Only Page",
+          "isPartOf": {"@id": "https://example.com/#website"}
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+</body>
+</html>"""
+    fd11, path11 = tempfile.mkstemp(suffix=".html")
+    with open(fd11, "w", encoding="utf-8") as f:
+        f.write(html_textless_schema)
+    try:
+        ledger11, scores11 = run_inspection(path11)
+        # GEO readiness must be 0 due to 0 content words
+        assert scores11.geo_readiness_index == 0
+        # Schema graph passed
+        schema_ev = next(e for e in ledger11.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002")
+        assert schema_ev.status == "PASS"
+        # 0 images means TECH-IMG-ALT-010 is NOT_APPLICABLE
+        img_ev = next(e for e in ledger11.evidence if e.rule_id == "TECH-IMG-ALT-010")
+        assert img_ev.status == "NOT_APPLICABLE"
+        assert scores11.criteria_not_applicable >= 1
+    finally:
+        os.remove(path11)
+
+    print("[PASS] test_week1_foundation_edge_cases")
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -653,4 +907,5 @@ if __name__ == "__main__":
     test_http_status_blocking_and_coverage()
     test_sitemap_analyzer_inspector_integration()
     test_audit_v2_16_fixes()
+    test_week1_foundation_edge_cases()
     print("All Engine v2.1.0 tests passed successfully!")

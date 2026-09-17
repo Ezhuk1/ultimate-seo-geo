@@ -27,7 +27,9 @@ STATUS_PASS = "PASS"
 STATUS_WARNING = "WARNING"
 STATUS_CRITICAL = "CRITICAL"
 STATUS_INFO = "INFO"
-STATUS_NOT_MEASURED = "NOT_MEASURED"
+STATUS_UNKNOWN = "UNKNOWN"
+STATUS_NOT_APPLICABLE = "NOT_APPLICABLE"
+STATUS_NOT_MEASURED = "UNKNOWN"
 
 
 @dataclass
@@ -181,11 +183,66 @@ class LedgerBuilder:
         ))
 
     def build(self, expected_baseline: Optional[int] = None) -> EvidenceLedger:
-        # Calculate observation coverage against actual observed or expected baseline
-        baseline = expected_baseline if expected_baseline is not None else len(self.signals)
-        total_signals = max(len(self.signals), baseline)
+        # Calculate signal coverage for backwards-compatibility
+        baseline_signals = expected_baseline if expected_baseline is not None else len(self.signals)
+        total_signals = max(len(self.signals), baseline_signals)
         measured_signals = sum(1 for s in self.signals.values() if s.is_measured)
-        coverage_pct = round((measured_signals / total_signals * 100), 1) if total_signals > 0 else 100.0
+        signals_coverage_pct = round((measured_signals / total_signals * 100), 1) if total_signals > 0 else 100.0
+
+        # Calculate criteria-based coverage from evidence
+        criteria_passed = 0
+        criteria_failed = 0
+        criteria_observed = 0
+        criteria_unknown = 0
+        criteria_not_applicable = 0
+        cat_stats: Dict[str, Dict[str, int]] = {}
+
+        for ev in self.evidence:
+            cat = ev.category or "technical"
+            if cat not in cat_stats:
+                cat_stats[cat] = {"total": 0, "observed": 0, "passed": 0, "failed": 0, "unknown": 0, "not_applicable": 0}
+
+            if ev.status == STATUS_PASS:
+                criteria_passed += 1
+                criteria_observed += 1
+                cat_stats[cat]["passed"] += 1
+                cat_stats[cat]["observed"] += 1
+            elif ev.status in (STATUS_WARNING, STATUS_CRITICAL):
+                criteria_failed += 1
+                criteria_observed += 1
+                cat_stats[cat]["failed"] += 1
+                cat_stats[cat]["observed"] += 1
+            elif ev.status == STATUS_INFO:
+                criteria_observed += 1
+                cat_stats[cat]["observed"] += 1
+            elif ev.status in (STATUS_UNKNOWN, "NOT_MEASURED"):
+                criteria_unknown += 1
+                cat_stats[cat]["unknown"] += 1
+            elif ev.status == STATUS_NOT_APPLICABLE:
+                criteria_not_applicable += 1
+                cat_stats[cat]["not_applicable"] += 1
+
+        applicable_criteria = criteria_observed + criteria_unknown
+        baseline_criteria = expected_baseline if expected_baseline is not None else 0
+        criteria_total = max(applicable_criteria, baseline_criteria)
+        if criteria_total > applicable_criteria:
+            criteria_unknown += (criteria_total - applicable_criteria)
+
+        coverage_pct = round((criteria_observed / criteria_total * 100), 1) if criteria_total > 0 else 100.0
+
+        category_coverage: Dict[str, Dict[str, Any]] = {}
+        for cat, s in cat_stats.items():
+            cat_applicable = s["observed"] + s["unknown"]
+            cat_pct = round((s["observed"] / cat_applicable * 100), 1) if cat_applicable > 0 else 100.0
+            category_coverage[cat] = {
+                "total": cat_applicable,
+                "observed": s["observed"],
+                "passed": s["passed"],
+                "failed": s["failed"],
+                "unknown": s["unknown"],
+                "not_applicable": s["not_applicable"],
+                "coverage_pct": cat_pct,
+            }
 
         metadata = {
             "engine_version": "2.0.0",
@@ -194,9 +251,17 @@ class LedgerBuilder:
             "provenance_sha256": self.raw.provenance_hash,
             "generated_at": self.raw.timestamp_utc,
             "observation_coverage_percent": coverage_pct,
+            "criteria_total": criteria_total,
+            "criteria_observed": criteria_observed,
+            "criteria_passed": criteria_passed,
+            "criteria_failed": criteria_failed,
+            "criteria_unknown": criteria_unknown,
+            "criteria_not_applicable": criteria_not_applicable,
+            "category_coverage": category_coverage,
             "signals_total": total_signals,
             "signals_measured": measured_signals,
             "signals_unmeasured": total_signals - measured_signals,
+            "signals_coverage_percent": signals_coverage_pct,
         }
 
         ledger = EvidenceLedger(
@@ -205,6 +270,16 @@ class LedgerBuilder:
             signals=self.signals,
             evidence=self.evidence,
             findings=self.findings,
-            metrics={"coverage_pct": coverage_pct}
+            metrics={
+                "coverage_pct": coverage_pct,
+                "criteria_total": criteria_total,
+                "criteria_observed": criteria_observed,
+                "criteria_passed": criteria_passed,
+                "criteria_failed": criteria_failed,
+                "criteria_unknown": criteria_unknown,
+                "criteria_not_applicable": criteria_not_applicable,
+                "category_coverage": category_coverage
+            }
         )
         return ledger
+

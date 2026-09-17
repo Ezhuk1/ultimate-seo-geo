@@ -1,13 +1,18 @@
 {
   "category": "schema",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "rules": [
     {
       "id": "SCHEMA-SYNTAX-001",
       "name": "JSON-LD Syntactic Validity",
-      "tier": "Tier A (Schema.org / W3C JSON-LD)",
+      "category": "schema",
+      "severity": "CRITICAL",
       "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (Schema.org / W3C JSON-LD)",
       "selector": "script[type='application/ld+json']",
       "description": "JSON-LD scripts must be syntactically valid JSON with valid @context and @type.",
       "remediation": "Validate structured data using Schema.org validator and resolve JSON syntax errors."
@@ -15,9 +20,14 @@
     {
       "id": "SCHEMA-GRAPH-INTERCONNECT-002",
       "name": "Unified Entity Graph Interconnection",
-      "tier": "Tier E (Clean Architecture Recommendation)",
+      "category": "schema",
+      "severity": "INFO",
       "impact": "P1",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier E (Clean Architecture Recommendation)",
       "selector": "@graph",
       "description": "Entities on the same page should link to one another using stable @id URIs (e.g. publisher, provider, isPartOf).",
       "remediation": "Connect WebPage to WebSite, Service to Organization, and Author to Article via @id nodes."
@@ -25,9 +35,14 @@
     {
       "id": "SCHEMA-PRICE-FORMAT-003",
       "name": "Offer Currency & Price Format",
-      "tier": "Tier A (Schema.org Offer Spec)",
+      "category": "schema",
+      "severity": "WARNING",
       "impact": "P1",
+      "score_weight": 10,
+      "max_penalty_cap": 10,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (Schema.org Offer Spec)",
       "selector": "Offer.price",
       "description": "Price must be formatted as numeric string (e.g. '0.00' or '29.99'), never text labels like 'FREE'.",
       "remediation": "Set price to numeric value '0.00' with priceCurrency 'USD'."
@@ -35,9 +50,14 @@
     {
       "id": "SCHEMA-AUTHOR-SAMEAS-004",
       "name": "Person sameAs Authority Verification",
-      "tier": "Tier E (E-E-A-T Entity Heuristic)",
+      "category": "schema",
+      "severity": "WARNING",
       "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier E (E-E-A-T Entity Heuristic)",
       "selector": "Person.sameAs",
       "description": "Authors should provide sameAs array linking to Wikidata, ORCID, LinkedIn, or GitHub.",
       "remediation": "Add sameAs: ['https://orcid.org/...', 'https://linkedin.com/in/...'] to author Person nodes."
@@ -45,9 +65,14 @@
     {
       "id": "SCHEMA-BROKEN-REF-005",
       "name": "Broken Entity @id Cross-Reference",
-      "tier": "Tier A (W3C JSON-LD Graph Integrity)",
+      "category": "schema",
+      "severity": "CRITICAL",
       "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (W3C JSON-LD Graph Integrity)",
       "selector": "@graph @id reference",
       "description": "A node in the @graph points to an @id URI that is not defined anywhere in the graph.",
       "remediation": "Ensure every entity referenced via @id is explicitly declared as a node within the @graph."
@@ -55,9 +80,14 @@
     {
       "id": "SCHEMA-DATE-FORMAT-006",
       "name": "ISO 8601 Date Format Compliance",
-      "tier": "Tier A (W3C / Schema.org Date Standard)",
+      "category": "schema",
+      "severity": "WARNING",
       "impact": "P1",
+      "score_weight": 5,
+      "max_penalty_cap": 10,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (W3C / Schema.org Date Standard)",
       "selector": "datePublished, dateModified",
       "description": "Dates must strictly follow ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
       "remediation": "Convert date strings to standard ISO 8601 format (e.g. '2026-05-15T08:00:00Z')."
@@ -65,9 +95,14 @@
     {
       "id": "SCHEMA-TYPE-MISSING-007",
       "name": "Schema Entity @type Presence",
-      "tier": "Tier A (Schema.org / JSON-LD Standard)",
+      "category": "schema",
+      "severity": "CRITICAL",
       "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
       "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (Schema.org / JSON-LD Standard)",
       "selector": "@type",
       "description": "Every Schema.org entity must declare a valid @type identifier.",
       "remediation": "Add '@type' attribute (e.g. WebPage, Article, Organization, Product) to the entity node."
