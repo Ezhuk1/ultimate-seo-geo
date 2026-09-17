@@ -215,14 +215,43 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     return best_rule.allow, best_rule, f"{status_str} by rule: {'Allow' if best_rule.allow else 'Disallow'}: {best_rule.pattern}"
 
 
-def simulate_ai_crawlers(robots_data: RobotsData, target_path: str = "/", test_paths: Optional[List[str]] = None) -> Dict[str, dict]:
+POLICY_SEARCH_RETRIEVAL = "SEARCH_RETRIEVAL"
+POLICY_MODEL_TRAINING = "MODEL_TRAINING"
+POLICY_USER_FETCH = "USER_INITIATED_FETCH"
+
+CRAWLER_POLICIES = {
+    "OAI-SearchBot": POLICY_SEARCH_RETRIEVAL,
+    "PerplexityBot": POLICY_SEARCH_RETRIEVAL,
+    "Claude-SearchBot": POLICY_SEARCH_RETRIEVAL,
+    "Googlebot": POLICY_SEARCH_RETRIEVAL,
+    "Bingbot": POLICY_SEARCH_RETRIEVAL,
+    "Applebot": POLICY_SEARCH_RETRIEVAL,
+    "DuckAssistBot": POLICY_SEARCH_RETRIEVAL,
+    "YandexBot": POLICY_SEARCH_RETRIEVAL,
+    "GPTBot": POLICY_MODEL_TRAINING,
+    "ClaudeBot": POLICY_MODEL_TRAINING,
+    "Google-Extended": POLICY_MODEL_TRAINING,
+    "Applebot-Extended": POLICY_MODEL_TRAINING,
+    "Bytespider": POLICY_MODEL_TRAINING,
+    "CCBot": POLICY_MODEL_TRAINING,
+    "Amazonbot": POLICY_MODEL_TRAINING,
+    "ChatGPT-User": POLICY_USER_FETCH,
+    "Claude-User": POLICY_USER_FETCH,
+}
+
+
+def simulate_ai_crawlers(robots_data: Any, target_path: str = "/", test_paths: Optional[List[str]] = None) -> Dict[str, Any]:
     """
-    Simulates access for key AI and search crawlers against root and the target page URL path.
-    Returns structured simulation report.
+    Simulates robots.txt access rules across major AI search and model training bots.
+    Classifies crawlers by governance policy (SEARCH_RETRIEVAL, MODEL_TRAINING, USER_INITIATED_FETCH).
     """
-    paths = list(test_paths or DEFAULT_TEST_PATHS)
-    if target_path and target_path not in paths:
-        paths.append(target_path)
+    if isinstance(robots_data, str):
+        robots_data = parse_robots_txt(robots_data)
+
+    paths = test_paths or DEFAULT_TEST_PATHS
+    if target_path not in paths:
+        paths = [target_path] + paths
+
     simulation_results = {}
 
     for bot_name, bot_desc in KNOWN_AI_CRAWLERS:
@@ -237,12 +266,16 @@ def simulate_ai_crawlers(robots_data: RobotsData, target_path: str = "/", test_p
         
         root_access = path_results.get("/", {}).get("allowed", True)
         target_access = path_results.get(target_path, {}).get("allowed", True)
+        bot_policy = CRAWLER_POLICIES.get(bot_name, POLICY_SEARCH_RETRIEVAL)
+
         simulation_results[bot_name] = {
             "description": bot_desc,
+            "policy": bot_policy,
             "root_allowed": root_access,
             "target_allowed": target_access,
             "target_path": target_path,
-            "path_access": path_results
+            "path_access": path_results,
+            "caveat": "Allowing crawler access does NOT guarantee indexing, retrieval, or citations."
         }
 
     return simulation_results

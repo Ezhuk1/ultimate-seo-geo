@@ -76,7 +76,14 @@ Perform an autonomous, falsifiable inspection of the target (URL, HTML file, or 
 
 When environment tool execution is available, execute the deterministic inspection engine directly:
 ```bash
-python -m engine.inspector <URL or file_path> [--format markdown|json]
+# Single page deterministic inspection:
+python -m engine.inspector <URL or file_path> [--format markdown|json|sarif]
+
+# Multi-page BFS site crawl with link graph, crawl depth & orphan detection:
+python -m engine.inspector https://example.com --crawl --max-pages 50 --depth 3
+
+# CI/CD Quality Gate with SARIF export and threshold enforcement:
+python -m engine.inspector https://example.com --strict --fail-on P0 --fail-on-score 80 --sarif report.sarif --previous-audit previous.json
 ```
 The engine executes all deterministic analyzers in <500ms, measures HTTP payload with SHA-256 provenance, simulates RFC 9309 crawler permissions, indexes the Schema.org `@graph` AST, evaluates GEO content rules, and compiles the Evidence Ledger. The agent then reasons over the verified observations to deliver strategic recommendations and code remedies.
 
@@ -101,11 +108,20 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
      $$\text{Observation Coverage} = \frac{N_{\text{PASS}} + N_{\text{FAIL}}}{N_{\text{Total Criteria}}} \times 100\%$$
    - Unobserved criteria (e.g., real-user CrUX field data, server access logs, backlink graphs) are classified as `UNKNOWN` and do **NOT** depress the Observable Score.
 3. **GEO Readiness Index (0–100) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier B)]:**
-   - Evaluated across the **3-Tier Signal Stack** with **Content-Type Contextual Rules**:
-     - *Evidence Density (35%):* Verified numbers with units, primary citations, author credentials. (API / Developer docs are **EXEMPT** from human quotes `[HEURISTIC]`).
-     - *Structure & Citability (25%):* Direct answer front-loading, ~100–200 word adaptive chunking, coreference independence (no ambiguous pronouns), tables and ordered lists.
-     - *Brand Footprint & Freshness (25%):* Multi-platform brand presence, query-dependent freshness (volatile $\le 60$d; evergreen updated on spec change).
-     - *AI Infrastructure (15%):* AI crawler permissions in `robots.txt`, valid `llms.txt`.
+   - Evaluated across the **8 Weighted Dimensions** (`[RESEARCH]`, `[STANDARD]`, `[HEURISTIC]`):
+     - *Answerability (20%):* Direct definition / resolution syntax in opening 60 words `[RESEARCH]`.
+     - *Evidence Density (20%):* Numerical statistics, percentages, and verifiable metrics `[RESEARCH]`. (API/developer docs are **EXEMPT** from human quotes `[HEURISTIC]`).
+     - *Entity Clarity (15%):* Coreference independence (avoids ambiguous pronouns) `[HEURISTIC]`.
+     - *Passage Extractability (15%):* Modular 100-200 word sections suited for vector retrieval `[HEURISTIC]`.
+     - *Source Attribution (10%):* Authoritative citations, RFC standards, research refs `[RESEARCH]`.
+     - *Schema & Entity Graph (10%):* Interconnected JSON-LD graph with stable @id anchors `[STANDARD]`.
+     - *Freshness & Temporal (5%):* Publication/modification dates and temporal consistency `[DOCUMENTED]`.
+     - *AI Crawler Access (5%):* Search & retrieval AI bots permitted in robots.txt `[STANDARD]`.
+   - *Epistemic Rating & Coverage:* Reports confidence (`HIGH`, `MEDIUM`, `LOW`) and explicitly enumerates unmeasured dimensions (`freshness`, `brand footprint`).
+4. **Independent Security Hygiene Score (0–100) [STANDARD]:**
+   - Strictly segregated dimension (HTTPS 25%, HSTS 25%, Mixed Content 25%, Security Headers 25%). Never conflated with technical SEO penalties.
+5. **Deterministic Indexability Matrix [STANDARD]:**
+   - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`) across HTTP status, Canonical URL, Meta Robots, X-Robots-Tag, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
 Structure all action items into actionable tiers accompanied by testable verification criteria:

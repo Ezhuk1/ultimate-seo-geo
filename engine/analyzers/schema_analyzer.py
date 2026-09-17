@@ -45,6 +45,11 @@ class SchemaAnalysisResult:
     entity_ids: Set[str] = field(default_factory=set)
     referenced_ids: Set[str] = field(default_factory=set)
     orphaned_entities: List[str] = field(default_factory=list)
+    duplicate_ids: List[str] = field(default_factory=list)
+    syntax_valid: str = "YES"
+    schema_org_structure: str = "VALID"
+    google_rich_result_eligibility: str = "UNKNOWN"
+    visible_content_consistency: str = "UNKNOWN"
     findings: List[SchemaFinding] = field(default_factory=list)
 
 
@@ -152,7 +157,17 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
 
         ent_id = entity.get("@id")
         if ent_id and isinstance(ent_id, str):
-            result.entity_ids.add(ent_id)
+            if ent_id in result.entity_ids:
+                result.duplicate_ids.append(ent_id)
+                result.findings.append(SchemaFinding(
+                    rule_id="SCHEMA-DUPLICATE-ID-008",
+                    severity="CRITICAL",
+                    entity_type=entity.get("@type"),
+                    message=f"Duplicate entity '@id' '{ent_id}' defined multiple times in the schema graph.",
+                    details={"duplicate_id": ent_id}
+                ))
+            else:
+                result.entity_ids.add(ent_id)
 
     # 3. Analyze Graph Interconnections
     entity_outgoing_refs: Dict[str, Set[str]] = {}
@@ -311,6 +326,89 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                         message=f"Invalid {date_key} format or non-existent calendar date '{val}'. Schema.org strictly requires valid ISO 8601 calendar date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
                         details={"key": date_key, "invalid_value": val}
                     ))
+
+    # 8. Check Required Properties for High-Value Schema Types
+    required_type_properties = {
+        "Article": ["headline", "author"],
+        "BlogPosting": ["headline", "author"],
+        "NewsArticle": ["headline", "author"],
+        "Product": ["name", "offers"],
+        "Organization": ["name"],
+        "LocalBusiness": ["name"],
+        "BreadcrumbList": ["itemListElement"],
+        "FAQPage": ["mainEntity"]
+    }
+    for entity in result.entities:
+        t = entity.get("@type")
+        types = [t] if isinstance(t, str) else (t if isinstance(t, list) else [])
+        for type_name in types:
+            req_props = required_type_properties.get(type_name, [])
+            for prop in req_props:
+                if prop not in entity or entity[prop] is None or entity[prop] == "":
+                    result.findings.append(SchemaFinding(
+                        rule_id="SCHEMA-REQUIRED-PROP-009",
+                        severity="WARNING",
+                        entity_type=type_name,
+                        message=f"{type_name} entity is missing recommended property '{prop}'.",
+                        details={"type": type_name, "missing_property": prop}
+                    ))
+
+    # 9. Check AggregateRating Integrity
+    ratings = _find_entities_by_type(result.entities, "AggregateRating")
+    for entity in result.entities:
+        ar = entity.get("aggregateRating")
+        if isinstance(ar, dict):
+            ratings.append(ar)
+
+    for r in ratings:
+        r_val = r.get("ratingValue")
+        b_val = r.get("bestRating", 5)
+        try:
+            if r_val is not None:
+                num_r = float(r_val)
+                num_b = float(b_val) if b_val is not None else 5.0
+                if num_r > num_b:
+                    result.findings.append(SchemaFinding(
+                        rule_id="SCHEMA-RATING-VALIDITY-010",
+                        severity="CRITICAL",
+                        entity_type="AggregateRating",
+                        message=f"ratingValue ({num_r}) cannot exceed bestRating ({num_b}).",
+                        details={"ratingValue": num_r, "bestRating": num_b}
+                    ))
+        except (ValueError, TypeError):
+            pass
+
+        r_cnt = r.get("ratingCount") or r.get("reviewCount")
+        if r_cnt is not None:
+            try:
+                if int(r_cnt) <= 0:
+                    result.findings.append(SchemaFinding(
+                        rule_id="SCHEMA-RATING-VALIDITY-010",
+                        severity="WARNING",
+                        entity_type="AggregateRating",
+                        message=f"ratingCount/reviewCount must be greater than 0 (got {r_cnt})."
+                    ))
+            except (ValueError, TypeError):
+                pass
+
+    # 10. Compute 4-Tier Verdict
+    result.syntax_valid = "NO" if result.syntax_errors else "YES"
+    has_crit = any(f.severity == "CRITICAL" for f in result.findings)
+    has_warn = any(f.severity == "WARNING" for f in result.findings)
+
+    if result.syntax_valid == "NO" or has_crit:
+        result.schema_org_structure = "INVALID"
+    elif has_warn:
+        result.schema_org_structure = "PARTIAL"
+    else:
+        result.schema_org_structure = "VALID"
+
+    if result.schema_org_structure == "VALID":
+        result.google_rich_result_eligibility = "ELIGIBLE"
+    elif result.schema_org_structure == "PARTIAL":
+        result.google_rich_result_eligibility = "WARNING"
+    else:
+        result.google_rich_result_eligibility = "UNKNOWN"
 
     return result
 

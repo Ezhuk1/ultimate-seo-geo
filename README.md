@@ -1,13 +1,13 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Version: 2.1.0](https://img.shields.io/badge/Version-2.1.0-blue.svg)](evals/CHANGELOG.md)
+[![Version: 3.0.0](https://img.shields.io/badge/Version-3.0.0-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
 [![Language](https://img.shields.io/badge/Language-English%20%7C%20Русский-purple.svg)](#language--язык)
 
-> **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) system for AI agents & CLI pipelines.**  
-> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, <50ms) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), validates unified Schema.org `@graph` ASTs, configures leak-safe crawler protocols (`robots.txt` & `llms.txt`), and produces evidence-grounded content plans.
+> **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) intelligence platform for AI agents & CI/CD pipelines.**  
+> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, zero dependencies) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), evaluates E-E-A-T trust signals & content freshness, crawls site architecture & internal links, validates unified Schema.org `@graph` ASTs, and enforces CI/CD quality gates via OASIS SARIF v2.1.0.
 
 ---
 
@@ -30,10 +30,12 @@ Modern AI Search operates in **two interconnected stages**:
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ STAGE 1: CANDIDATE RETRIEVAL (Traditional Technical SEO)                                                        │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ • Crawlability & Indexability (RFC 9309 robots.txt, HTTP 200, clean redirects)                                  │
-│ • Canonicalization (RFC 6596) & Document Outline (Single H1, semantic H2-H6)                                   │
-│ • Server-Side Rendering (SSR/SSG): Detection of empty CSR shells (div#root) that blind fast AI scrapers         │
-│ • Domain Authority, PageRank & Brand Entity Grounding (Wikipedia, Wikidata, YouTube, Reddit)                    │
+│ • Indexability Matrix: Multi-signal verdict (HTTP 200, Canonical, Robots, Sitemap, Internal links)             │
+│ • Crawlability & Site Architecture (Polite BFS Crawler, crawl depth, orphan candidate identification)          │
+│ • Canonicalization (RFC 6596) & Document Outline (Single H1, semantic H2-H6 hierarchy)                         │
+│ • Server-Side Rendering (SSR/SSG): Detection of empty CSR shells (div#root) blinding fast AI scrapers          │
+│ • Segregated Security Hygiene Score: HTTPS, HSTS, zero mixed content, security headers (0..100)                │
+│ • Duplicate Content & Similarity: 64-bit SimHash, Hamming distance, and Jaccard token clustering                │
 │ ──► Result: Entry into the top candidate pool (e.g., Google Top-5 or Perplexity Retrieval Context Window)       │
 └───────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┘
                                                     │
@@ -41,17 +43,20 @@ Modern AI Search operates in **two interconnected stages**:
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ STAGE 2: GENERATIVE SYNTHESIS (Generative Engine Optimization / GEO)                                            │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ • Exponential Decay of Citations (PAWC Metric): Direct answer frontloaded in opening 60 words                   │
-│ • Empirical Citation Lift (Princeton KDD 2024): Direct expert quotes (+41%), specific statistics (+30%)        │
-│ • RAG Extractability: Adaptive chunking (~100-200 words) & Coreference Independence (explicit named entities)  │
-│ • Knowledge Graph Grounding: Interconnected Schema.org @graph with valid ISO dates and @id cross-references     │
+│ • 8-Component Weighted GEO Score: Answerability (20%), Evidence Density (20%), Entity Clarity (15%),             │
+│   Passage Extractability (15%), Source Attribution (10%), Schema Graph (10%), Freshness (5%), AI Access (5%)   │
+│ • E-E-A-T & Trust Profile: Author bio, sameAs authority links, organization credentials, YMYL disclaimers       │
+│ • Freshness & Temporal Consistency: Publication/modification alignment, sitemap date consistency, stale flags   │
+│ • Knowledge Graph Grounding: Hardened Schema.org @graph with 4-tier rich result eligibility verdict             │
+│ • AI Crawler Governance: Search Retrieval vs Model Training vs User Fetch bot classification                    │
 │ ──► Result: Generative synthesis preferentially quotes, cites, and links your content in the final AI answer     │
 └───────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┘
                                                     │
                                                     ▼
                        ┌─────────────────────────────────────────────────────────┐
                        │         EVIDENCE LEDGER REPORT & SCORECARD              │
-                       │   (Observable Score 0-100, Coverage %, GEO Index 0-100) │
+                       │ (Observable Score 0-100, Security 0-100, GEO Index 0-100│
+                       │       OASIS SARIF v2.1.0 & Historical Score Delta)      │
                        └─────────────────────────────────────────────────────────┘
 ```
 
@@ -69,31 +74,37 @@ Modern AI Search operates in **two interconnected stages**:
 The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library) and runs in **<50ms**:
 
 ```bash
-# 1. Audit a live website with AI bot access simulation & CSR shell detection
+# 1. Audit a live website with AI bot access simulation, Indexability Matrix & E-E-A-T
 python -m engine.inspector https://example.com
 
-# 2. Audit a local HTML build artifact or template file
-python -m engine.inspector path/to/page.html
+# 2. Multi-page polite BFS site crawl (crawls link graph, calculates depth & orphan pages)
+python -m engine.inspector https://example.com --crawl --max-pages 50 --depth 3
 
-# 3. Validate standalone Schema.org JSON-LD before deployment
+# 3. Pre-flight standalone Schema.org JSON-LD validator
 python -m engine.inspector --validate-schema path/to/schema.json
 
-# 4. Validate Schema.org via pipe in CI/CD pipelines
-cat schema.json | python -m engine.inspector --validate-schema
+# 4. CI/CD Quality Gate with SARIF export and exit-code thresholds
+python -m engine.inspector https://example.com \
+  --strict \
+  --fail-on P0 \
+  --fail-on-score 80 \
+  --sarif code-scanning.sarif \
+  --previous-audit previous.json
 
 # 5. Output machine-readable JSON with full Evidence Ledger & Provenance SHA-256
 python -m engine.inspector https://example.com --format json --output audit.json
-
-# 6. Test crawl rules against a custom robots.txt
-python -m engine.inspector https://example.com --robots path/to/custom-robots.txt
 ```
 
 ### Deterministic Capabilities
-- **Client-Side Rendering (CSR) Empty Shell Detection (`TECH-CSR-SHELL-008`):** Detects empty mounts (`div#root`, `div#app`, `div#__next`) lacking server-rendered text. Fast AI crawlers (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `CCBot`) do not execute client-side JavaScript; empty CSR shells cause complete de-indexing from AI search.
-- **Standalone Schema.org AST Validator (`--validate-schema`):** Pre-flight validation testing broken `@id` cross-references (`SCHEMA-BROKEN-REF-005`), ISO 8601 date formats (`SCHEMA-DATE-FORMAT-006`), and Google Merchant price formats (`SCHEMA-PRICE-FORMAT-003`).
-- **RFC 9309 Robots Access Simulator:** Full AST parser implementing User-agent grouping, wildcards `*` and `$`, longest-match precedence, and Allow-over-Disallow ties for `GPTBot`, `ClaudeBot`, `PerplexityBot`, and `Google-Extended`.
-- **4-Layer Evidence Ledger:** Structured pipeline (`RAW` $\to$ `SIGNAL` $\to$ `EVIDENCE` $\to$ `FINDING`) with immutable SHA-256 provenance hashes.
-- **Content & GEO Readiness Analyzer:** Quantifies opening direct answer frontloading, detects conversational fluff patterns, analyzes passage chunking distributions, and checks coreference independence.
+- **Deterministic Indexability Matrix:** Evaluates HTTP status, canonical consistency, meta robots, X-Robots-Tag, robots.txt, sitemaps, internal links, and rendered payload into a definitive indexability verdict.
+- **Site-Level Crawler & Similarity Analysis:** Polite BFS crawler with rate limits, SSRF guardrails, crawl depth tracking, orphan page candidate discovery, and 64-bit SimHash near-duplicate clustering.
+- **8-Component GEO Readiness Index:** Evaluates Answerability, Evidence Density, Entity Clarity, Passage Extractability, Source Attribution, Schema Graph, Freshness, and AI Crawler Access with confidence and measured dimension tracking.
+- **E-E-A-T & Trust Profile:** Evaluates author bio, verified `sameAs` entity links (Wikidata, ORCID, LinkedIn), organization credentials, transparency touchpoints (About/Contact/Editorial), YMYL detection & disclaimers, and first-hand experience markers.
+- **Freshness & Temporal Consistency:** Validates publication/modification dates, sitemap `lastmod` alignment, HTTP `Last-Modified`, content hashes, date discrepancies, and flags stale content (>2 years).
+- **Hardened Schema.org Validator:** Validates unified `@graph` ASTs, detects duplicate `@id` definitions, enforces required properties for high-value types (Article, Product, Org, FAQ, Breadcrumbs), and provides a 4-tier rich result eligibility verdict.
+- **OASIS SARIF v2.1.0 Exporter:** Turnkey integration with GitHub Code Scanning, GitLab CI, and automated security/quality dashboards.
+- **Segregated Security Hygiene Score:** Independent 0..100 dimension for HTTPS wire, HSTS headers, mixed content, and security headers.
+- **Historical Monitoring & Delta Comparison:** Automatically computes score deltas, resolved issues, and introduced defects against previous audit files.
 
 ---
 

@@ -37,6 +37,38 @@ class SecurityHygieneScore:
 
 
 @dataclass
+class GeoDimensions:
+    answerability: int  # max 20
+    evidence_density: int  # max 20
+    entity_clarity: int  # max 15
+    passage_extractability: int  # max 15
+    source_attribution: int  # max 10
+    schema_graph: int  # max 10
+    freshness: int  # max 5
+    ai_crawler_access: int  # max 5
+    measured_count: int = 8
+    total_dimensions: int = 8
+    confidence: str = "HIGH"  # HIGH, MEDIUM, LOW
+    unknown_dimensions: List[str] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "answerability": self.answerability,
+            "evidence_density": self.evidence_density,
+            "entity_clarity": self.entity_clarity,
+            "passage_extractability": self.passage_extractability,
+            "source_attribution": self.source_attribution,
+            "schema_graph": self.schema_graph,
+            "freshness": self.freshness,
+            "ai_crawler_access": self.ai_crawler_access,
+            "measured_count": self.measured_count,
+            "total_dimensions": self.total_dimensions,
+            "confidence": self.confidence,
+            "unknown_dimensions": self.unknown_dimensions
+        }
+
+
+@dataclass
 class ScoreBreakdown:
     observable_technical_score: int
     geo_readiness_index: int
@@ -59,6 +91,7 @@ class ScoreBreakdown:
     security_tier: str = "EXCELLENT"
     security_hygiene: Optional[SecurityHygieneScore] = None
     indexability_matrix: Optional[Dict[str, Any]] = None
+    geo_dimensions: Optional[GeoDimensions] = None
 
 
 def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
@@ -119,7 +152,7 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
 
     tech_score = max(0, min(100, tech_score))
 
-    # 2. GEO Readiness Index
+    # 2. GEO Readiness Index (8-Component Weighted Model per Princeton KDD 2024 / GEO Framework)
     content_signal = ledger.signals.get("content_total_words")
     status_signal = ledger.signals.get("http_status_code")
     has_error = bool(status_signal and status_signal.value and status_signal.value >= 400)
@@ -127,32 +160,114 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
 
     if has_error or has_no_content:
         geo_score = 0
+        geo_dims = GeoDimensions(
+            answerability=0,
+            evidence_density=0,
+            entity_clarity=0,
+            passage_extractability=0,
+            source_attribution=0,
+            schema_graph=0,
+            freshness=0,
+            ai_crawler_access=0,
+            confidence="HIGH"
+        )
     else:
-        geo_score = 0
-        geo_rule_ids = [
-            "GEO-ANSWER-FRONTLOAD-001",
-            "GEO-ADAPTIVE-CHUNKING-002",
-            "GEO-COREFERENCE-INDEPENDENCE-003",
-            "SCHEMA-GRAPH-INTERCONNECT-002"
-        ]
-        for r_id in geo_rule_ids:
-            rule = registry.get(r_id)
-            points_map = rule.geo_points if rule and rule.geo_points else {"pass": 25, "warning": 10, "neutral": 15}
-            ev = next((e for e in ledger.evidence if e.rule_id == r_id), None)
-            if ev:
-                if ev.status == STATUS_PASS:
-                    geo_score += points_map.get("pass", 25)
-                elif ev.status == STATUS_WARNING:
-                    geo_score += points_map.get("warning", 10)
-            else:
-                if r_id == "SCHEMA-GRAPH-INTERCONNECT-002":
-                    schema_ent = ledger.signals.get("schema_entity_count")
-                    if schema_ent and schema_ent.value > 0:
-                        geo_score += points_map.get("neutral", 15)
-                else:
-                    geo_score += points_map.get("neutral", 15)
+        unknown_dims: List[str] = []
 
-    geo_score = max(0, min(100, geo_score))
+        # Component 1: Answerability (Weight: 20)
+        ev_ans = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
+        if ev_ans:
+            if ev_ans.status == STATUS_PASS:
+                dim_ans = 20
+            elif ev_ans.status == STATUS_WARNING:
+                dim_ans = 10
+            elif ev_ans.status == STATUS_CRITICAL:
+                dim_ans = 0
+            else:
+                dim_ans = 14
+        else:
+            dim_ans = 15
+
+        # Component 2: Evidence Density (Weight: 20)
+        ev_sig = ledger.signals.get("content_evidence_density_score")
+        ev_rule = next((e for e in ledger.evidence if e.rule_id == "GEO-EVIDENCE-METRICS-004"), None)
+        if ev_sig and ev_sig.value is not None:
+            dim_ev = min(20, max(5, round(20 * (ev_sig.value / 100))))
+        elif ev_rule:
+            dim_ev = 20 if ev_rule.status == STATUS_PASS else (10 if ev_rule.status == STATUS_WARNING else 12)
+        else:
+            dim_ev = 12
+
+        # Component 3: Entity Clarity (Weight: 15)
+        ev_coref = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
+        if ev_coref:
+            dim_ent = 15 if ev_coref.status == STATUS_PASS else (8 if ev_coref.status == STATUS_WARNING else 5)
+        else:
+            dim_ent = 12
+
+        # Component 4: Passage Extractability (Weight: 15)
+        chunk_evs = [e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"]
+        if any(e.status == STATUS_CRITICAL for e in chunk_evs):
+            dim_chunk = 5
+        elif any(e.status == STATUS_WARNING for e in chunk_evs):
+            dim_chunk = 8
+        elif any(e.status == STATUS_PASS for e in chunk_evs):
+            dim_chunk = 15 if not any(e.status == STATUS_INFO for e in chunk_evs) else 12
+        else:
+            dim_chunk = 12
+
+        # Component 5: Source Attribution (Weight: 10)
+        has_citations = any("citation" in e.message.lower() or "rfc" in e.message.lower() for e in ledger.evidence)
+        dim_src = 10 if has_citations else 6
+
+        # Component 6: Schema Graph (Weight: 10)
+        ev_graph = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-GRAPH-INTERCONNECT-002"), None)
+        schema_count = ledger.signals.get("schema_entity_count")
+        if ev_graph and ev_graph.status == STATUS_PASS:
+            dim_schema = 10
+        elif schema_count and schema_count.value and schema_count.value > 0:
+            dim_schema = 8
+        else:
+            dim_schema = 2
+
+        # Component 7: Freshness (Weight: 5)
+        fresh_sig = ledger.signals.get("freshness_score")
+        if fresh_sig and fresh_sig.is_measured:
+            f_val = fresh_sig.value or 50
+            dim_fresh = 5 if f_val >= 80 else (3 if f_val >= 50 else 1)
+        else:
+            dim_fresh = 4
+            unknown_dims.append("freshness")
+
+        # Component 8: AI Crawler Access (Weight: 5)
+        rob_sig = ledger.signals.get("ai_crawler_summary")
+        dim_crawl = 5
+        if rob_sig and isinstance(rob_sig.value, dict):
+            blocked = sum(1 for b, info in rob_sig.value.items() if not info.get("root_allowed", True))
+            if blocked > 5:
+                dim_crawl = 1
+            elif blocked > 0:
+                dim_crawl = 3
+
+        geo_score = min(100, max(0, dim_ans + dim_ev + dim_ent + dim_chunk + dim_src + dim_schema + dim_fresh + dim_crawl))
+
+        measured_count = 8 - len(unknown_dims)
+        conf = "HIGH" if measured_count >= 7 else ("MEDIUM" if measured_count >= 5 else "LOW")
+
+        geo_dims = GeoDimensions(
+            answerability=dim_ans,
+            evidence_density=dim_ev,
+            entity_clarity=dim_ent,
+            passage_extractability=dim_chunk,
+            source_attribution=dim_src,
+            schema_graph=dim_schema,
+            freshness=dim_fresh,
+            ai_crawler_access=dim_crawl,
+            measured_count=measured_count,
+            total_dimensions=8,
+            confidence=conf,
+            unknown_dimensions=unknown_dims
+        )
 
     # Determine Tiers
     if tech_score >= 90:
@@ -236,5 +351,6 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         security_score=sec_score,
         security_tier=sec_tier,
         security_hygiene=sec_hygiene,
-        indexability_matrix=ledger.metadata.get("indexability_matrix")
+        indexability_matrix=ledger.metadata.get("indexability_matrix"),
+        geo_dimensions=geo_dims
     )

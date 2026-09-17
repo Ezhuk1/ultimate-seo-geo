@@ -20,6 +20,9 @@ from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
+from .analyzers.eeat_analyzer import analyze_eeat
+from .analyzers.freshness_analyzer import analyze_freshness
+from .sarif import format_sarif_json, generate_sarif_report
 from .indexability import evaluate_indexability_matrix
 from .ledger import (
     LedgerBuilder,
@@ -43,7 +46,9 @@ def run_inspection(
     target: str,
     custom_robots_txt: Optional[str] = None,
     custom_sitemap_xml: Optional[str] = None,
-    timeout: float = 15.0
+    timeout: float = 15.0,
+    user_agent: Optional[str] = None,
+    rendered_html: Optional[str] = None
 ) -> tuple[EvidenceLedger, ScoreBreakdown]:
     """
     Executes full deterministic audit on URL or local file and returns ledger + score.
@@ -51,13 +56,23 @@ def run_inspection(
     builder = LedgerBuilder(target_url=target)
 
     # 1. Fetch / Read Target via HTTP/File Analyzer
-    http_res = analyze_target_http(target, timeout=timeout)
+    http_res = analyze_target_http(target, timeout=timeout, user_agent=user_agent)
     status_code = http_res["status_code"]
     headers = http_res["headers"]
     body_text = http_res["raw_content"]
     response_time_ms = http_res["response_time_ms"]
     robots_content: Optional[str] = custom_robots_txt
     sitemap_content: Optional[str] = custom_sitemap_xml
+
+    if rendered_html:
+        if os.path.exists(rendered_html):
+            try:
+                with open(rendered_html, "r", encoding="utf-8", errors="replace") as rh_f:
+                    body_text = rh_f.read()
+            except Exception:
+                pass
+        else:
+            body_text = rendered_html
 
     if http_res["error"] and status_code == 0:
         builder.set_raw(status_code, headers, body_text, response_time_ms)
@@ -198,11 +213,23 @@ def run_inspection(
                     status_code=c_res["status_code"]
                 )
                 child_results.append(c_parsed)
-        if child_results:
-            from .analyzers.sitemap_analyzer import merge_sitemap_results
             sitemap_res = merge_sitemap_results(sitemap_res, child_results)
 
-    # 6. Record Signals
+    # 6. E-E-A-T and Freshness Analysis
+    eeat_data = analyze_eeat(
+        content_text,
+        schema_entities=schema_data.entities,
+        links=html_data.get("links", {}).get("all", [])
+    )
+
+    freshness_data = analyze_freshness(
+        content_text,
+        schema_entities=schema_data.entities,
+        http_headers=http_res.get("headers", {}),
+        sitemap_lastmod=sitemap_res.target_lastmod if sitemap_res else None
+    )
+
+    # 7. Record Signals
     builder.add_signal("http_status_code", "HTTP Status Code", status_code, unit="code")
     builder.add_signal("http_response_time_ms", "Response Time", response_time_ms, unit="ms")
     builder.add_signal("html_title_length", "Title Character Length", html_data["title"]["length"], unit="chars")
@@ -221,7 +248,21 @@ def run_inspection(
     builder.add_signal("schema_entity_count", "Schema Entities Count", len(schema_data.entities), unit="count")
     builder.add_signal("schema_has_unified_graph", "Schema Unified @graph Used", schema_data.has_unified_graph)
     builder.add_signal("content_total_words", "Visible Word Count", content_data.total_words, unit="words")
+    builder.add_signal("content_search_intent", "Search Intent", content_data.search_intent)
+    builder.add_signal("content_evidence_density_score", "Evidence Density Score", content_data.evidence_density_score, unit="pts")
+    builder.add_signal("content_fluff_count", "Fluff Superlatives Count", content_data.fluff_count, unit="count")
+    builder.add_signal("eeat_score", "E-E-A-T Trust Score", eeat_data.eeat_score, unit="pts")
+    builder.add_signal("freshness_score", "Freshness Score", freshness_data.freshness_score, unit="pts", is_measured=freshness_data.is_measured)
     builder.add_signal("robots_txt_present", "Robots.txt Present", robots_content is not None)
+
+    builder.metadata["eeat_analysis"] = eeat_data.to_dict()
+    builder.metadata["freshness_analysis"] = freshness_data.to_dict()
+    builder.metadata["schema_verdict"] = {
+        "syntax_valid": schema_data.syntax_valid,
+        "schema_org_structure": schema_data.schema_org_structure,
+        "google_rich_result_eligibility": schema_data.google_rich_result_eligibility,
+        "visible_content_consistency": schema_data.visible_content_consistency
+    }
     if sitemap_res:
         builder.add_signal("sitemap_present", "XML Sitemap Present", sitemap_res.present)
         builder.add_signal("sitemap_total_urls", "Sitemap URL Count", sitemap_res.total_urls, unit="count")
@@ -1749,6 +1790,54 @@ def run_inspection(
             message="Passages exhibit strong coreference independence."
         )
 
+    # E-E-A-T & Trust Evidence
+    for ef in eeat_data.findings:
+        builder.add_evidence(
+            rule_id=ef.rule_id,
+            category="geo",
+            title=f"E-E-A-T: {ef.dimension}",
+            status=ef.severity,
+            confidence=CONFIDENCE_VERIFIED if ef.dimension != "Experience" else CONFIDENCE_HEURISTIC,
+            observed=ef.details or ef.message,
+            expected="Demonstrated Experience, Expertise, Authoritativeness, and Transparency",
+            message=ef.message
+        )
+        if ef.severity in (STATUS_CRITICAL, STATUS_WARNING):
+            builder.add_finding(
+                rule_id=ef.rule_id,
+                category="geo",
+                severity=ef.severity,
+                title=f"E-E-A-T Signal Issue: {ef.rule_id}",
+                confidence=CONFIDENCE_VERIFIED if ef.dimension != "Experience" else CONFIDENCE_HEURISTIC,
+                action_priority="P1_HIGH" if ef.severity == STATUS_CRITICAL else "P2_MEDIUM",
+                remediation_steps=[ef.message],
+                impact_estimate="Impairs human trust signals and AI engine citation confidence."
+            )
+
+    # Freshness & Temporal Consistency Evidence
+    for ff in freshness_data.findings:
+        builder.add_evidence(
+            rule_id=ff.rule_id,
+            category="technical" if "DATE" in ff.rule_id else "geo",
+            title=f"Freshness: {ff.rule_id}",
+            status=ff.severity,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=ff.details or ff.message,
+            expected="Consistent publication and modification dates without temporal contradiction",
+            message=ff.message
+        )
+        if ff.severity in (STATUS_CRITICAL, STATUS_WARNING):
+            builder.add_finding(
+                rule_id=ff.rule_id,
+                category="technical" if "DATE" in ff.rule_id else "geo",
+                severity=ff.severity,
+                title=f"Temporal Consistency Issue: {ff.rule_id}",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH" if ff.severity == STATUS_CRITICAL else "P2_MEDIUM",
+                remediation_steps=[ff.message],
+                impact_estimate="Search crawlers detect temporal contradictions or discard stale documents."
+            )
+
     # UNMEASURED FIELD EVIDENCE (Demonstrates strict "Unknown != Failure" invariant)
     builder.add_evidence(
         rule_id="PERF-CWV-FIELD-007",
@@ -1789,6 +1878,25 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({crit_obs}/{crit_tot} criteria) | Empirical completeness of audit scope |")
     md.append("")
 
+    # Historical Comparison (if previous audit provided)
+    hist = ledger.metadata.get("historical_comparison")
+    if hist:
+        md.append("## Historical Audit Comparison")
+        md.append("")
+        prev_tech = hist.get("previous_technical_score", "N/A")
+        tech_delta = hist.get("technical_score_delta", 0)
+        tech_sign = "+" if isinstance(tech_delta, (int, float)) and tech_delta > 0 else ""
+        prev_geo = hist.get("previous_geo_score", "N/A")
+        geo_delta = hist.get("geo_score_delta", 0)
+        geo_sign = "+" if isinstance(geo_delta, (int, float)) and geo_delta > 0 else ""
+        md.append(f"- **Technical Score**: `{prev_tech}` -> **{scores.observable_technical_score}** ({tech_sign}{tech_delta} pts)")
+        md.append(f"- **GEO Readiness**: `{prev_geo}` -> **{scores.geo_readiness_index}** ({geo_sign}{geo_delta} pts)")
+        resolved = hist.get("resolved_findings", [])
+        new_f = hist.get("new_findings", [])
+        md.append(f"- **Resolved Issues**: {len(resolved)} (`{', '.join(resolved) if resolved else 'None'}`)")
+        md.append(f"- **New Issues Detected**: {len(new_f)} (`{', '.join(new_f) if new_f else 'None'}`)")
+        md.append("")
+
     idx_dict = ledger.metadata.get("indexability_matrix")
     if idx_dict:
         verdict = idx_dict.get("verdict", "UNKNOWN")
@@ -1817,6 +1925,59 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append(f"| **HSTS Header** | {sec.hsts_score} / 25 pts | `{'[PASS]' if sec.hsts_score == 25 else '[WARN]'}` | Strict-Transport-Security configured |")
         md.append(f"| **Mixed Content** | {sec.mixed_content_score} / 25 pts | `{'[PASS]' if sec.mixed_content_score == 25 else '[FAIL]'}` | Zero insecure http:// resource links |")
         md.append(f"| **Security Headers** | {sec.headers_score} / 25 pts | `{'[PASS]' if sec.headers_score >= 18 else '[WARN]'}` | X-Content-Type-Options, CSP, Frame Options |")
+        md.append("")
+
+    # GEO 8-Component Breakdown
+    if scores.geo_dimensions:
+        geo = scores.geo_dimensions
+        md.append("## GEO Readiness Breakdown (8 Dimensions)")
+        md.append("")
+        md.append(f"> **GEO Readiness Index**: **{scores.geo_readiness_index} / 100** ({scores.geo_maturity_tier})  ")
+        md.append(f"> **Confidence**: **{geo.confidence}** ({geo.measured_count}/{geo.total_dimensions} dimensions measured)  ")
+        unk_str = ", ".join(geo.unknown_dimensions) if geo.unknown_dimensions else "None"
+        md.append(f"> **Unknown Dimensions**: `{unk_str}`  ")
+        md.append("")
+        md.append("| Dimension | Max Weight | Points | Evaluation Basis |")
+        md.append("| :--- | :--- | :--- | :--- |")
+        md.append(f"| **Answerability** | 20 | **{geo.answerability} pts** | Direct definition / resolution syntax in opening 60 words |")
+        md.append(f"| **Evidence Density** | 20 | **{geo.evidence_density} pts** | Numerical statistics, percentages, and verifiable metrics |")
+        md.append(f"| **Entity Clarity** | 15 | **{geo.entity_clarity} pts** | Coreference independence (avoids ambiguous pronouns) |")
+        md.append(f"| **Passage Extractability** | 15 | **{geo.passage_extractability} pts** | Modular 100-200 word sections suited for vector retrieval |")
+        md.append(f"| **Source Attribution** | 10 | **{geo.source_attribution} pts** | Authoritative citations, RFC standards, research refs |")
+        md.append(f"| **Schema & Entity Graph** | 10 | **{geo.schema_graph} pts** | Interconnected JSON-LD graph with stable @id anchors |")
+        md.append(f"| **Freshness & Temporal** | 5 | **{geo.freshness} pts** | Publication/modification dates and temporal consistency |")
+        md.append(f"| **AI Crawler Access** | 5 | **{geo.ai_crawler_access} pts** | Search & retrieval AI bots permitted in robots.txt |")
+        md.append("")
+
+    # E-E-A-T Profile
+    eeat = ledger.metadata.get("eeat_analysis")
+    if eeat:
+        md.append("## E-E-A-T & Trust Profile")
+        md.append("")
+        auth_name = eeat.get("author_name") or "Not identified"
+        bio_st = "Present" if eeat.get("has_author_bio") else "Missing"
+        md.append(f"- **Author**: `{auth_name}` (Bio: `{bio_st}`)")
+        same_as = eeat.get("author_same_as", [])
+        same_as_str = ", ".join(same_as) if same_as else "None"
+        md.append(f"- **Authority Profiles (sameAs)**: `{same_as_str}`")
+        org_name = eeat.get("organization_name") or "Not identified"
+        md.append(f"- **Publishing Organization**: `{org_name}`")
+        md.append(f"- **Transparency Touchpoints**: About: `{'Yes' if eeat.get('has_about_page') else 'No'}`, Contact: `{'Yes' if eeat.get('has_contact_page') else 'No'}`, Editorial Policy: `{'Yes' if eeat.get('has_editorial_policy') else 'No'}`")
+        md.append(f"- **First-Hand Experience Markers**: **{eeat.get('first_hand_experience_count', 0)}** detected")
+        ymyl_str = "Yes" if eeat.get("is_ymyl_content") else "No"
+        disc_str = " (Disclaimer: Present)" if (eeat.get("is_ymyl_content") and eeat.get("has_ymyl_disclaimer")) else (" (Disclaimer: MISSING)" if eeat.get("is_ymyl_content") else "")
+        md.append(f"- **YMYL Content Detected**: `{ymyl_str}{disc_str}`")
+        md.append("")
+
+    # Schema & Rich Results Verdict
+    sch_v = ledger.metadata.get("schema_verdict")
+    if sch_v:
+        md.append("## Schema.org & Rich Results Verdict")
+        md.append("")
+        md.append(f"- **Syntax Valid**: `{sch_v.get('syntax_valid', 'YES')}`")
+        md.append(f"- **Schema.org Structure**: `{sch_v.get('schema_org_structure', 'VALID')}`")
+        md.append(f"- **Google Rich Result Eligibility**: `{sch_v.get('google_rich_result_eligibility', 'UNKNOWN')}`")
+        md.append(f"- **Visible-Content Consistency**: `{sch_v.get('visible_content_consistency', 'UNKNOWN')}`")
         md.append("")
 
     md.append("> [!NOTE]")
@@ -1887,13 +2048,20 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v2.1.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.0.0")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
-    parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format (markdown or json)")
+    parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
     parser.add_argument("--output", help="Optional output file path to write results")
+    parser.add_argument("--sarif", help="Optional output file path to write OASIS SARIF v2.1.0 report")
     parser.add_argument("--robots", help="Optional custom robots.txt file or URL")
     parser.add_argument("--timeout", type=float, default=15.0, help="HTTP request timeout in seconds")
+    parser.add_argument("--user-agent", default=None, help="Custom User-Agent header for HTTP inspection")
+    parser.add_argument("--rendered-html", default=None, help="Path to pre-rendered HTML file or raw HTML string")
+    parser.add_argument("--previous-audit", default=None, help="Path to previous inspection JSON report for historical comparison & score delta")
+    parser.add_argument("--strict", action="store_true", help="Strict CI mode: exit with non-zero code (2) if any CRITICAL finding is detected")
+    parser.add_argument("--fail-on", choices=["P0", "P1", "P2", "CRITICAL", "WARNING"], default=None, help="Fail CI pipeline if findings matching priority or severity exist")
+    parser.add_argument("--fail-on-score", type=float, default=None, help="Fail CI pipeline if observable technical score is below threshold (0-100)")
     parser.add_argument("--crawl", action="store_true", help="Enable multi-page crawl mode starting from target URL")
     parser.add_argument("--max-pages", type=int, default=50, help="Maximum number of pages to crawl (default: 50)")
     parser.add_argument("--depth", type=int, default=3, help="Maximum crawl depth from seed (default: 3)")
@@ -1929,7 +2097,8 @@ def main():
             seed_url=args.target,
             max_pages=args.max_pages,
             max_depth=args.depth,
-            timeout=args.timeout
+            timeout=args.timeout,
+            user_agent=args.user_agent
         )
         report = crawl_site(config)
         if args.format == "json":
@@ -1955,18 +2124,60 @@ def main():
             custom_robots = args.robots
 
     try:
-        ledger, scores = run_inspection(args.target, custom_robots_txt=custom_robots, timeout=args.timeout)
+        ledger, scores = run_inspection(
+            args.target,
+            custom_robots_txt=custom_robots,
+            timeout=args.timeout,
+            user_agent=args.user_agent,
+            rendered_html=args.rendered_html
+        )
     except Exception as exc:
         sys.stderr.write(f"Error executing inspection: {exc}\n")
         sys.exit(1)
 
+    # Historical Audit Comparison
+    if args.previous_audit and os.path.exists(args.previous_audit):
+        try:
+            with open(args.previous_audit, "r", encoding="utf-8", errors="replace") as pf:
+                import json
+                prev_data = json.load(pf)
+            prev_scores = prev_data.get("scores", {})
+            prev_tech = prev_scores.get("observable_technical_score", prev_scores.get("overall_seo_score"))
+            prev_geo = prev_scores.get("geo_readiness_index")
+            prev_findings = {f.get("rule_id") for f in prev_data.get("findings", []) if f.get("rule_id")}
+            curr_findings = {f.rule_id for f in ledger.findings}
+
+            hist_comp = {
+                "previous_file": args.previous_audit,
+                "previous_technical_score": prev_tech,
+                "technical_score_delta": round(scores.observable_technical_score - prev_tech, 2) if prev_tech is not None else 0,
+                "previous_geo_score": prev_geo,
+                "geo_score_delta": round(scores.geo_readiness_index - prev_geo, 2) if prev_geo is not None else 0,
+                "resolved_findings": sorted(list(prev_findings - curr_findings)),
+                "new_findings": sorted(list(curr_findings - prev_findings))
+            }
+            ledger.metadata["historical_comparison"] = hist_comp
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to parse previous audit file: {e}\n")
+
+    # Output Formatting
     if args.format == "json":
         res_dict = ledger.to_dict()
         res_dict["scores"] = scores.__dict__
         import json
         output_str = json.dumps(res_dict, indent=2, default=str)
+    elif args.format == "sarif":
+        from .sarif import format_sarif_json
+        output_str = format_sarif_json(ledger)
     else:
         output_str = format_markdown_report(ledger, scores)
+
+    # Secondary SARIF Export
+    if args.sarif:
+        from .sarif import format_sarif_json
+        sarif_str = format_sarif_json(ledger)
+        with open(args.sarif, "w", encoding="utf-8") as sf:
+            sf.write(sarif_str)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
@@ -1974,6 +2185,37 @@ def main():
         print(f"Inspection report saved to {args.output}")
     else:
         print(output_str)
+
+    # CI Quality Gates Enforcement
+    ci_failed = False
+    failure_reasons = []
+
+    if args.strict:
+        critical_findings = [f for f in ledger.findings if f.severity == STATUS_CRITICAL]
+        if critical_findings:
+            ci_failed = True
+            failure_reasons.append(f"--strict mode: {len(critical_findings)} CRITICAL finding(s) detected")
+
+    if args.fail_on:
+        matching = []
+        for f in ledger.findings:
+            p_prefix = f.action_priority.split("_")[0] if f.action_priority else ""
+            if args.fail_on in (f.action_priority, p_prefix, f.severity):
+                matching.append(f)
+        if matching:
+            ci_failed = True
+            failure_reasons.append(f"--fail-on {args.fail_on}: {len(matching)} finding(s) matched criteria")
+
+    if args.fail_on_score is not None:
+        if scores.observable_technical_score < args.fail_on_score:
+            ci_failed = True
+            failure_reasons.append(f"--fail-on-score {args.fail_on_score}: observable score is {scores.observable_technical_score}")
+
+    if ci_failed:
+        sys.stderr.write("\n[CI FAILURE] Quality gate thresholds violated:\n")
+        for fr in failure_reasons:
+            sys.stderr.write(f"  - {fr}\n")
+        sys.exit(2)
 
 
 if __name__ == "__main__":

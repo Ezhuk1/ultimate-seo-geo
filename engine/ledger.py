@@ -246,7 +246,7 @@ class LedgerBuilder:
             }
 
         metadata = {
-            "engine_version": "2.0.0",
+            "engine_version": "3.0.0",
             "protocol": "Evidence-Ledger-v2",
             "target": self.target_url,
             "provenance_sha256": self.raw.provenance_hash,

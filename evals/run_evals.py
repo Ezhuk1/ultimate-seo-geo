@@ -908,8 +908,8 @@ def main():
         if ok:
             mutations_passed += 1
 
-    # 4. Autonomous Inspection Engine (v2.1.0) Integration Suite
-    print("\n--- 3. Autonomous Inspection Engine (v2.1.0) Integration Suite ---")
+    # 4. Autonomous Inspection Engine (v3.0.0) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v3.0.0) Integration Suite ---")
     from evals.test_engine import (
         test_clean_page_inspection,
         test_defective_page_detection,
@@ -927,6 +927,7 @@ def main():
         test_week1_foundation_edge_cases,
         test_week2_indexability_and_security,
         test_week3_crawler_and_similarity,
+        test_week4_geo_eeat_and_production,
     )
 
     engine_tests = [
@@ -946,6 +947,7 @@ def main():
         ("test_week1_foundation_edge_cases", test_week1_foundation_edge_cases),
         ("test_week2_indexability_and_security", test_week2_indexability_and_security),
         ("test_week3_crawler_and_similarity", test_week3_crawler_and_similarity),
+        ("test_week4_geo_eeat_and_production", test_week4_geo_eeat_and_production),
     ]
 
     engine_passed = 0
@@ -967,7 +969,7 @@ def main():
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
     ):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.1.0 tests are healthy.")
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.0.0 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")

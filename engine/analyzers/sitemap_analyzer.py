@@ -33,6 +33,7 @@ class SitemapAnalysisResult:
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     target_in_sitemap: bool = False
+    target_lastmod: Optional[str] = None
     duplicate_urls: List[str] = field(default_factory=list)
     invalid_urls: List[str] = field(default_factory=list)
     non_https_urls: List[str] = field(default_factory=list)
@@ -182,6 +183,8 @@ def parse_sitemap_xml(
         # Check target presence
         if norm_target and _normalize_url_for_compare(loc_val) == norm_target:
             res.target_in_sitemap = True
+            if lastmod_val:
+                res.target_lastmod = lastmod_val
 
     res.total_urls = len(res.urls)
     if res.total_urls > 50000:
@@ -206,6 +209,7 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         errors=list(parent.errors),
         warnings=list(parent.warnings),
         target_in_sitemap=parent.target_in_sitemap,
+        target_lastmod=parent.target_lastmod,
         duplicate_urls=list(parent.duplicate_urls),
         invalid_urls=list(parent.invalid_urls),
         non_https_urls=list(parent.non_https_urls),
@@ -221,6 +225,8 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         merged.non_https_urls.extend(ch.non_https_urls)
         if ch.target_in_sitemap:
             merged.target_in_sitemap = True
+            if ch.target_lastmod:
+                merged.target_lastmod = ch.target_lastmod
         if ch.exceeds_url_limit:
             merged.exceeds_url_limit = True
 

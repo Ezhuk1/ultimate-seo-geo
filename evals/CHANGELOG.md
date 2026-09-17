@@ -2,6 +2,21 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.0.0] - 2026-09-17
+
+### Added
+- **Full Roadmap Completion (`todo.md` Weeks 1, 2, 3, 4):**
+  - **Site-Level Crawler & Architecture Graph:** Polite BFS site crawler (`--crawl`, `--max-pages`, `--depth`) with SSRF protection, crawl depth tracking, orphan page discovery, and 64-bit SimHash/Jaccard near-duplicate content clustering.
+  - **Deterministic Indexability Matrix:** Multi-signal evaluation (HTTP, canonical, meta robots, X-Robots-Tag, robots.txt, sitemaps, internal links, rendered content) into an unambiguous indexability verdict.
+  - **Princeton KDD 2024 8-Component GEO Model:** Answerability (20%), Evidence density (20%), Entity clarity (15%), Passage extractability (15%), Source attribution (10%), Schema graph (10%), Freshness (5%), and AI crawler access (5%) with epistemic confidence rating.
+  - **E-E-A-T & Trust Profile:** Author bio, verified `sameAs` entity links, organization credentials, transparency touchpoints (About/Contact/Editorial), YMYL detection & disclaimers, and first-hand experience markers.
+  - **Freshness & Temporal Consistency:** Validates publication/modification dates, sitemap `lastmod` alignment, HTTP `Last-Modified`, content hashes, date discrepancies, and flags stale content (>2 years).
+  - **Hardened Schema.org Validator:** Validates unified `@graph` ASTs, detects duplicate `@id` definitions, enforces required properties for high-value types (Article, Product, Org, FAQ, Breadcrumbs), and provides a 4-tier rich result eligibility verdict.
+  - **OASIS SARIF v2.1.0 Exporter:** Turnkey GitHub Code Scanning & CI integration (`--sarif` or `--format sarif`).
+  - **Production CI/CD Quality Gates:** Added `--strict`, `--fail-on <P0|P1|P2|CRITICAL|WARNING>`, `--fail-on-score <threshold>`, and `--previous-audit <audit.json>` for automated delta scoring and regressions tracking.
+  - **Segregated Security Hygiene Score:** Independent 0..100 dimension for HTTPS wire, HSTS headers, mixed content, and security headers.
+  - **Expanded Engine Integration Suite:** 17/17 engine tests, 10/10 canonical evals, 9/9 mutation tests passing 100%.
+
 ## [2.1.0] - 2026-09-17
 
 ### Added
