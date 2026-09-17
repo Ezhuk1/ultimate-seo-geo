@@ -223,6 +223,7 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
         headers={
             "User-Agent": ua,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate",
         },
     )
 
@@ -232,8 +233,22 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
             elapsed_ms = (time.perf_counter() - start_time) * 1000.0
             raw_bytes = resp.read()
             headers = {k.lower(): v for k, v in resp.headers.items()}
+            c_encoding = headers.get("content-encoding", "").lower()
+            payload_bytes = raw_bytes
+            if "gzip" in c_encoding:
+                import gzip
+                try:
+                    payload_bytes = gzip.decompress(raw_bytes)
+                except Exception:
+                    payload_bytes = raw_bytes
+            elif "deflate" in c_encoding:
+                import zlib
+                try:
+                    payload_bytes = zlib.decompress(raw_bytes)
+                except Exception:
+                    payload_bytes = raw_bytes
             ct_header = headers.get("content-type")
-            content, detected_charset = _detect_and_decode(raw_bytes, ct_header)
+            content, detected_charset = _detect_and_decode(payload_bytes, ct_header)
             content_hash = hashlib.sha256(raw_bytes).hexdigest()
             header_canonical = _extract_header_canonical(resp.headers, headers)
             is_challenge = _is_challenge_page(resp.status, headers, content)
