@@ -72,7 +72,13 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
                 })
             elif ev.status == STATUS_WARNING:
                 warn_count += 1
-                deduction = 10
+                # Differentiate penalties:
+                # Heuristic / display length warnings carry -5 pts
+                # Technical and structural warnings carry -10 pts
+                if ev.confidence != CONFIDENCE_VERIFIED or ev.rule_id in ("TECH-TITLE-003", "TECH-META-DESC-004"):
+                    deduction = 5
+                else:
+                    deduction = 10
                 tech_score -= deduction
                 deductions.append({
                     "rule_id": ev.rule_id,

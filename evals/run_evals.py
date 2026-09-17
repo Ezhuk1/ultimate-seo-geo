@@ -194,8 +194,8 @@ def evaluate_assertions(eval_id: str, sample: Any, assertions: dict) -> tuple[bo
             if not prices:
                 return False, "No 'price' property found in schema to validate"
             for p in prices:
-                if not re.match(r'^\d+(\.\d{2})?$', p):
-                    return False, f"Price '{p}' does not match currency pattern ^\\d+(\\.\\d{{2}})?$"
+                if not re.match(r'^\d+(\.\d{1,2})?$', p):
+                    return False, f"Price '{p}' does not match currency pattern ^\\d+(\\.\\d{{1,2}})?$"
 
         if assertions.get("graph_interconnected"):
             graph = schema_data.get("@graph")
@@ -920,6 +920,9 @@ def main():
         test_canonical_hardening,
         test_noindex_detection,
         test_sitemap_analyzer,
+        test_schema_empty_and_calendar_validation,
+        test_http_status_blocking_and_coverage,
+        test_sitemap_analyzer_inspector_integration,
     )
 
     engine_tests = [
@@ -932,6 +935,9 @@ def main():
         ("test_canonical_hardening", test_canonical_hardening),
         ("test_noindex_detection", test_noindex_detection),
         ("test_sitemap_analyzer", test_sitemap_analyzer),
+        ("test_schema_empty_and_calendar_validation", test_schema_empty_and_calendar_validation),
+        ("test_http_status_blocking_and_coverage", test_http_status_blocking_and_coverage),
+        ("test_sitemap_analyzer_inspector_integration", test_sitemap_analyzer_inspector_integration),
     ]
 
     engine_passed = 0

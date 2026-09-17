@@ -15,10 +15,13 @@ from typing import List, Dict, Tuple, Optional
 
 
 KNOWN_AI_CRAWLERS = [
-    ("GPTBot", "OpenAI Search & Training Crawler"),
-    ("ChatGPT-User", "OpenAI Search Real-time Browser"),
-    ("ClaudeBot", "Anthropic Web Crawler"),
+    ("OAI-SearchBot", "OpenAI Search Engine Indexer (ChatGPT Search)"),
+    ("ChatGPT-User", "OpenAI User-Triggered Web Browser"),
+    ("GPTBot", "OpenAI Model Training & Corpus Crawler"),
+    ("ClaudeBot", "Anthropic AI Crawler"),
     ("PerplexityBot", "Perplexity AI Search Crawler"),
+    ("Googlebot", "Google Web Search Crawler"),
+    ("Bingbot", "Microsoft Bing & Copilot Crawler"),
     ("Google-Extended", "Google Gemini / Vertex AI Training"),
     ("Amazonbot", "Amazon Alexa & AI Crawler"),
     ("Bytespider", "ByteDance AI Crawler"),
@@ -147,31 +150,34 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     """
     ua_clean = user_agent.strip().lower()
     
-    # 1. Find matching group for user_agent according to RFC 9309 token rules
-    matched_group: Optional[UserAgentGroup] = None
-    best_ua_match_len = -1
+    # 1. Collect all rules from all matching groups (RFC 9309 rule merging)
+    matching_rules: List[Rule] = []
+    matched_any_specific = False
     wildcard_group: Optional[UserAgentGroup] = None
 
     for group in robots_data.groups:
+        group_matched = False
         for group_ua in group.user_agents:
             if group_ua == "*":
                 wildcard_group = group
             elif group_ua in ua_clean or ua_clean in group_ua:
-                # Specific crawler product token match
-                if len(group_ua) > best_ua_match_len:
-                    best_ua_match_len = len(group_ua)
-                    matched_group = group
+                group_matched = True
+                matched_any_specific = True
+                break
+        if group_matched:
+            matching_rules.extend(group.rules)
 
-    target_group = matched_group or wildcard_group
+    if not matched_any_specific and wildcard_group:
+        matching_rules.extend(wildcard_group.rules)
 
-    if not target_group or not target_group.rules:
+    if not matching_rules:
         return True, None, "No matching group or rules found (default allow)"
 
-    # 2. Evaluate all rules in group using RFC 9309 longest match
+    # 2. Evaluate all rules using RFC 9309 longest match
     best_rule: Optional[Rule] = None
     best_length = -1
 
-    for rule in target_group.rules:
+    for rule in matching_rules:
         if rule.regex.match(path):
             if rule.length > best_length:
                 best_length = rule.length
@@ -188,29 +194,33 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     return best_rule.allow, best_rule, f"{status_str} by rule: {'Allow' if best_rule.allow else 'Disallow'}: {best_rule.pattern}"
 
 
-def simulate_ai_crawlers(robots_data: RobotsData, test_paths: Optional[List[str]] = None) -> Dict[str, dict]:
+def simulate_ai_crawlers(robots_data: RobotsData, target_path: str = "/", test_paths: Optional[List[str]] = None) -> Dict[str, dict]:
     """
-    Simulates access for key AI search and training crawlers.
+    Simulates access for key AI and search crawlers against root and the target page URL path.
     Returns structured simulation report.
     """
-    paths = test_paths or DEFAULT_TEST_PATHS
+    paths = list(test_paths or DEFAULT_TEST_PATHS)
+    if target_path and target_path not in paths:
+        paths.append(target_path)
     simulation_results = {}
 
     for bot_name, bot_desc in KNOWN_AI_CRAWLERS:
         path_results = {}
-        for path in paths:
-            allowed, rule, reason = is_allowed(robots_data, bot_name, path)
-            path_results[path] = {
+        for p in paths:
+            allowed, rule, reason = is_allowed(robots_data, bot_name, p)
+            path_results[p] = {
                 "allowed": allowed,
                 "rule": rule.pattern if rule else None,
                 "reason": reason
             }
         
-        # Check root access
         root_access = path_results.get("/", {}).get("allowed", True)
+        target_access = path_results.get(target_path, {}).get("allowed", True)
         simulation_results[bot_name] = {
             "description": bot_desc,
             "root_allowed": root_access,
+            "target_allowed": target_access,
+            "target_path": target_path,
             "path_access": path_results
         }
 

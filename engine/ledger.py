@@ -95,6 +95,9 @@ class EvidenceLedger:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
 
+EXPECTED_BASELINE_SIGNALS = 16
+
+
 class LedgerBuilder:
     """Builder for assembling deterministic inspection ledgers."""
 
@@ -177,9 +180,10 @@ class LedgerBuilder:
             impact_estimate=impact_estimate
         ))
 
-    def build(self) -> EvidenceLedger:
-        # Calculate observation coverage
-        total_signals = len(self.signals)
+    def build(self, expected_baseline: Optional[int] = None) -> EvidenceLedger:
+        # Calculate observation coverage against actual observed or expected baseline
+        baseline = expected_baseline if expected_baseline is not None else len(self.signals)
+        total_signals = max(len(self.signals), baseline)
         measured_signals = sum(1 for s in self.signals.values() if s.is_measured)
         coverage_pct = round((measured_signals / total_signals * 100), 1) if total_signals > 0 else 100.0
 

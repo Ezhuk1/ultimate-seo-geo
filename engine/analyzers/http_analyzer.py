@@ -35,7 +35,9 @@ def analyze_target_http(target: str, timeout: float = 10.0) -> dict[str, Any]:
                     "content-length": str(len(raw_bytes)),
                 },
                 "x_robots_tag": None,
+                "x_robots_raw": [],
                 "x_robots_directives": [],
+                "x_robots_bot_directives": {},
                 "redirect_chain": [],
                 "response_time_ms": 1.0,
                 "tls_valid": True,
@@ -88,16 +90,37 @@ def analyze_target_http(target: str, timeout: float = 10.0) -> dict[str, Any]:
             content = raw_bytes.decode("utf-8", errors="replace")
             content_hash = hashlib.sha256(raw_bytes).hexdigest()
             headers = {k.lower(): v for k, v in resp.headers.items()}
-            x_robots = headers.get("x-robots-tag")
-            x_robots_directives = [d.strip().lower() for d in x_robots.split(",")] if x_robots else []
+            
+            # Extract all X-Robots-Tag headers preserving multiple occurrences
+            x_robots_raw = []
+            if hasattr(resp.headers, "get_all"):
+                x_robots_raw = resp.headers.get_all("x-robots-tag") or []
+            elif "x-robots-tag" in headers:
+                x_robots_raw = [headers["x-robots-tag"]]
+
+            x_global_dirs = set()
+            x_bot_dirs = {}
+            for h_val in x_robots_raw:
+                for part in h_val.split(","):
+                    p = part.strip().lower()
+                    if not p:
+                        continue
+                    if ":" in p:
+                        b_name, b_dir = p.split(":", 1)
+                        x_bot_dirs.setdefault(b_name.strip(), []).append(b_dir.strip())
+                    else:
+                        x_global_dirs.add(p)
+
             return {
                 "target": target,
                 "final_url": resp.geturl(),
                 "is_local": False,
                 "status_code": resp.status,
                 "headers": headers,
-                "x_robots_tag": x_robots,
-                "x_robots_directives": x_robots_directives,
+                "x_robots_tag": ", ".join(x_robots_raw) if x_robots_raw else None,
+                "x_robots_raw": x_robots_raw,
+                "x_robots_directives": sorted(list(x_global_dirs)),
+                "x_robots_bot_directives": x_bot_dirs,
                 "redirect_chain": redirect_chain,
                 "response_time_ms": round(elapsed_ms, 2),
                 "tls_valid": target.startswith("https://"),
@@ -112,11 +135,36 @@ def analyze_target_http(target: str, timeout: float = 10.0) -> dict[str, Any]:
         content = raw_bytes.decode("utf-8", errors="replace")
         content_hash = hashlib.sha256(raw_bytes).hexdigest() if raw_bytes else ""
         headers = {k.lower(): v for k, v in e.headers.items()} if hasattr(e, "headers") and e.headers else {}
+
+        x_robots_raw = []
+        if hasattr(e.headers, "get_all"):
+            x_robots_raw = e.headers.get_all("x-robots-tag") or []
+        elif "x-robots-tag" in headers:
+            x_robots_raw = [headers["x-robots-tag"]]
+
+        x_global_dirs = set()
+        x_bot_dirs = {}
+        for h_val in x_robots_raw:
+            for part in h_val.split(","):
+                p = part.strip().lower()
+                if not p:
+                    continue
+                if ":" in p:
+                    b_name, b_dir = p.split(":", 1)
+                    x_bot_dirs.setdefault(b_name.strip(), []).append(b_dir.strip())
+                else:
+                    x_global_dirs.add(p)
+
         return {
             "target": target,
+            "final_url": target,
             "is_local": False,
             "status_code": e.code,
             "headers": headers,
+            "x_robots_tag": ", ".join(x_robots_raw) if x_robots_raw else None,
+            "x_robots_raw": x_robots_raw,
+            "x_robots_directives": sorted(list(x_global_dirs)),
+            "x_robots_bot_directives": x_bot_dirs,
             "redirect_chain": redirect_chain,
             "response_time_ms": round(elapsed_ms, 2),
             "tls_valid": target.startswith("https://"),

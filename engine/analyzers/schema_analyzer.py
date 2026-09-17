@@ -13,11 +13,12 @@ Analyzes:
 from __future__ import annotations
 import json
 import re
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Set, Tuple
 
 
-PRICE_REGEX = re.compile(r"^\d+(\.\d{2})?$")
+PRICE_REGEX = re.compile(r"^\d+(\.\d{1,2})?$")
 RECOGNIZED_AUTHORITY_DOMAINS = [
     "wikidata.org", "wikipedia.org", "linkedin.com", "github.com",
     "orcid.org", "twitter.com", "x.com", "scholar.google.com"
@@ -133,10 +134,18 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                 if isinstance(item, dict):
                     result.entities.append(item)
 
-    # Collect entity types
+    # Check entity types
     for entity in result.entities:
         t = entity.get("@type")
-        if isinstance(t, str):
+        if not t:
+            result.findings.append(SchemaFinding(
+                rule_id="SCHEMA-TYPE-MISSING-007",
+                severity="CRITICAL",
+                entity_type=None,
+                message="Schema entity is missing required '@type' attribute.",
+                details={"entity_keys": list(entity.keys())}
+            ))
+        elif isinstance(t, str):
             result.entity_types.append(t)
         elif isinstance(t, list):
             result.entity_types.extend(t)
@@ -204,7 +213,7 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                     rule_id="SCHEMA-PRICE-FORMAT-003",
                     severity="CRITICAL",
                     entity_type="Offer",
-                    message=rf"Invalid price format '{price}'. Must strictly match '^\d+(\.\d{{2}})?$' without currency symbols or commas.",
+                    message=rf"Invalid price format '{price}'. Must strictly match '^\d+(\.\d{{1,2}})?$' without currency symbols or commas.",
                     details={"invalid_price": price}
                 ))
 
@@ -266,19 +275,31 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
             details={"broken_id": b_ref}
         ))
 
-    # 7. Check ISO 8601 Date Formats (SCHEMA-DATE-FORMAT-006)
+    # 7. Check ISO 8601 Date Formats & Calendar Validity (SCHEMA-DATE-FORMAT-006)
     iso_date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$")
     for entity in result.entities:
         for date_key in ("datePublished", "dateModified"):
             val = entity.get(date_key)
             if val is not None:
                 val_str = str(val).strip()
-                if not iso_date_pattern.match(val_str):
+                is_valid_date = False
+                if iso_date_pattern.match(val_str):
+                    try:
+                        date_part = val_str[:10]
+                        datetime.strptime(date_part, "%Y-%m-%d")
+                        if "T" in val_str:
+                            iso_clean = val_str.replace("Z", "+00:00")
+                            datetime.fromisoformat(iso_clean)
+                        is_valid_date = True
+                    except (ValueError, TypeError):
+                        is_valid_date = False
+
+                if not is_valid_date:
                     result.findings.append(SchemaFinding(
                         rule_id="SCHEMA-DATE-FORMAT-006",
                         severity="CRITICAL",
                         entity_type=entity.get("@type"),
-                        message=f"Invalid {date_key} format '{val}'. Schema.org strictly requires ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
+                        message=f"Invalid {date_key} format or non-existent calendar date '{val}'. Schema.org strictly requires valid ISO 8601 calendar date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
                         details={"key": date_key, "invalid_value": val}
                     ))
 
@@ -309,6 +330,16 @@ def validate_schema_snippet(snippet: str | dict | list) -> tuple[bool, list[str]
         return False, ["Snippet must be a JSON string, dict, or list"], SchemaAnalysisResult()
 
     result = analyze_json_ld(blocks)
+    if not result.entities or all(not e.get("@type") for e in result.entities):
+        if not any(f.rule_id in ("SCHEMA-EMPTY-000", "SCHEMA-TYPE-MISSING-007") for f in result.findings):
+            result.findings.append(SchemaFinding(
+                rule_id="SCHEMA-EMPTY-000",
+                severity="CRITICAL",
+                entity_type=None,
+                message="Schema snippet is empty or contains no valid Schema.org entities with '@type'.",
+                details={}
+            ))
+
     critical_or_warn = [
         f"[{fnd.severity}] {fnd.rule_id}: {fnd.message}"
         for fnd in result.findings
@@ -316,4 +347,5 @@ def validate_schema_snippet(snippet: str | dict | list) -> tuple[bool, list[str]
     ]
     is_valid = len(critical_or_warn) == 0 and len(result.syntax_errors) == 0
     return is_valid, critical_or_warn, result
+
 

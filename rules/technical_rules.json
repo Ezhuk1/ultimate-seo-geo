@@ -3,13 +3,23 @@
   "version": "2.0.0",
   "rules": [
     {
+      "id": "TECH-HTTP-STATUS-000",
+      "name": "HTTP Response Status Code",
+      "tier": "Tier A (HTTP Protocol)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "HTTP Status",
+      "description": "Page must return HTTP 200 OK. 4xx and 5xx errors prevent crawling, indexing, and LLM synthesis.",
+      "remediation": "Resolve server errors or routing issues to ensure target URL returns HTTP 200 OK."
+    },
+    {
       "id": "TECH-CANONICAL-001",
       "name": "Canonical Tag Consistency",
       "tier": "Tier A (RFC 6596)",
-      "impact": "P0",
+      "impact": "P1",
       "confidence_type": "deterministic",
       "selector": "link[rel='canonical']",
-      "description": "Page must declare a valid canonical URL to prevent duplicate content indexing.",
+      "description": "Page should declare a self-referencing absolute HTTPS canonical URL to consolidate indexing signals.",
       "remediation": "Add <link rel='canonical' href='https://example.com/canonical-path' /> inside <head>."
     },
     {
@@ -101,6 +111,17 @@
       "selector": "img:not([alt])",
       "description": "Informational images must provide descriptive alt text for accessibility and search engines.",
       "remediation": "Add descriptive alt='...' for content images or alt='' for decorative graphics."
+    },
+    {
+      "id": "TECH-SITEMAP-011",
+      "name": "XML Sitemap Syntax & Target Inclusion",
+      "tier": "Tier A (sitemaps.org Protocol)",
+      "impact": "P1",
+      "confidence_type": "deterministic",
+      "selector": "sitemap.xml",
+      "description": "Public sites must provide a valid XML sitemap with absolute HTTPS URLs and valid lastmod dates.",
+      "remediation": "Generate and validate sitemap.xml ensuring target URLs are included with valid ISO 8601 lastmod dates."
     }
   ]
 }
+

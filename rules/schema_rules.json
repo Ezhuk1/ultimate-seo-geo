@@ -61,6 +61,16 @@
       "selector": "datePublished, dateModified",
       "description": "Dates must strictly follow ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ).",
       "remediation": "Convert date strings to standard ISO 8601 format (e.g. '2026-05-15T08:00:00Z')."
+    },
+    {
+      "id": "SCHEMA-TYPE-MISSING-007",
+      "name": "Schema Entity @type Presence",
+      "tier": "Tier A (Schema.org / JSON-LD Standard)",
+      "impact": "P0",
+      "confidence_type": "deterministic",
+      "selector": "@type",
+      "description": "Every Schema.org entity must declare a valid @type identifier.",
+      "remediation": "Add '@type' attribute (e.g. WebPage, Article, Organization, Product) to the entity node."
     }
   ]
 }

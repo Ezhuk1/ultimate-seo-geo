@@ -19,9 +19,11 @@ from .analyzers.html_analyzer import analyze_target_html
 from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
+from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
 from .ledger import (
     LedgerBuilder,
     EvidenceLedger,
+    EXPECTED_BASELINE_SIGNALS,
     CONFIDENCE_VERIFIED,
     CONFIDENCE_HEURISTIC,
     CONFIDENCE_UNVERIFIABLE,
@@ -37,6 +39,7 @@ from .scoring import calculate_scores, ScoreBreakdown
 def run_inspection(
     target: str,
     custom_robots_txt: Optional[str] = None,
+    custom_sitemap_xml: Optional[str] = None,
     timeout: float = 15.0
 ) -> tuple[EvidenceLedger, ScoreBreakdown]:
     """
@@ -51,6 +54,7 @@ def run_inspection(
     body_text = http_res["raw_content"]
     response_time_ms = http_res["response_time_ms"]
     robots_content: Optional[str] = custom_robots_txt
+    sitemap_content: Optional[str] = custom_sitemap_xml
 
     if http_res["error"] and status_code == 0:
         builder.set_raw(status_code, headers, body_text, response_time_ms)
@@ -75,16 +79,49 @@ def run_inspection(
             remediation_steps=["Verify network connectivity, DNS resolution, and target host availability."],
             impact_estimate="Complete loss of crawlability and indexation."
         )
-        ledger = builder.build()
+        ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
+        return ledger, calculate_scores(ledger)
+
+    if status_code >= 400:
+        builder.set_raw(status_code, headers, body_text, response_time_ms)
+        builder.add_signal("http_status_code", "HTTP Status Code", status_code, unit="code")
+        builder.add_signal("http_response_time_ms", "Response Time", response_time_ms, unit="ms")
+        builder.add_evidence(
+            rule_id="TECH-HTTP-STATUS-000",
+            category="technical",
+            title="HTTP Response Status",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=status_code,
+            expected="200 OK",
+            message=f"HTTP error status {status_code} returned. Search engines and AI crawlers will not index error documents."
+        )
+        builder.add_finding(
+            rule_id="TECH-HTTP-STATUS-000",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title=f"HTTP {status_code} Error Response",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[
+                f"Investigate web server routing and logs to resolve HTTP {status_code}.",
+                "Ensure target URL returns HTTP 200 OK for search crawlers."
+            ],
+            impact_estimate="Complete de-indexing and crawling failure across all search and generative engines."
+        )
+        ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
         return ledger, calculate_scores(ledger)
 
     # Attempt to fetch robots.txt if target is remote and not provided
+    robots_5xx_detected = False
     if not http_res["is_local"] and not robots_content:
         parsed = urlparse(http_res.get("final_url", target))
         robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
         rob_res = analyze_target_http(robots_url, timeout=timeout)
         if rob_res["status_code"] == 200 and rob_res["raw_content"]:
             robots_content = rob_res["raw_content"]
+        elif rob_res["status_code"] >= 500:
+            robots_5xx_detected = True
 
     builder.set_raw(status_code, headers, body_text, response_time_ms, robots_content)
 
@@ -105,11 +142,44 @@ def run_inspection(
         headings=html_data["headings"].get("outline", [])
     )
 
-    # 5. Robots Inspection
+    # 5. Robots & Sitemap Inspection
+    final_url = http_res.get("final_url", target)
+    parsed_target = urlparse(final_url)
+    target_path = parsed_target.path or "/"
+
     robots_sim: Optional[Dict[str, Any]] = None
+    sitemap_candidate_urls: List[str] = []
     if robots_content:
         robots_ast = parse_robots_txt(robots_content)
-        robots_sim = simulate_ai_crawlers(robots_ast)
+        robots_sim = simulate_ai_crawlers(robots_ast, target_path=target_path)
+        if robots_ast.sitemaps:
+            sitemap_candidate_urls.extend(robots_ast.sitemaps)
+
+    # Attempt to fetch sitemap if remote and not provided
+    sitemap_res: Optional[SitemapAnalysisResult] = None
+    if not sitemap_content and not http_res["is_local"]:
+        if not sitemap_candidate_urls:
+            sitemap_candidate_urls.append(f"{parsed_target.scheme}://{parsed_target.netloc}/sitemap.xml")
+        for sm_url in sitemap_candidate_urls[:1]:
+            sm_res = analyze_target_http(sm_url, timeout=timeout)
+            if sm_res["status_code"] == 200 and sm_res["raw_content"]:
+                sitemap_content = sm_res["raw_content"]
+                sitemap_res = parse_sitemap_xml(
+                    sitemap_content,
+                    sitemap_url=sm_url,
+                    target_url=final_url,
+                    base_domain=parsed_target.netloc,
+                    status_code=sm_res["status_code"]
+                )
+                break
+    elif sitemap_content:
+        sitemap_res = parse_sitemap_xml(
+            sitemap_content,
+            sitemap_url="https://example.com/sitemap.xml",
+            target_url=final_url,
+            base_domain=parsed_target.netloc or "example.com",
+            status_code=200
+        )
 
     # 6. Record Signals
     builder.add_signal("http_status_code", "HTTP Status Code", status_code, unit="code")
@@ -125,6 +195,10 @@ def run_inspection(
     builder.add_signal("schema_has_unified_graph", "Schema Unified @graph Used", schema_data.has_unified_graph)
     builder.add_signal("content_total_words", "Visible Word Count", content_data.total_words, unit="words")
     builder.add_signal("robots_txt_present", "Robots.txt Present", robots_content is not None)
+    if sitemap_res:
+        builder.add_signal("sitemap_present", "XML Sitemap Present", sitemap_res.present)
+        builder.add_signal("sitemap_total_urls", "Sitemap URL Count", sitemap_res.total_urls, unit="count")
+        builder.add_signal("sitemap_target_in_sitemap", "Target URL in Sitemap", sitemap_res.target_in_sitemap)
 
     # Unmeasured Field Signal (Crucial for Invariant Demonstration)
     builder.add_signal(
@@ -147,24 +221,24 @@ def run_inspection(
             rule_id="TECH-CANONICAL-001",
             category="technical",
             title="Canonical Link Element",
-            status=STATUS_CRITICAL,
+            status=STATUS_WARNING,
             confidence=CONFIDENCE_VERIFIED,
             observed="None",
-            expected="Absolute URL in <link rel='canonical'>",
-            message="Missing canonical tag. High risk of duplicate content and split page rank."
+            expected="Self-referencing canonical URL in <link rel='canonical'>",
+            message="Missing canonical tag. Recommended to consolidate ranking signals and prevent duplicate content."
         )
         builder.add_finding(
             rule_id="TECH-CANONICAL-001",
             category="technical",
-            severity=STATUS_CRITICAL,
+            severity=STATUS_WARNING,
             title="Missing Canonical Tag",
             confidence=CONFIDENCE_VERIFIED,
-            action_priority="P0_BLOCKER",
+            action_priority="P2_MEDIUM",
             remediation_steps=[
                 f"Add `<link rel=\"canonical\" href=\"{target}\" />` to the `<head>` section.",
                 "Ensure self-referencing canonical URL uses absolute HTTPS format."
             ],
-            impact_estimate="Prevents search and AI crawlers from consolidating canonical signals."
+            impact_estimate="Search engines may index duplicate parameter variants or protocol mirrors separately."
         )
     elif canonical_count > 1:
         builder.add_evidence(
@@ -192,21 +266,21 @@ def run_inspection(
             rule_id="TECH-CANONICAL-001",
             category="technical",
             title="Canonical Link Element",
-            status=STATUS_CRITICAL,
+            status=STATUS_WARNING,
             confidence=CONFIDENCE_VERIFIED,
             observed=canonical_val,
             expected="Absolute HTTPS URL (e.g. https://example.com/path)",
-            message=f"Canonical URL '{canonical_val}' is relative. RFC 6596 requires an absolute URL."
+            message=f"Canonical URL '{canonical_val}' is relative. While RFC 6596 Section 3 permits relative IRIs, absolute HTTPS URLs are strongly recommended by search engines to prevent cross-host ambiguity."
         )
         builder.add_finding(
             rule_id="TECH-CANONICAL-001",
             category="technical",
-            severity=STATUS_CRITICAL,
+            severity=STATUS_WARNING,
             title="Relative Canonical URL",
             confidence=CONFIDENCE_VERIFIED,
-            action_priority="P0_BLOCKER",
+            action_priority="P2_MEDIUM",
             remediation_steps=[f"Change relative canonical '{canonical_val}' to an absolute HTTPS URL."],
-            impact_estimate="Relative canonical URLs cause crawling ambiguity and indexing errors."
+            impact_estimate="Relative canonical URLs can lead to crawling ambiguity across domain aliases and protocols."
         )
     elif "#" in canonical_val:
         builder.add_evidence(
@@ -411,7 +485,7 @@ def run_inspection(
             category="technical",
             title="Client-Side Rendering (CSR) Empty Shell Invisibility",
             status=STATUS_CRITICAL,
-            confidence=CONFIDENCE_VERIFIED,
+            confidence=CONFIDENCE_HEURISTIC,
             observed=f"CSR mount [{mounts_str}] with only {w_count} visible word(s)",
             expected="Server-rendered semantic HTML payload",
             message="Empty Client-Side Rendering (CSR) shell detected. Fast AI search crawlers (GPTBot, ClaudeBot, PerplexityBot) do NOT execute client-side JavaScript. This page is completely invisible to AI search engines."
@@ -421,7 +495,7 @@ def run_inspection(
             category="technical",
             severity=STATUS_CRITICAL,
             title="Client-Side Rendering (CSR) Empty Shell Invisibility",
-            confidence=CONFIDENCE_VERIFIED,
+            confidence=CONFIDENCE_HEURISTIC,
             action_priority="P0_BLOCKER",
             remediation_steps=[
                 "Implement Server-Side Rendering (SSR) via Next.js, Nuxt, Astro, or Remix so that HTML and Schema.org are delivered in the initial HTTP wire response.",
@@ -501,10 +575,13 @@ def run_inspection(
     # TECH-NOINDEX-009: Indexation Directives (Meta Robots / X-Robots-Tag)
     robots_meta = html_data.get("meta_robots", {})
     x_robots_directives = http_res.get("x_robots_directives", [])
-    all_noindex = robots_meta.get("is_noindex", False) or ("noindex" in x_robots_directives) or ("none" in x_robots_directives)
+    x_bot_directives = http_res.get("x_robots_bot_directives", {})
 
-    if all_noindex:
-        src = "X-Robots-Tag HTTP header" if ("noindex" in x_robots_directives) else "<meta name='robots' content='noindex'>"
+    global_noindex = robots_meta.get("is_noindex", False) or ("noindex" in x_robots_directives) or ("none" in x_robots_directives)
+    blocked_bots = [bot for bot, dirs in x_bot_directives.items() if any(d in ("noindex", "none") for d in dirs)]
+
+    if global_noindex:
+        src = "X-Robots-Tag HTTP header" if ("noindex" in x_robots_directives or "none" in x_robots_directives) else "<meta name='robots' content='noindex'>"
         builder.add_evidence(
             rule_id="TECH-NOINDEX-009",
             category="technical",
@@ -513,7 +590,7 @@ def run_inspection(
             confidence=CONFIDENCE_VERIFIED,
             observed=f"noindex detected via {src}",
             expected="Permit indexing on public search landing pages",
-            message=f"Page is explicitly blocked from search and generative engine indexation via noindex directive in {src}."
+            message=f"Page is explicitly blocked from search and generative engine indexation via global noindex directive in {src}."
         )
         builder.add_finding(
             rule_id="TECH-NOINDEX-009",
@@ -527,6 +604,28 @@ def run_inspection(
                 "Ensure staging or development noindex configurations are not leaking into production."
             ],
             impact_estimate="Total exclusion from search indexation and AI answer generation."
+        )
+    elif blocked_bots:
+        is_crit = any(b in ("googlebot", "bingbot") for b in blocked_bots)
+        builder.add_evidence(
+            rule_id="TECH-NOINDEX-009",
+            category="technical",
+            title="Bot-Scoped Indexation Directives (noindex)",
+            status=STATUS_CRITICAL if is_crit else STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"Scoped noindex for {', '.join(blocked_bots)} in X-Robots-Tag",
+            expected="Permit indexing for search engines",
+            message=f"Targeted crawlers ({', '.join(blocked_bots)}) are blocked from indexing via bot-scoped X-Robots-Tag directive."
+        )
+        builder.add_finding(
+            rule_id="TECH-NOINDEX-009",
+            category="technical",
+            severity=STATUS_CRITICAL if is_crit else STATUS_WARNING,
+            title="Bot-Scoped Noindex Directive Detected",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER" if is_crit else "P1_HIGH",
+            remediation_steps=[f"Remove scoped noindex directive for {', '.join(blocked_bots)} from X-Robots-Tag header."],
+            impact_estimate=f"Crawlers {', '.join(blocked_bots)} will not index this page."
         )
     else:
         builder.add_evidence(
@@ -580,43 +679,105 @@ def run_inspection(
             message="All images have alt attributes defined."
         )
 
-    # TECH-ROBOTS-AI-002
-    if robots_sim:
-        blocked_ai = [b for b, res in robots_sim.items() if not res["root_allowed"]]
-        if blocked_ai:
+    # TECH-ROBOTS-AI-002: Robots.txt Crawler Access & RFC 9309 Rules
+    if robots_5xx_detected:
+        builder.add_evidence(
+            rule_id="TECH-ROBOTS-AI-002",
+            category="technical",
+            title="Robots.txt Availability (RFC 9309 5xx Block)",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="HTTP 5xx error on robots.txt",
+            expected="HTTP 200 or 404 for robots.txt",
+            message="robots.txt returned a 5xx server error. Per RFC 9309 section 2.3.1.2, search engines treat 5xx errors on robots.txt as a complete crawl block."
+        )
+        builder.add_finding(
+            rule_id="TECH-ROBOTS-AI-002",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Robots.txt 5xx Server Error",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[
+                "Fix web server configuration serving /robots.txt.",
+                "Per RFC 9309, all crawling is suspended when robots.txt returns 5xx server errors."
+            ],
+            impact_estimate="Complete halt of crawling and indexation by search engines and AI bots."
+        )
+    elif robots_sim:
+        blocked_search = [b for b, res in robots_sim.items() if b in ("Googlebot", "Bingbot") and not res.get("target_allowed", res["root_allowed"])]
+        blocked_ai_search = [b for b, res in robots_sim.items() if b in ("OAI-SearchBot", "PerplexityBot", "ClaudeBot", "ChatGPT-User") and not res.get("target_allowed", res["root_allowed"])]
+        blocked_ai_training = [b for b, res in robots_sim.items() if b in ("GPTBot", "Google-Extended", "Bytespider", "Amazonbot", "CCBot", "Diffbot") and not res.get("target_allowed", res["root_allowed"])]
+
+        if blocked_search:
             builder.add_evidence(
                 rule_id="TECH-ROBOTS-AI-002",
                 category="technical",
-                title="Robots.txt AI Crawler Access",
+                title="Search Engine Access (Googlebot / Bingbot)",
+                status=STATUS_CRITICAL,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Blocked search crawlers on '{target_path}': {', '.join(blocked_search)}",
+                expected="Unrestricted crawling for search engines",
+                message=f"Primary search engine crawlers ({', '.join(blocked_search)}) are blocked from indexing '{target_path}'."
+            )
+            builder.add_finding(
+                rule_id="TECH-ROBOTS-AI-002",
+                category="technical",
+                severity=STATUS_CRITICAL,
+                title="Search Engine Crawlers Blocked in Robots.txt",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P0_BLOCKER",
+                remediation_steps=[f"Allow User-agent: {b} in robots.txt for public routes." for b in blocked_search],
+                impact_estimate="Complete loss of organic search visibility and indexing."
+            )
+
+        if blocked_ai_search:
+            builder.add_evidence(
+                rule_id="TECH-ROBOTS-AI-002",
+                category="technical",
+                title="AI Search Crawler Access",
                 status=STATUS_WARNING,
                 confidence=CONFIDENCE_VERIFIED,
-                observed=f"Blocked crawlers: {', '.join(blocked_ai)}",
-                expected="Explicit policy allowing AI search crawlers (PerplexityBot, ClaudeBot, GPTBot)",
-                message=f"AI search/retrieval crawlers blocked in robots.txt: {', '.join(blocked_ai)}."
+                observed=f"Blocked AI search engines on '{target_path}': {', '.join(blocked_ai_search)}",
+                expected="Permit AI search engine indexers (OAI-SearchBot, PerplexityBot)",
+                message=f"AI search engines ({', '.join(blocked_ai_search)}) are blocked from accessing '{target_path}'."
             )
             builder.add_finding(
                 rule_id="TECH-ROBOTS-AI-002",
                 category="technical",
                 severity=STATUS_WARNING,
-                title="AI Crawlers Disallowed in Robots.txt",
+                title="AI Search Engines Disallowed in Robots.txt",
                 confidence=CONFIDENCE_VERIFIED,
                 action_priority="P1_HIGH",
                 remediation_steps=[
-                    "Verify if blocking AI crawlers is deliberate business policy.",
-                    "If GEO visibility is desired, allow User-agent: GPTBot, ClaudeBot, PerplexityBot in robots.txt."
+                    "Allow User-agent: OAI-SearchBot and PerplexityBot in robots.txt if ChatGPT Search and Perplexity citations are desired.",
+                    "Ensure private administrative paths remain protected while allowing public content."
                 ],
-                impact_estimate="Zero citations in ChatGPT Search, Claude, and Perplexity AI engines."
+                impact_estimate="Zero citations in ChatGPT Search, Perplexity, and conversational search answers."
             )
-        else:
+
+        if blocked_ai_training and not blocked_search and not blocked_ai_search:
+            builder.add_evidence(
+                rule_id="TECH-ROBOTS-AI-002",
+                category="technical",
+                title="AI Model Training Crawlers",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Disallowed AI training bots: {', '.join(blocked_ai_training)}",
+                expected="Policy-dependent",
+                message=f"Model training scrapers ({', '.join(blocked_ai_training)}) are disallowed. Note: This blocks LLM pre-training corpora ingestion without necessarily blocking live AI search engines."
+            )
+
+        if not blocked_search and not blocked_ai_search:
             builder.add_evidence(
                 rule_id="TECH-ROBOTS-AI-002",
                 category="technical",
                 title="Robots.txt AI Crawler Access",
                 status=STATUS_PASS,
                 confidence=CONFIDENCE_VERIFIED,
-                observed="All major AI crawlers allowed access to root",
-                expected="Allow AI search crawlers",
-                message="Robots.txt permits AI search and answer bots."
+                observed=f"All major search and retrieval crawlers allowed access to '{target_path}'",
+                expected="Allow search crawlers",
+                message="Robots.txt permits primary search and AI retrieval engines."
             )
     else:
         builder.add_evidence(
@@ -628,6 +789,76 @@ def run_inspection(
             observed="No robots.txt detected",
             expected="Accessible robots.txt",
             message="No robots.txt detected (defaults to full allow per RFC 9309)."
+        )
+
+    # TECH-SITEMAP-011: XML Sitemap Validation
+    if sitemap_res:
+        if sitemap_res.errors:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                title="XML Sitemap Syntax and Consistency",
+                status=STATUS_CRITICAL,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{len(sitemap_res.errors)} error(s): {', '.join(sitemap_res.errors[:2])}",
+                expected="Valid XML sitemap with absolute URLs",
+                message=f"Sitemap has structural errors: {'; '.join(sitemap_res.errors[:3])}"
+            )
+            builder.add_finding(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                severity=STATUS_CRITICAL,
+                title="XML Sitemap Structural Errors",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P0_BLOCKER",
+                remediation_steps=[
+                    "Ensure all sitemap URLs are absolute HTTPS URLs matching the target host.",
+                    "Fix XML syntax errors to allow search crawlers to parse the sitemap index."
+                ],
+                impact_estimate="Crawlers cannot discover or verify URLs listed in corrupted sitemap files."
+            )
+        elif sitemap_res.warnings:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                title="XML Sitemap Syntax and Consistency",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{len(sitemap_res.warnings)} warning(s): {', '.join(sitemap_res.warnings[:2])}",
+                expected="Clean HTTPS URLs with valid lastmod dates",
+                message=f"Sitemap warnings: {'; '.join(sitemap_res.warnings[:3])}"
+            )
+            builder.add_finding(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="XML Sitemap Quality Issues",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Remove duplicate or insecure HTTP URLs and fix unparseable lastmod dates."],
+                impact_estimate="Suboptimal crawl budget allocation and delayed fresh content discovery."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-011",
+                category="technical",
+                title="XML Sitemap Syntax and Consistency",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Valid sitemap with {sitemap_res.total_urls} URLs",
+                expected="Valid XML sitemap",
+                message="XML sitemap is syntactically valid and properly configured."
+            )
+    elif not http_res["is_local"]:
+        builder.add_evidence(
+            rule_id="TECH-SITEMAP-011",
+            category="technical",
+            title="XML Sitemap Syntax and Consistency",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed="No XML sitemap detected",
+            expected="Discoverable XML sitemap",
+            message="No XML sitemap detected at standard locations or referenced in robots.txt."
         )
 
     # SCHEMA EVIDENCE
@@ -741,7 +972,7 @@ def run_inspection(
         message="Real-user field performance is NOT MEASURED. In accordance with Evidence Ledger invariants, this unmeasured hypothesis carries 0 penalty."
     )
 
-    ledger = builder.build()
+    ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
     scores = calculate_scores(ledger)
     return ledger, scores
 

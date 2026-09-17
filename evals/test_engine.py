@@ -380,6 +380,98 @@ def test_sitemap_analyzer():
     print("[PASS] test_sitemap_analyzer")
 
 
+def test_schema_empty_and_calendar_validation():
+    from engine.analyzers.schema_analyzer import validate_schema_snippet
+    
+    # 1. Empty snippet {} must fail
+    is_valid_empty, errors_empty, _ = validate_schema_snippet({})
+    assert is_valid_empty is False, "Empty schema {} must fail validation"
+    assert any("SCHEMA-EMPTY-000" in e or "SCHEMA-TYPE-MISSING-007" in e for e in errors_empty)
+    
+    # 2. Price with 1 decimal digit (19.9) must pass
+    valid_one_dec = {
+        "@context": "https://schema.org",
+        "@type": "Offer",
+        "price": "19.9"
+    }
+    is_valid_price, errors_price, _ = validate_schema_snippet(valid_one_dec)
+    assert is_valid_price is True, f"Price 19.9 should be valid, got errors: {errors_price}"
+    
+    # 3. Non-existent calendar date (2026-02-31) must fail
+    bad_calendar_date = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Test Article",
+        "datePublished": "2026-02-31"
+    }
+    is_valid_date, errors_date, _ = validate_schema_snippet(bad_calendar_date)
+    assert is_valid_date is False, "Non-existent calendar date 2026-02-31 must fail"
+    assert any("SCHEMA-DATE-FORMAT-006" in e for e in errors_date)
+    print("[PASS] test_schema_empty_and_calendar_validation")
+
+
+def test_http_status_blocking_and_coverage():
+    from unittest.mock import patch
+    from engine.inspector import run_inspection
+    
+    mock_404_resp = {
+        "target": "https://example.com/not-found",
+        "final_url": "https://example.com/not-found",
+        "is_local": False,
+        "status_code": 404,
+        "headers": {"content-type": "text/html"},
+        "raw_content": "<html><body><h1>404 Not Found</h1></body></html>",
+        "response_time_ms": 120.0,
+        "tls_valid": True,
+        "redirect_chain": [],
+        "x_robots_directives": [],
+        "x_robots_bot_directives": {},
+        "error": None
+    }
+    
+    with patch("engine.inspector.analyze_target_http", return_value=mock_404_resp):
+        ledger, scores = run_inspection("https://example.com/not-found")
+        rule_ids = {f.rule_id for f in ledger.findings}
+        assert "TECH-HTTP-STATUS-000" in rule_ids, "HTTP 404 must trigger TECH-HTTP-STATUS-000 finding"
+        assert scores.critical_count >= 1
+        assert scores.observable_technical_score <= 75
+        # Observation coverage must reflect baseline unmeasured signals, not 100%
+        assert scores.observation_coverage_pct < 50.0, f"Expected coverage < 50% on early 404, got {scores.observation_coverage_pct}%"
+        print("[PASS] test_http_status_blocking_and_coverage")
+
+
+def test_sitemap_analyzer_inspector_integration():
+    html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>Sitemap Integration Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://example.com/page">
+</head>
+<body><h1>Sitemap Integration</h1></body>
+</html>"""
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+   <url>
+      <loc>https://example.com/page</loc>
+      <lastmod>2026-05-15</lastmod>
+   </url>
+</urlset>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html)
+    try:
+        ledger, scores = run_inspection(path, custom_sitemap_xml=sitemap_xml)
+        rule_ids = {e.rule_id for e in ledger.evidence}
+        assert "TECH-SITEMAP-011" in rule_ids, "TECH-SITEMAP-011 must be evaluated when sitemap is provided"
+        sm_ev = next(e for e in ledger.evidence if e.rule_id == "TECH-SITEMAP-011")
+        assert sm_ev.status == "PASS"
+        assert ledger.signals["sitemap_present"].value is True
+        print("[PASS] test_sitemap_analyzer_inspector_integration")
+    finally:
+        os.remove(path)
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -391,4 +483,7 @@ if __name__ == "__main__":
     test_canonical_hardening()
     test_noindex_detection()
     test_sitemap_analyzer()
+    test_schema_empty_and_calendar_validation()
+    test_http_status_blocking_and_coverage()
+    test_sitemap_analyzer_inspector_integration()
     print("All Engine v2.1.0 tests passed successfully!")
