@@ -246,3 +246,10 @@ def simulate_ai_crawlers(robots_data: RobotsData, target_path: str = "/", test_p
         }
 
     return simulation_results
+
+
+def is_user_agent_allowed(robots_data: RobotsData, user_agent: str, path: str) -> bool:
+    """Convenience boolean helper returning True if user-agent is permitted to crawl path."""
+    allowed, _, _ = is_allowed(robots_data, user_agent, path)
+    return allowed
+

@@ -37,6 +37,19 @@ CITATION_CUES = [
 
 PRONOUN_LEAD_PATTERN = re.compile(r"^(it|this|that|these|those|they|he|she|это|он|она|оно|они|данный|эта|тот|эти|тех)\b", re.IGNORECASE)
 
+UNSUPPORTED_SUPERLATIVES = [
+    "best in class", "industry-leading", "world's best", "unmatched quality",
+    "revolutionary", "game-changing", "market leader", "ultimate solution",
+    "cutting-edge", "unrivaled", "лучший в мире", "непревзойденный", "революционный"
+]
+
+INTENT_KEYWORDS = {
+    "TRANSACTIONAL": ["buy", "order", "purchase", "pricing", "price", "subscribe", "checkout", "discount", "купить", "заказать", "цена", "стоимость", "тариф"],
+    "COMMERCIAL": ["best", "top", "review", "vs", "comparison", "alternatives", "features", "лучший", "топ", "обзор", "сравнение", "рейтинг"],
+    "NAVIGATIONAL": ["login", "sign in", "sign up", "contact us", "about us", "portal", "войти", "контакты", "о нас", "личный кабинет"],
+    "INFORMATIONAL": ["how to", "guide", "what is", "tutorial", "why", "explain", "overview", "definition", "как", "что такое", "руководство", "инструкция"]
+}
+
 
 @dataclass
 class ContentChunk:
@@ -70,10 +83,28 @@ class ContentAnalysisResult:
     thin_chunks_count: int = 0
     pronoun_lead_count: int = 0
     unverified_stats_count: int = 0
+    search_intent: str = "INFORMATIONAL"
+    evidence_density_score: int = 0
+    unsupported_superlatives: List[str] = field(default_factory=list)
+    fluff_count: int = 0
+    is_thin_content: bool = False
     findings: List[ContentFinding] = field(default_factory=list)
 
+    def __getitem__(self, key: str) -> Any:
+        if hasattr(self, key):
+            return getattr(self, key)
+        raise KeyError(key)
 
-def analyze_content(visible_text: str, headings: Optional[List[Dict[str, Any]]] = None) -> ContentAnalysisResult:
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key, default)
+
+
+def analyze_content(
+    visible_text: str,
+    headings: Optional[List[Dict[str, Any]]] = None,
+    title: Optional[str] = None,
+    description: Optional[str] = None
+) -> ContentAnalysisResult:
     """
     Performs deterministic content and GEO inspection on visible page text.
     """
@@ -188,6 +219,51 @@ def analyze_content(visible_text: str, headings: Optional[List[Dict[str, Any]]] 
             severity="INFO",
             message=f"Detected {result.unverified_stats_count} numerical/statistical claim(s) without adjacent attribution cues or source links.",
             details={"unverified_stats": result.unverified_stats_count}
+        ))
+
+    # 4. Search Intent Detection
+    lower_text = clean_text.lower()
+    text_for_intent = (clean_text + " " + (title or "") + " " + (description or "")).lower()
+    intent_scores = {k: 0 for k in INTENT_KEYWORDS}
+    for intent, kw_list in INTENT_KEYWORDS.items():
+        for kw in kw_list:
+            if re.search(r'\b' + re.escape(kw) + r'\b', text_for_intent):
+                intent_scores[intent] += 1
+    best_intent = max(intent_scores.items(), key=lambda x: x[1])
+    result.search_intent = best_intent[0] if best_intent[1] > 0 else "INFORMATIONAL"
+
+    # 5. Evidence Density Score
+    citations_found = sum(1 for cue in CITATION_CUES if cue in lower_text)
+    stats_found = len(PERCENTAGE_PATTERN.findall(clean_text)) + len(NUMERIC_STAT_PATTERN.findall(clean_text))
+    raw_ev_pts = (citations_found * 20) + (min(stats_found, 5) * 12)
+    result.evidence_density_score = min(100, raw_ev_pts)
+
+    # 6. Fluff & Unsupported Superlatives
+    common_fluff = ["game-changing", "revolutionary", "world-class", "seamless", "next-generation", "best-of-breed", "synergy", "cutting-edge"]
+    fluff_found = sum(1 for fw in common_fluff if fw in lower_text)
+
+    for sup in UNSUPPORTED_SUPERLATIVES:
+        if re.search(r'\b' + re.escape(sup) + r'\b', lower_text):
+            result.unsupported_superlatives.append(sup)
+
+    result.fluff_count = fluff_found + len(result.unsupported_superlatives)
+
+    if result.unsupported_superlatives:
+        result.findings.append(ContentFinding(
+            rule_id="GEO-EVIDENCE-METRICS-004",
+            severity="INFO",
+            message=f"Detected unsupported subjective superlative claim(s): {', '.join(result.unsupported_superlatives[:3])}. Support assertions with empirical metrics.",
+            details={"superlatives": result.unsupported_superlatives}
+        ))
+
+    # 7. Thin Content Check
+    if result.total_words < 150:
+        result.is_thin_content = True
+        result.findings.append(ContentFinding(
+            rule_id="GEO-ADAPTIVE-CHUNKING-002",
+            severity="WARNING" if result.total_words < 50 else "INFO",
+            message=f"Page has thin content ({result.total_words} words). Search engines and AI retrieval bots may consider it low utility.",
+            details={"word_count": result.total_words}
         ))
 
     return result

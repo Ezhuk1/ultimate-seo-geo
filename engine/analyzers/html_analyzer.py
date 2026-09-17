@@ -426,7 +426,8 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             "total_count": len(parser.links),
             "internal_count": internal_links,
             "external_count": external_links,
-            "empty_anchors_count": empty_anchors_count
+            "empty_anchors_count": empty_anchors_count,
+            "all": parser.links
         },
         "landmarks": {
             "has_header": parser.has_header,

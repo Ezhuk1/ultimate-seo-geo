@@ -1041,6 +1041,126 @@ def test_week2_indexability_and_security():
     print("[PASS] test_week2_indexability_and_security")
 
 
+def test_week3_crawler_and_similarity():
+    """Verifies Week 3 capabilities: SimHash near-duplicate clustering, SSRF protection, crawler BFS, intent & fluff detection."""
+    from engine.analyzers.similarity import compute_simhash, hamming_distance, jaccard_similarity, cluster_near_duplicates, check_batch_duplicates
+    from engine.crawler import is_safe_target_url, crawl_site, format_site_crawl_markdown
+    from engine.analyzers.content_analyzer import analyze_content
+
+    # 1. SimHash & Hamming Distance
+    text_a = "Ultimate SEO and GEO optimization tool for automated technical audits and search indexing verification."
+    text_b = "Ultimate SEO and GEO optimization tool for automated technical audits and search index verification."
+    text_c = "A completely different recipe for baking chocolate fudge cookies with melted butter and cocoa powder."
+
+    hash_a = compute_simhash(text_a)
+    hash_b = compute_simhash(text_b)
+    hash_c = compute_simhash(text_c)
+
+    dist_ab = hamming_distance(hash_a, hash_b)
+    dist_ac = hamming_distance(hash_a, hash_c)
+
+    assert dist_ab <= 10, f"Expected small hamming distance for near-duplicates, got {dist_ab}"
+    assert dist_ac >= 20, f"Expected high hamming distance for distinct texts, got {dist_ac}"
+    assert jaccard_similarity(text_a, text_b) > 0.7
+
+    pages = [
+        {"url": "https://example.com/p1", "text": text_a},
+        {"url": "https://example.com/p2", "text": text_b},
+        {"url": "https://example.com/p3", "text": text_c},
+    ]
+    clusters = cluster_near_duplicates(pages, max_distance=10)
+    assert len(clusters) == 1
+    assert len(clusters[0]["urls"]) == 2
+    assert "https://example.com/p1" in clusters[0]["urls"]
+    assert "https://example.com/p2" in clusters[0]["urls"]
+
+    # 2. SSRF Guard
+    assert is_safe_target_url("http://127.0.0.1")[0] is False
+    assert is_safe_target_url("http://localhost:8080")[0] is False
+    assert is_safe_target_url("http://169.254.169.254/latest/meta-data")[0] is False
+    assert is_safe_target_url("http://10.0.0.1/admin")[0] is False
+    assert is_safe_target_url("http://192.168.1.1")[0] is False
+    assert is_safe_target_url("ftp://example.com")[0] is False
+    assert is_safe_target_url("file:///etc/passwd")[0] is False
+
+    # 3. Content Intent & Fluff Detection
+    sample_commercial = """
+    <h1>Top 10 Cloud Backup Solutions Reviewed & Compared</h1>
+    <p>We provide an in-depth comparison vs competing cloud storage providers with pricing, features, and pros and cons.</p>
+    """
+    res_comm = analyze_content(sample_commercial, title="Best Cloud Backup", description="Comparison of top backup software")
+    assert res_comm["search_intent"] == "COMMERCIAL"
+
+    sample_transactional = """
+    <h1>Buy Running Shoes Online - Free Shipping & 20% Discount</h1>
+    <p>Add to cart now and checkout securely with discount voucher. Order today for free delivery.</p>
+    """
+    res_trans = analyze_content(sample_transactional, title="Buy Shoes", description="Purchase running shoes")
+    assert res_trans["search_intent"] == "TRANSACTIONAL"
+
+    sample_fluff = """
+    <p>Our game-changing, revolutionary platform delivers world-class, seamless, next-generation best-of-breed synergy.</p>
+    """
+    res_fluff = analyze_content(sample_fluff)
+    assert res_fluff["fluff_count"] >= 4
+
+    # 4. Crawler Graph Mock
+    mock_pages = {
+        "https://example.com": {
+            "status": 200,
+            "headers": {"content-type": "text/html"},
+            "html": '<html><body><a href="/page-1">P1</a><a href="/page-2">P2</a></body></html>'
+        },
+        "https://example.com/page-1": {
+            "status": 200,
+            "headers": {"content-type": "text/html"},
+            "html": '<html><body><a href="/page-2">P2</a></body></html>'
+        },
+        "https://example.com/page-2": {
+            "status": 200,
+            "headers": {"content-type": "text/html"},
+            "html": '<html><body><p>Leaf page</p></body></html>'
+        }
+    }
+
+    def mock_fetch(url, *args, **kwargs):
+        norm = url.rstrip("/")
+        data = mock_pages.get(url) or mock_pages.get(norm) or {"status": 404, "headers": {}, "html": ""}
+        return {
+            "target": url,
+            "final_url": url,
+            "is_local": False,
+            "status_code": data["status"],
+            "headers": data.get("headers", {}),
+            "raw_content": data.get("html", ""),
+            "response_time_ms": 50.0,
+            "tls_valid": True,
+            "redirect_chain": [],
+            "x_robots_directives": [],
+            "x_robots_bot_directives": {},
+            "error": None,
+            "is_soft_404": False,
+            "has_redirect_loop": False,
+            "is_challenge_page": False
+        }
+
+    from unittest.mock import patch
+    with patch("engine.crawler.analyze_target_http", side_effect=mock_fetch):
+        with patch("engine.crawler.is_safe_target_url", return_value=(True, "OK")):
+            crawl_res = crawl_site("https://example.com", max_pages=5, max_depth=2, delay_seconds=0.0)
+            assert crawl_res.pages_crawled == 3
+            assert crawl_res.inbound_counts.get("https://example.com/page-2", 0) == 2
+            assert crawl_res.crawl_depths.get("https://example.com", 0) == 0
+            assert crawl_res.crawl_depths.get("https://example.com/page-1", 0) == 1
+            assert crawl_res.crawl_depths.get("https://example.com/page-2", 0) in (1, 2)
+            md = format_site_crawl_markdown(crawl_res)
+            assert "Architecture & Internal Linking" in md
+            assert "Pages Crawled" in md
+            assert "Crawled Pages Inventory" in md
+
+    print("[PASS] test_week3_crawler_and_similarity")
+
+
 if __name__ == "__main__":
     print("Running Engine v2.1.0 integration suite...")
     test_clean_page_inspection()
@@ -1058,4 +1178,5 @@ if __name__ == "__main__":
     test_audit_v2_16_fixes()
     test_week1_foundation_edge_cases()
     test_week2_indexability_and_security()
+    test_week3_crawler_and_similarity()
     print("All Engine v2.1.0 tests passed successfully!")

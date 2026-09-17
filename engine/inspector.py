@@ -1894,6 +1894,9 @@ def main():
     parser.add_argument("--output", help="Optional output file path to write results")
     parser.add_argument("--robots", help="Optional custom robots.txt file or URL")
     parser.add_argument("--timeout", type=float, default=15.0, help="HTTP request timeout in seconds")
+    parser.add_argument("--crawl", action="store_true", help="Enable multi-page crawl mode starting from target URL")
+    parser.add_argument("--max-pages", type=int, default=50, help="Maximum number of pages to crawl (default: 50)")
+    parser.add_argument("--depth", type=int, default=3, help="Maximum crawl depth from seed (default: 3)")
 
     args = parser.parse_args()
 
@@ -1918,6 +1921,30 @@ def main():
 
     if not args.target:
         parser.error("the following arguments are required: target (or use --validate-schema)")
+
+    # Site-Level Crawl Mode
+    if args.crawl:
+        from .crawler import CrawlConfig, crawl_site, format_site_crawl_markdown
+        config = CrawlConfig(
+            seed_url=args.target,
+            max_pages=args.max_pages,
+            max_depth=args.depth,
+            timeout=args.timeout
+        )
+        report = crawl_site(config)
+        if args.format == "json":
+            import json
+            output_str = json.dumps(report.to_dict(), indent=2)
+        else:
+            output_str = format_site_crawl_markdown(report)
+
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(output_str)
+            print(f"Crawl report saved to {args.output}")
+        else:
+            print(output_str)
+        return
 
     custom_robots = None
     if args.robots:

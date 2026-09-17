@@ -926,6 +926,7 @@ def main():
         test_audit_v2_16_fixes,
         test_week1_foundation_edge_cases,
         test_week2_indexability_and_security,
+        test_week3_crawler_and_similarity,
     )
 
     engine_tests = [
@@ -944,6 +945,7 @@ def main():
         ("test_audit_v2_16_fixes", test_audit_v2_16_fixes),
         ("test_week1_foundation_edge_cases", test_week1_foundation_edge_cases),
         ("test_week2_indexability_and_security", test_week2_indexability_and_security),
+        ("test_week3_crawler_and_similarity", test_week3_crawler_and_similarity),
     ]
 
     engine_passed = 0
