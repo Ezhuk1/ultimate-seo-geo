@@ -1,5 +1,5 @@
 """
-Indexability Matrix Evaluation Engine.
+Indexability Matrix Evaluation Engine v3.1.0.
 
 Provides an 8-vector indexability assessment for web documents:
 1. HTTP Status (200 / 3xx / 4xx / 5xx)
@@ -9,12 +9,13 @@ Provides an 8-vector indexability assessment for web documents:
 5. Robots.txt Crawler Authorization (allowed / blocked)
 6. XML Sitemap Inclusion (included / missing / unknown)
 7. Internal Link Connectivity (linked / orphan candidate)
-8. Initial Rendered Content Presence (present / missing)
+8. Initial Rendered Content Presence (present / missing / soft_404)
 
 Computes a holistic Indexability Verdict:
 - INDEXABLE: Document is accessible and indexable across all vectors.
 - BLOCKED: Critical blocker prevents indexing (HTTP error, noindex, robots disallow, empty CSR).
-- AMBIGUOUS: Conflicting signals (canonical to other URL, redirect, orphan candidate, header mismatch).
+- CONFLICTED: Contradictory indexing signals (e.g., sitemap vs robots.txt disallow, self-canonical vs noindex).
+- AMBIGUOUS: Inconclusive signals (canonical to other URL, redirect, orphan candidate, parameter duplicate).
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from urllib.parse import urlsplit
 
 VERDICT_INDEXABLE = "INDEXABLE"
 VERDICT_BLOCKED = "BLOCKED"
+VERDICT_CONFLICTED = "CONFLICTED"
 VERDICT_AMBIGUOUS = "AMBIGUOUS"
 
 
@@ -40,9 +42,10 @@ class IndexabilityMatrix:
     robots_txt_status: str  # "allowed", "blocked"
     sitemap_status: str  # "included", "missing", "unknown"
     internal_links_status: str  # "linked", "orphan candidate"
-    rendered_content_status: str  # "present", "missing"
-    verdict: str  # "INDEXABLE", "BLOCKED", "AMBIGUOUS"
+    rendered_content_status: str  # "present", "missing", "soft_404"
+    verdict: str  # "INDEXABLE", "BLOCKED", "CONFLICTED", "AMBIGUOUS"
     reasons: List[str] = field(default_factory=list)
+    conflicting_signals: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         blockers = []
@@ -57,12 +60,21 @@ class IndexabilityMatrix:
         if self.rendered_content_status in ("missing", "soft_404"):
             blockers.append(f"rendered content {self.rendered_content_status}")
 
-        conf_score = 100 if self.verdict == VERDICT_INDEXABLE else (0 if self.verdict == VERDICT_BLOCKED else 50)
+        if self.verdict == VERDICT_INDEXABLE:
+            conf_score = 100
+        elif self.verdict == VERDICT_BLOCKED:
+            conf_score = 0
+        elif self.verdict == VERDICT_CONFLICTED:
+            conf_score = 25
+        else:
+            conf_score = 50
+
         return {
             "target_url": self.target_url,
             "verdict": self.verdict,
             "confidence_score": conf_score,
             "blockers": blockers,
+            "conflicting_signals": self.conflicting_signals,
             "reasons": self.reasons,
             "vectors": {
                 "http_status": {"status": self.http_status_label, "detail": f"Status code {self.http_status_code}"},
@@ -95,8 +107,10 @@ def evaluate_indexability_matrix(
     Evaluates 8 key indexation vectors and returns a consolidated IndexabilityMatrix.
     """
     reasons: List[str] = []
+    conflicts: List[str] = []
     is_blocked = False
     is_ambiguous = False
+    is_conflicted = False
 
     # 1. HTTP Status
     code = http_res.get("status_code", 0)
@@ -208,8 +222,51 @@ def evaluate_indexability_matrix(
     else:
         rendered_content_status = "present"
 
+    # =========================================================================
+    # DETECT CONFLICTING SIGNALS (CONTRADICTORY SEO DIRECTIVES)
+    # =========================================================================
+
+    # Conflict Vector 1: Sitemap says "index me" but Robots.txt says "do not crawl"
+    if sitemap_status == "included" and robots_txt_status == "blocked":
+        is_conflicted = True
+        conflict_msg = "Sitemap Inclusion vs Robots.txt Block: URL is submitted in sitemap.xml but disallowed in robots.txt."
+        conflicts.append(conflict_msg)
+        reasons.append(conflict_msg)
+
+    # Conflict Vector 2: Self-Canonical vs Noindex
+    # Page claims to be the primary canonical version, but forbids indexing
+    if canonical_status == "self" and (meta_robots_status == "noindex" or x_robots_status == "noindex"):
+        is_conflicted = True
+        conflict_msg = "Self-Canonical vs Noindex Conflict: Page declares rel=canonical to self while serving a noindex directive."
+        conflicts.append(conflict_msg)
+        reasons.append(conflict_msg)
+
+    # Conflict Vector 3: Sitemap says "index me" but Page says "noindex"
+    if sitemap_status == "included" and (meta_robots_status == "noindex" or x_robots_status == "noindex"):
+        is_conflicted = True
+        conflict_msg = "Sitemap Inclusion vs Noindex Conflict: URL is submitted in sitemap.xml but contains a noindex directive."
+        conflicts.append(conflict_msg)
+        reasons.append(conflict_msg)
+
+    # Conflict Vector 4: HTTP Header vs Meta Robots conflict
+    if meta_robots_status == "noindex" and x_robots_status == "index" and "index" in x_dirs:
+        is_conflicted = True
+        conflict_msg = "HTTP Header vs Meta Robots Conflict: X-Robots-Tag specifies 'index' while HTML meta robots specifies 'noindex'."
+        conflicts.append(conflict_msg)
+        reasons.append(conflict_msg)
+
+    # Conflict Vector 5: Canonical loop or canonical pointing to blocked URL
+    if canonical_status == "other" and is_blocked:
+        is_conflicted = True
+        conflict_msg = "Cross-Canonical on Blocked Document: Blocked page specifies canonical URL to another destination."
+        conflicts.append(conflict_msg)
+        reasons.append(conflict_msg)
+
     # Determine Verdict
-    if is_blocked:
+    # Precedence: CONFLICTED > BLOCKED > AMBIGUOUS > INDEXABLE
+    if is_conflicted:
+        verdict = VERDICT_CONFLICTED
+    elif is_blocked:
         verdict = VERDICT_BLOCKED
     elif is_ambiguous:
         verdict = VERDICT_AMBIGUOUS
@@ -232,5 +289,6 @@ def evaluate_indexability_matrix(
         internal_links_status=internal_links_status,
         rendered_content_status=rendered_content_status,
         verdict=verdict,
-        reasons=reasons
+        reasons=reasons,
+        conflicting_signals=conflicts
     )

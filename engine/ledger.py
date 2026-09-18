@@ -65,6 +65,7 @@ class EvidenceItem:
     observed: Any
     expected: Any
     message: str
+    tier: str = ""
     evidence_snippet: Optional[str] = None
 
 
@@ -77,6 +78,7 @@ class FindingItem:
     rule_id: str
     confidence: str
     action_priority: str # P0_BLOCKER, P1_HIGH, P2_MEDIUM, P3_LOW, P4_MONITOR
+    tier: str = ""
     remediation_steps: List[str] = field(default_factory=list)
     impact_estimate: str = ""
 
@@ -145,8 +147,17 @@ class LedgerBuilder:
         observed: Any,
         expected: Any,
         message: str,
-        evidence_snippet: Optional[str] = None
+        evidence_snippet: Optional[str] = None,
+        tier: Optional[str] = None
     ):
+        if not tier:
+            try:
+                from .rules import get_rule_registry
+                r_def = get_rule_registry().get(rule_id)
+                if r_def and r_def.tier:
+                    tier = r_def.tier
+            except Exception:
+                pass
         self.evidence.append(EvidenceItem(
             rule_id=rule_id,
             category=category,
@@ -156,6 +167,7 @@ class LedgerBuilder:
             observed=observed,
             expected=expected,
             message=message,
+            tier=tier or "",
             evidence_snippet=evidence_snippet
         ))
 
@@ -168,8 +180,17 @@ class LedgerBuilder:
         confidence: str,
         action_priority: str,
         remediation_steps: List[str],
-        impact_estimate: str
+        impact_estimate: str,
+        tier: Optional[str] = None
     ):
+        if not tier:
+            try:
+                from .rules import get_rule_registry
+                r_def = get_rule_registry().get(rule_id)
+                if r_def and r_def.tier:
+                    tier = r_def.tier
+            except Exception:
+                pass
         finding_id = f"FND-{len(self.findings) + 1:03d}"
         self.findings.append(FindingItem(
             finding_id=finding_id,
@@ -179,6 +200,7 @@ class LedgerBuilder:
             rule_id=rule_id,
             confidence=confidence,
             action_priority=action_priority,
+            tier=tier or "",
             remediation_steps=remediation_steps,
             impact_estimate=impact_estimate
         ))
@@ -246,7 +268,7 @@ class LedgerBuilder:
             }
 
         metadata = {
-            "engine_version": "3.0.0",
+            "engine_version": "3.1.0",
             "protocol": "Evidence-Ledger-v2",
             "target": self.target_url,
             "provenance_sha256": self.raw.provenance_hash,

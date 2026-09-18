@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "updated_at": "2026-09-18",
+  "sources": [
+    {
+      "id": "SRC-RFC-9110",
+      "title": "RFC 9110: HTTP Semantics",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "HTTP status codes, methods, header fields, caching, connection management."
+    },
+    {
+      "id": "SRC-RFC-9309",
+      "title": "RFC 9309: Robots Exclusion Protocol",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://www.rfc-editor.org/rfc/rfc9309",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Robots.txt parsing syntax, longest-match rule, User-Agent precedence, 500KiB limit."
+    },
+    {
+      "id": "SRC-RFC-8288",
+      "title": "RFC 8288: Web Linking (Link header relations)",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://www.rfc-editor.org/rfc/rfc8288",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "rel=canonical, rel=alternate in HTTP Link headers."
+    },
+    {
+      "id": "SRC-W3C-HTML5",
+      "title": "W3C HTML 5.3 Specification",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://www.w3.org/TR/html53/",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Semantic elements (main, nav, header, footer, h1-h6), meta viewport, lang attributes."
+    },
+    {
+      "id": "SRC-SCHEMA-ORG",
+      "title": "Schema.org Standard Vocabulary",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://schema.org/",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "JSON-LD graph structure, @type definitions, @id resolution, required properties."
+    },
+    {
+      "id": "SRC-GOOGLE-SEARCH-CENTRAL",
+      "title": "Google Search Central: Indexing & Canonicalization Guidelines",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Canonical URL consolidation, 301 redirects, HTTP status codes, noindex directives."
+    },
+    {
+      "id": "SRC-GOOGLE-STRUCTURED-DATA",
+      "title": "Google Search Central: Structured Data General Guidelines",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Rich results eligibility for Article, Product, Organization, BreadcrumbList, FAQPage."
+    },
+    {
+      "id": "SRC-GOOGLE-EEAT",
+      "title": "Google Search Quality Evaluator Guidelines (E-E-A-T)",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://developers.google.com/search/docs/fundamentals/creating-helpful-content",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Author transparency, organization credentials, YMYL topics, fact-checking and reviews."
+    },
+    {
+      "id": "SRC-GEO-PRINCETON",
+      "title": "GEO: Generative Engine Optimization (Aggarwal et al., Princeton KDD 2024)",
+      "tier": "Tier C",
+      "source_type": "research",
+      "url": "https://arxiv.org/abs/2311.09735",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "CiteSources, Quotation Addition, Statistics Addition, technical chunking impact on AI visibility."
+    },
+    {
+      "id": "SRC-OPENAI-BOT",
+      "title": "OpenAI: Overview of OpenAI Crawlers (OAI-SearchBot & GPTBot)",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://platform.openai.com/docs/bots",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Search retrieval bots vs model training bots, IP ranges, user agent tokens."
+    },
+    {
+      "id": "SRC-ANTHROPIC-BOT",
+      "title": "Anthropic: ClaudeBot & Crawler Verification",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "ClaudeBot User-Agent strings, robots.txt directives, model training policies."
+    },
+    {
+      "id": "SRC-PERPLEXITY-BOT",
+      "title": "Perplexity: PerplexityBot Web Crawler Documentation",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://docs.perplexity.ai/docs/perplexitybot",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Live search retrieval crawling, user agent tokens, citation extraction policies."
+    },
+    {
+      "id": "SRC-HEURISTIC-CHUNKING",
+      "title": "Industry Empirical Heuristic: Adaptive RAG Passage Chunking",
+      "tier": "Tier E",
+      "source_type": "heuristic",
+      "url": "https://github.com/Ezhuk1/ultimate-seo-geo",
+      "verified_at": "2026-09-18",
+      "confidence": "medium",
+      "scope": "Passage chunk sizing (150-300 words / 256-512 tokens), inverted pyramid lead sentences."
+    },
+    {
+      "id": "SRC-SECURITY-PROMPT-INJECTION",
+      "title": "OWASP Top 10 for LLM Applications: LLM01 Prompt Injection",
+      "tier": "Tier D",
+      "source_type": "industry",
+      "url": "https://owasp.org/www-project-top-10-for-large-language-model-applications/",
+      "verified_at": "2026-09-18",
+      "confidence": "high",
+      "scope": "Direct and indirect prompt injection detection, untrusted data isolation, delimiter safety."
+    }
+  ]
+}

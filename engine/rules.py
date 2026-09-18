@@ -2,14 +2,14 @@
 Unified Rule Registry.
 
 Loads and caches declarative rule specifications from rules/*.json.
-Enables rule-driven scoring without hardcoded Python branching.
+Enforces epistemic tier integrity: heuristics cannot pose as protocol standards.
 """
 
 from __future__ import annotations
 import json
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 @dataclass
@@ -24,6 +24,7 @@ class RuleDefinition:
     confidence_type: str
     unknown_policy: str
     tier: str = ""
+    source_id: Optional[str] = None
     selector: str = ""
     description: str = ""
     remediation: str = ""
@@ -31,6 +32,41 @@ class RuleDefinition:
 
 
 _REGISTRY_CACHE: Optional[Dict[str, RuleDefinition]] = None
+
+# Epistemic tier hierarchy
+VALID_TIERS = {
+    "Tier A": "Protocol / Standard (RFC, W3C, sitemaps.org)",
+    "Tier B": "Official Search Engine Documentation (Google, Bing, OpenAI)",
+    "Tier C": "Empirical Research (Peer-reviewed, Princeton KDD)",
+    "Tier D": "Industry Evidence & Security Standards (OWASP, Web Almanac)",
+    "Tier E": "Practical Heuristic (RAG chunks, token windows, display lengths)",
+    "Tier F": "Recommendation (Accessibility best practices, landmarks)"
+}
+
+
+def validate_epistemic_integrity(rule: RuleDefinition) -> List[str]:
+    """
+    Detects epistemic inflation: flags rules claiming higher authority than warranted.
+    Returns list of violations, if any.
+    """
+    violations: List[str] = []
+    tier_upper = rule.tier.upper()
+
+    # Rule 1: Heuristic RAG/GEO chunking rules cannot claim Tier A or Tier B
+    if any(k in rule.id for k in ["CHUNKING", "FRONTLOAD", "COREFERENCE"]):
+        if "TIER A" in tier_upper or "TIER B" in tier_upper:
+            violations.append(
+                f"Epistemic Inflation: Rule {rule.id} is an empirical heuristic but claims {rule.tier}."
+            )
+
+    # Rule 2: Title and meta description length heuristics cannot claim Tier A
+    if any(k in rule.id for k in ["TITLE-003", "META-DESC-004", "DESC-DUP-015"]):
+        if "TIER A" in tier_upper:
+            violations.append(
+                f"Epistemic Inflation: Snippet heuristic {rule.id} cannot be classified as Tier A Protocol."
+            )
+
+    return violations
 
 
 def get_rule_registry(force_reload: bool = False) -> Dict[str, RuleDefinition]:
@@ -69,11 +105,17 @@ def get_rule_registry(force_reload: bool = False) -> Dict[str, RuleDefinition]:
                         confidence_type=item.get("confidence_type", "deterministic"),
                         unknown_policy=item.get("unknown_policy", "exclude"),
                         tier=item.get("tier", ""),
+                        source_id=item.get("source_id"),
                         selector=item.get("selector", ""),
                         description=item.get("description", ""),
                         remediation=item.get("remediation", ""),
                         geo_points=item.get("geo_points", {})
                     )
+                    # Enforce epistemic integrity check
+                    violations = validate_epistemic_integrity(rule)
+                    if violations:
+                        # Fallback to Tier E rather than allowing false authority
+                        rule.tier = "Tier E (Heuristic)"
                     registry[r_id] = rule
         except Exception:
             pass

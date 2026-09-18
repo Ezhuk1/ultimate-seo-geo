@@ -1,13 +1,13 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Версия: 2.1.0](https://img.shields.io/badge/Версия-2.1.0-blue.svg)](evals/CHANGELOG.md)
+[![Версия: 3.1.0](https://img.shields.io/badge/Версия-3.1.0-blue.svg)](evals/CHANGELOG.md)
 [![Лицензия: MIT](https://img.shields.io/badge/Лицензия-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Стандарт: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
 [![Язык](https://img.shields.io/badge/Язык-Русский%20%7C%20English-purple.svg)](#язык--language)
 
 > **Эталонная production-grade система поисковой оптимизации (SEO) и оптимизации под генеративный ИИ (GEO/AEO) для ИИ-агентов и CLI.**  
-> Объединяет **автономный детерминированный движок инспекции** (чистый Python stdlib, <50 мс) и **доказательного ИИ-агента**. Проводит технический аудит SEO, выявляет невидимость Client-Side Rendering (CSR) для роботов, максимизирует вероятность цитирования в генеративных ответах (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), валидирует AST связного Schema.org `@graph`, настраивает защищенные протоколы обхода (`robots.txt` и `llms.txt`) и строит контент-планы на основе реальных фактов.
+> Объединяет **автономный детерминированный движок инспекции** (чистый Python stdlib, <50 мс) и **доказательного ИИ-агента**. Проводит технический аудит SEO, выявляет невидимость Client-Side Rendering (CSR) для роботов, защищает от prompt injection в веб-контенте (`SEC-PROMPT-INJECTION-001`), разделяет сигналы по 6 эпистемическим уровням (Tier A–F), максимизирует вероятность цитирования в генеративных ответах (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), разрешает конфликты индексации (`CONFLICTED`), валидирует AST связного Schema.org `@graph`, настраивает защищенные протоколы обхода (`robots.txt` и `llms.txt`), сравнивает эксперименты цитирования и строит контент-планы на основе реальных фактов.
 
 ---
 
@@ -30,6 +30,8 @@
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ ЭТАП 1: ОТБОР КАНДИДАТОВ (Классическое техническое SEO / Retrieval)                                             │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ • Матрица индексируемости v2: Мульти-сигнальный вердикт (INDEXABLE, BLOCKED, AMBIGUOUS, CONFLICTED)            │
+│ • Защита от Prompt Injection: Обнаружение инструкций взлома, подмены ролей и скрытого CSS (SEC-PROMPT-INJECT)  │
 │ • Доступность и индексируемость (RFC 9309 robots.txt, HTTP 200, чистые редиректы)                                │
 │ • Каноникализация (RFC 6596) и иерархия документа (единственный H1, семантические H2-H6)                        │
 │ • Server-Side Rendering (SSR/SSG): Детекция пустых CSR-оболочек (div#root), ослепляющих быстрые AI-краулеры     │

@@ -1,5 +1,5 @@
 """
-Deterministic signal analyzers for ultimate-seo-geo v3.0.0.
+Deterministic signal analyzers for ultimate-seo-geo v3.1.0.
 """
 
 from .http_analyzer import analyze_target_http
@@ -11,6 +11,7 @@ from .sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
 from .eeat_analyzer import analyze_eeat, EeatAnalysisResult, EeatFinding
 from .freshness_analyzer import analyze_freshness, FreshnessAnalysisResult, FreshnessFinding
 from .similarity import compute_simhash, hamming_distance, jaccard_similarity
+from .security_analyzer import SecurityAnalyzer, PromptInjectionFinding
 
 __all__ = [
     "analyze_target_http",
@@ -27,4 +28,9 @@ __all__ = [
     "ContentFinding",
     "parse_sitemap_xml",
     "SitemapAnalysisResult",
+    "compute_simhash",
+    "hamming_distance",
+    "jaccard_similarity",
+    "SecurityAnalyzer",
+    "PromptInjectionFinding",
 ]

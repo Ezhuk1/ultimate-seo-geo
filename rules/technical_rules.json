@@ -15,7 +15,8 @@
       "tier": "Tier A (HTTP Protocol)",
       "selector": "HTTP Fetch",
       "description": "Target URL must be reachable and respond to HTTP requests.",
-      "remediation": "Verify network connectivity, DNS resolution, and target host availability."
+      "remediation": "Verify network connectivity, DNS resolution, and target host availability.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "TECH-HTTP-STATUS-000",
@@ -30,7 +31,8 @@
       "tier": "Tier A (HTTP Protocol)",
       "selector": "HTTP Status",
       "description": "Page must return HTTP 200 OK. 4xx and 5xx errors prevent crawling, indexing, and LLM synthesis.",
-      "remediation": "Resolve server errors or routing issues to ensure target URL returns HTTP 200 OK."
+      "remediation": "Resolve server errors or routing issues to ensure target URL returns HTTP 200 OK.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "TECH-CANONICAL-001",
@@ -42,10 +44,11 @@
       "max_penalty_cap": 15,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (RFC 6596)",
+      "tier": "Tier A (RFC 6596 & RFC 8288)",
       "selector": "link[rel='canonical']",
       "description": "Page should declare a self-referencing absolute HTTPS canonical URL to consolidate indexing signals.",
-      "remediation": "Add <link rel='canonical' href='https://example.com/canonical-path' /> inside <head>."
+      "remediation": "Add <link rel='canonical' href='https://example.com/canonical-path' /> inside <head>.",
+      "source_id": "SRC-RFC-8288"
     },
     {
       "id": "TECH-ROBOTS-AI-002",
@@ -57,10 +60,11 @@
       "max_penalty_cap": 25,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (RFC 9309)",
+      "tier": "Tier A (RFC 9309 Protocol)",
       "selector": "robots.txt",
       "description": "AI search bots (GPTBot, ClaudeBot, PerplexityBot) must be permitted on public routes while private routes (/api/, /admin/) are explicitly disallowed.",
-      "remediation": "Update robots.txt with dedicated User-agent blocks duplicating private disallows."
+      "remediation": "Update robots.txt with dedicated User-agent blocks duplicating private disallows.",
+      "source_id": "SRC-RFC-9309"
     },
     {
       "id": "TECH-TITLE-003",
@@ -75,7 +79,8 @@
       "tier": "Tier E (Display Heuristic)",
       "selector": "title",
       "description": "Page title should be between 30 and 65 characters to avoid SERP snippet truncation.",
-      "remediation": "Set <title> to 50–60 characters formatted as 'Primary Topic - Key Benefit | Brand'."
+      "remediation": "Set <title> to 50–60 characters formatted as 'Primary Topic - Key Benefit | Brand'.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-META-DESC-004",
@@ -90,7 +95,8 @@
       "tier": "Tier E (Snippet Heuristic)",
       "selector": "meta[name='description']",
       "description": "Page should provide a descriptive meta description between 100 and 165 characters.",
-      "remediation": "Provide <meta name='description' content='...' /> summarizing unique value proposition (120-160 chars)."
+      "remediation": "Provide <meta name='description' content='...' /> summarizing unique value proposition (120-160 chars).",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-H1-OUTLINE-005",
@@ -105,7 +111,8 @@
       "tier": "Tier E (Semantic Recommendation)",
       "selector": "h1",
       "description": "Page should have exactly one clear primary <h1> heading defining the page topic.",
-      "remediation": "Ensure exactly one <h1> heading is present and accurately describes the primary entity."
+      "remediation": "Ensure exactly one <h1> heading is present and accurately describes the primary entity.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-VIEWPORT-006",
@@ -120,7 +127,8 @@
       "tier": "Tier A (W3C Mobile Standard)",
       "selector": "meta[name='viewport']",
       "description": "Page must define responsive viewport meta tag for mobile indexability.",
-      "remediation": "Add <meta name='viewport' content='width=device-width, initial-scale=1.0' />."
+      "remediation": "Add <meta name='viewport' content='width=device-width, initial-scale=1.0' />.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "PERF-CWV-FIELD-007",
@@ -132,10 +140,11 @@
       "max_penalty_cap": 0,
       "confidence_type": "field_telemetry",
       "unknown_policy": "exclude",
-      "tier": "Tier C (CrUX Dataset)",
+      "tier": "Tier C (Empirical CrUX Research)",
       "selector": "CrUX API",
       "description": "Real-user field measurements (LCP <= 2.5s, INP <= 200ms, CLS <= 0.1).",
-      "remediation": "Inspect field metrics via Google Search Console CrUX report."
+      "remediation": "Inspect field metrics via Google Search Console CrUX report.",
+      "source_id": "SRC-GEO-PRINCETON"
     },
     {
       "id": "TECH-CSR-SHELL-008",
@@ -147,10 +156,11 @@
       "max_penalty_cap": 25,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (HTTP Protocol & Crawler Indexation)",
+      "tier": "Tier B (Search Engine Indexing Spec)",
       "selector": "div#root, div#app, div#__next",
       "description": "Pages relying on client-side rendering with empty initial HTML shells are invisible to fast AI search crawlers (GPTBot, ClaudeBot, PerplexityBot) that do not execute JavaScript.",
-      "remediation": "Implement Server-Side Rendering (SSR), Static Site Generation (SSG), or pre-rendering so that semantic HTML and Schema.org are delivered in the initial HTTP wire payload."
+      "remediation": "Implement Server-Side Rendering (SSR), Static Site Generation (SSG), or pre-rendering so that semantic HTML and Schema.org are delivered in the initial HTTP wire payload.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-NOINDEX-009",
@@ -165,7 +175,8 @@
       "tier": "Tier A (RFC 9309 & Search Protocols)",
       "selector": "meta[name='robots'], X-Robots-Tag",
       "description": "Pages intended for public search must not specify noindex directives in meta tags or HTTP headers.",
-      "remediation": "Remove 'noindex' from meta robots or HTTP X-Robots-Tag response header."
+      "remediation": "Remove 'noindex' from meta robots or HTTP X-Robots-Tag response header.",
+      "source_id": "SRC-RFC-9309"
     },
     {
       "id": "TECH-IMG-ALT-010",
@@ -177,10 +188,11 @@
       "max_penalty_cap": 10,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (W3C WCAG Standard)",
+      "tier": "Tier E (WCAG Accessibility Heuristic)",
       "selector": "img:not([alt])",
       "description": "Informational images must provide descriptive alt text for accessibility and search engines.",
-      "remediation": "Add descriptive alt='...' for content images or alt='' for decorative graphics."
+      "remediation": "Add descriptive alt='...' for content images or alt='' for decorative graphics.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-SITEMAP-011",
@@ -195,7 +207,8 @@
       "tier": "Tier A (sitemaps.org Protocol)",
       "selector": "sitemap.xml",
       "description": "Public sites must provide a valid XML sitemap with absolute HTTPS URLs and valid lastmod dates.",
-      "remediation": "Generate and validate sitemap.xml ensuring target URLs are included with valid ISO 8601 lastmod dates."
+      "remediation": "Generate and validate sitemap.xml ensuring target URLs are included with valid ISO 8601 lastmod dates.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-LANG-012",
@@ -210,7 +223,8 @@
       "tier": "Tier A (W3C HTML Standard)",
       "selector": "html[lang]",
       "description": "The <html> element should declare a valid lang attribute (e.g., lang='en') to guide crawler localization and text-to-speech synthesis.",
-      "remediation": "Add lang='...' attribute to the root <html> tag."
+      "remediation": "Add lang='...' attribute to the root <html> tag.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-CHARSET-013",
@@ -225,7 +239,8 @@
       "tier": "Tier A (W3C HTML Standard)",
       "selector": "meta[charset]",
       "description": "Page must declare character encoding early in <head> or via HTTP Content-Type header to avoid mojibake and encoding misinterpretation.",
-      "remediation": "Add <meta charset='utf-8'> as the first child of <head>."
+      "remediation": "Add <meta charset='utf-8'> as the first child of <head>.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-TITLE-DUP-014",
@@ -237,10 +252,11 @@
       "max_penalty_cap": 10,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (W3C HTML Standard)",
+      "tier": "Tier B (Search Engine Best Practice)",
       "selector": "title",
       "description": "Document must contain at most one <title> element in <head>. Duplicate titles cause non-deterministic SERP snippet generation.",
-      "remediation": "Remove extra <title> tags, ensuring only one canonical title exists."
+      "remediation": "Remove extra <title> tags, ensuring only one canonical title exists.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-DESC-DUP-015",
@@ -255,7 +271,8 @@
       "tier": "Tier E (Snippet Heuristic)",
       "selector": "meta[name='description']",
       "description": "Document should contain at most one meta description tag to prevent search engines discarding descriptions due to ambiguity.",
-      "remediation": "Remove duplicate meta description tags."
+      "remediation": "Remove duplicate meta description tags.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "PERF-TTFB-016",
@@ -267,10 +284,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier B (Server Performance)",
+      "tier": "Tier B (Search Engine Performance Threshold)",
       "selector": "HTTP Wire Response Time",
       "description": "Server wire response time (TTFB) should be under 1500ms to preserve crawl budget and mobile user experience.",
-      "remediation": "Optimize server backend, enable HTTP caching, or deploy edge CDN."
+      "remediation": "Optimize server backend, enable HTTP caching, or deploy edge CDN.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "SOCIAL-OG-017",
@@ -282,10 +300,11 @@
       "max_penalty_cap": 0,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (Social Protocol)",
+      "tier": "Tier E (Social Sharing Heuristic)",
       "selector": "meta[property^='og:']",
       "description": "Page should provide essential Open Graph tags (og:title, og:image) for rich social media cards and AI multi-modal previews.",
-      "remediation": "Add og:title, og:description, and og:image meta tags to <head>."
+      "remediation": "Add og:title, og:description, and og:image meta tags to <head>.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-REDIRECT-018",
@@ -297,10 +316,11 @@
       "max_penalty_cap": 10,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (HTTP Protocol)",
+      "tier": "Tier A (HTTP Protocol RFC 9110)",
       "selector": "HTTP Redirect Chain",
       "description": "Redirect chains should not exceed 2 hops, and permanent relocations should use HTTP 301 rather than 302.",
-      "remediation": "Eliminate intermediate redirect hops and use permanent 301 redirects for canonical URLs."
+      "remediation": "Eliminate intermediate redirect hops and use permanent 301 redirects for canonical URLs.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "TECH-CANONICAL-TRAILING-019",
@@ -312,10 +332,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (Canonicalization)",
+      "tier": "Tier B (Search Engine Canonicalization)",
       "selector": "link[rel='canonical']",
       "description": "Canonical URL trailing slash convention should match the requested target URL to avoid redundant redirects or self-canonical mismatch.",
-      "remediation": "Ensure trailing slash consistency between canonical and requested URL."
+      "remediation": "Ensure trailing slash consistency between canonical and requested URL.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-CANONICAL-WWW-020",
@@ -327,10 +348,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (Canonicalization)",
+      "tier": "Tier B (Search Engine Canonicalization)",
       "selector": "link[rel='canonical']",
       "description": "Canonical hostname www/non-www convention must strictly match the target host.",
-      "remediation": "Set canonical URL host to match the site's primary canonical domain (www vs non-www)."
+      "remediation": "Set canonical URL host to match the site's primary canonical domain (www vs non-www).",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "PERF-COMPRESSION-021",
@@ -342,10 +364,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier B (Wire Transfer)",
+      "tier": "Tier A (HTTP Content-Encoding RFC 9110)",
       "selector": "Content-Encoding",
       "description": "HTML and text assets should be compressed with Brotli (br), gzip, or zstd to reduce payload size and latency.",
-      "remediation": "Enable gzip, Brotli, or zstd compression on the web server or CDN."
+      "remediation": "Enable gzip, Brotli, or zstd compression on the web server or CDN.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "PERF-CACHE-022",
@@ -357,10 +380,11 @@
       "max_penalty_cap": 0,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier B (Server Caching)",
+      "tier": "Tier A (HTTP Caching RFC 9111)",
       "selector": "Cache-Control",
       "description": "Responses should specify Cache-Control headers to instruct crawlers and proxies on cacheability.",
-      "remediation": "Configure appropriate Cache-Control headers on static and dynamic assets."
+      "remediation": "Configure appropriate Cache-Control headers on static and dynamic assets.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "TECH-SOFT-404-025",
@@ -372,10 +396,11 @@
       "max_penalty_cap": 20,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier A (HTTP Protocol)",
+      "tier": "Tier A (HTTP Protocol RFC 9110)",
       "selector": "HTTP 200 with 404 content",
       "description": "The server returns HTTP 200 OK for a page that communicates missing content or 404 error text. Crawlers will waste crawl budget indexing empty error pages.",
-      "remediation": "Return genuine HTTP 404 Not Found or 410 Gone status code for missing resources."
+      "remediation": "Return genuine HTTP 404 Not Found or 410 Gone status code for missing resources.",
+      "source_id": "SRC-RFC-9110"
     },
     {
       "id": "TECH-SITEMAP-LIMIT-026",
@@ -390,7 +415,8 @@
       "tier": "Tier A (sitemaps.org Protocol)",
       "selector": "sitemap.xml",
       "description": "A single sitemap file must not contain more than 50,000 URLs per sitemaps.org specification.",
-      "remediation": "Split large sitemaps into multiple files and reference them via a sitemap index."
+      "remediation": "Split large sitemaps into multiple files and reference them via a sitemap index.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
       "id": "TECH-HEADING-HIERARCHY-027",
@@ -402,10 +428,11 @@
       "max_penalty_cap": 0,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (W3C HTML & Accessibility)",
+      "tier": "Tier F (Accessibility Recommendation)",
       "selector": "h1, h2, h3, h4, h5, h6",
       "description": "Heading levels should follow a structured hierarchical outline without skipping levels and without empty heading tags.",
-      "remediation": "Structure headings hierarchically without skipping levels (H1 -> H2 -> H3) and remove empty heading tags."
+      "remediation": "Structure headings hierarchically without skipping levels (H1 -> H2 -> H3) and remove empty heading tags.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-LINK-ANCHOR-028",
@@ -417,10 +444,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (WCAG Accessibility & Link Signals)",
+      "tier": "Tier E (Link Context Heuristic)",
       "selector": "a:not([aria-label])",
       "description": "Links must contain descriptive anchor text, an aria-label, or an image with alt text. Empty links provide no context to search engines or screen readers.",
-      "remediation": "Provide descriptive text or aria-label for all clickable hyperlink elements."
+      "remediation": "Provide descriptive text or aria-label for all clickable hyperlink elements.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-FORM-LABEL-029",
@@ -432,10 +460,11 @@
       "max_penalty_cap": 5,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (WCAG Accessibility)",
+      "tier": "Tier F (Accessibility Recommendation)",
       "selector": "input, textarea, select",
       "description": "Interactive form inputs must have associated <label> elements or aria-label attributes for accessibility and assistive agents.",
-      "remediation": "Associate every input with a <label for='id'> or add aria-label attributes."
+      "remediation": "Associate every input with a <label for='id'> or add aria-label attributes.",
+      "source_id": "SRC-W3C-HTML5"
     },
     {
       "id": "TECH-LANDMARKS-030",
@@ -447,10 +476,43 @@
       "max_penalty_cap": 0,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
-      "tier": "Tier E (W3C HTML Standard)",
+      "tier": "Tier F (HTML Landmark Recommendation)",
       "selector": "header, nav, main, footer",
       "description": "Web documents should utilize semantic HTML5 landmark elements (<main>, <nav>, <header>, <footer>) to demarcate page layout regions.",
-      "remediation": "Wrap primary page content in <main> and use <nav>, <header>, and <footer> semantic tags."
+      "remediation": "Wrap primary page content in <main> and use <nav>, <header>, and <footer> semantic tags.",
+      "source_id": "SRC-W3C-HTML5"
+    },
+    {
+      "id": "SEC-PROMPT-INJECTION-001",
+      "name": "Web Content Prompt Injection Defense",
+      "category": "security",
+      "severity": "CRITICAL",
+      "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier D (Industry Security Standard)",
+      "source_id": "SRC-SECURITY-PROMPT-INJECTION",
+      "selector": "Prompt Injection Scanner",
+      "description": "Scanned web page content must not contain adversarial jailbreaks or prompt injections targeting AI models.",
+      "remediation": "Sanitize and isolate untrusted user/web content to prevent LLM prompt manipulation."
+    },
+    {
+      "id": "TECH-CONFLICTED-INDEX-031",
+      "name": "Indexability Signal Conflict",
+      "category": "technical",
+      "severity": "CRITICAL",
+      "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (Protocol / Standard)",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL",
+      "selector": "Indexability Matrix",
+      "description": "Page exhibits contradictory indexing directives (e.g., sitemap inclusion vs robots.txt Disallow, or self-canonical vs noindex).",
+      "remediation": "Align robots.txt, meta robots tags, canonical URLs, and sitemap entries into a consistent configuration."
     }
   ]
 }

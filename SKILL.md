@@ -118,10 +118,12 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
      - *Freshness & Temporal (5%):* Publication/modification dates and temporal consistency `[DOCUMENTED]`.
      - *AI Crawler Access (5%):* Search & retrieval AI bots permitted in robots.txt `[STANDARD]`.
    - *Epistemic Rating & Coverage:* Reports confidence (`HIGH`, `MEDIUM`, `LOW`) and explicitly enumerates unmeasured dimensions (`freshness`, `brand footprint`).
-4. **Independent Security Hygiene Score (0–100) [STANDARD]:**
-   - Strictly segregated dimension (HTTPS 25%, HSTS 25%, Mixed Content 25%, Security Headers 25%). Never conflated with technical SEO penalties.
-5. **Deterministic Indexability Matrix [STANDARD]:**
-   - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`) across HTTP status, Canonical URL, Meta Robots, X-Robots-Tag, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
+4. **Independent Security & Prompt Injection Hygiene Score (0–100) [STANDARD / OWASP]:**
+   - Strictly segregated dimension (HTTPS 25%, HSTS 25%, Mixed Content 25%, Security Headers 25%).
+   - **Web Content Prompt Injection Defense (`SEC-PROMPT-INJECTION-001`):** Autonomous scanning for indirect prompt injection vectors (role overrides, instruction hijacking, `<|im_start|>` delimiters, hidden CSS overlays) in crawled web text, protecting LLM synthesis contexts.
+5. **Deterministic Indexability Matrix v2 [STANDARD]:**
+   - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`, `CONFLICTED`) across HTTP status, Canonical URL, Meta Robots, X-Robots-Tag, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
+   - Flags explicit conflicts (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex).
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
 Structure all action items into actionable tiers accompanied by testable verification criteria:

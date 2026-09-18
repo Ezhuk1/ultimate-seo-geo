@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "3.1.0",
+  "thresholds": {
+    "technical_score": 80,
+    "geo_score": 70,
+    "coverage_pct": 60.0,
+    "security_score": 75
+  },
+  "crawl": {
+    "max_pages": 50,
+    "max_depth": 3,
+    "rate_limit_delay": 0.2,
+    "timeout": 15.0
+  },
+  "disabled_rules": [],
+  "strict_mode": false
+}

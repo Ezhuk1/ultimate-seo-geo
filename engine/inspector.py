@@ -22,8 +22,11 @@ from .analyzers.content_analyzer import analyze_content
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
 from .analyzers.eeat_analyzer import analyze_eeat
 from .analyzers.freshness_analyzer import analyze_freshness
+from .analyzers.security_analyzer import SecurityAnalyzer
 from .sarif import format_sarif_json, generate_sarif_report
-from .indexability import evaluate_indexability_matrix
+from .indexability import evaluate_indexability_matrix, VERDICT_CONFLICTED
+from .config import EngineConfig
+from .experiment import compare_experiments, render_experiment_markdown
 from .ledger import (
     LedgerBuilder,
     EvidenceLedger,
@@ -143,18 +146,50 @@ def run_inspection(
 
     builder.set_raw(status_code, headers, body_text, response_time_ms, robots_content)
 
+    # Prompt injection check on raw web content (OWASP LLM01 Defense)
+    sec_findings = SecurityAnalyzer.analyze(body_text)
+    if sec_findings:
+        for sf in sec_findings:
+            builder.add_evidence(
+                rule_id="SEC-PROMPT-INJECTION-001",
+                category="security",
+                title="Web Content Prompt Injection Defense",
+                status=STATUS_CRITICAL,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=sf.snippet,
+                expected="Web page content must not contain adversarial prompt injections or system delimiters",
+                message=f"Adversarial prompt injection pattern ({sf.pattern_type}) detected in {sf.location}: {sf.snippet}",
+                evidence_snippet=sf.snippet,
+                tier="Tier D (Industry Security Standard)"
+            )
+            builder.add_finding(
+                rule_id="SEC-PROMPT-INJECTION-001",
+                category="security",
+                severity=STATUS_CRITICAL,
+                title="Prompt Injection Attack Detected in Web Content",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P0_BLOCKER",
+                remediation_steps=[
+                    "Isolate untrusted page content. Do not pass untrusted markup directly into LLM system prompts.",
+                    f"Remove adversarial directive from {sf.location}: '{sf.snippet}'"
+                ],
+                impact_estimate="Critical risk of LLM prompt manipulation, jailbreak, or forced rating falsification.",
+                tier="Tier D (Industry Security Standard)"
+            )
+
     # 2. HTML Inspection
     html_data = analyze_target_html(body_text, base_url=target)
 
     # 3. Schema Inspection
     schema_data = analyze_json_ld(html_data["json_ld_raw_blocks"])
 
-    # 4. Content & GEO Inspection
+    # 4. Content & GEO Inspection (Sanitized from Adversarial Payloads)
     content_text = (
         html_data.get("main_text")
         if html_data.get("main_text") and len(html_data["main_text"].split()) >= 30
         else html_data.get("visible_text", html_data.get("visible_text_preview", ""))
     )
+    content_text = SecurityAnalyzer.sanitize_for_llm(content_text)
     content_data = analyze_content(
         content_text,
         headings=html_data["headings"].get("outline", [])
@@ -293,6 +328,35 @@ def run_inspection(
     )
     builder.metadata["indexability_matrix"] = idx_matrix.to_dict()
     builder.metadata["indexability_verdict"] = idx_matrix.verdict
+
+    # TECH-CONFLICTED-INDEX-031: Contradictory indexing signals
+    if idx_matrix.verdict == VERDICT_CONFLICTED:
+        conf_details = " | ".join(idx_matrix.conflicting_signals)
+        builder.add_evidence(
+            rule_id="TECH-CONFLICTED-INDEX-031",
+            category="technical",
+            title="Indexability Signal Conflict",
+            status=STATUS_CRITICAL,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=conf_details,
+            expected="Consistent and uncontradicted crawl/index directives",
+            message=f"Contradictory indexability directives detected: {conf_details}",
+            tier="Tier A (Protocol / Standard)"
+        )
+        builder.add_finding(
+            rule_id="TECH-CONFLICTED-INDEX-031",
+            category="technical",
+            severity=STATUS_CRITICAL,
+            title="Contradictory Indexability Signals",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P0_BLOCKER",
+            remediation_steps=[
+                "Resolve contradictory instructions across sitemap, robots.txt, canonical, and meta tags.",
+                *[f"Fix conflict: {c}" for c in idx_matrix.conflicting_signals]
+            ],
+            impact_estimate="Search engines and AI scrapers receive opposing instructions, leading to arbitrary indexing drops or canonical confusion.",
+            tier="Tier A (Protocol / Standard)"
+        )
 
     # 7. Evaluate Rules -> EVIDENCE & FINDINGS
 
@@ -1932,12 +1996,21 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     idx_dict = ledger.metadata.get("indexability_matrix")
     if idx_dict:
         verdict = idx_dict.get("verdict", "UNKNOWN")
-        v_badge = "**[INDEXABLE]**" if verdict == "INDEXABLE" else ("**[BLOCKED]**" if verdict == "BLOCKED" else "**[AMBIGUOUS]**")
+        if verdict == "INDEXABLE":
+            v_badge = "**[INDEXABLE]**"
+        elif verdict == "BLOCKED":
+            v_badge = "**[BLOCKED]**"
+        elif verdict == "CONFLICTED":
+            v_badge = "**[CONFLICTED]**"
+        else:
+            v_badge = "**[AMBIGUOUS]**"
         md.append("## Indexability Matrix")
         md.append("")
         md.append(f"> **Final Indexability Verdict**: {v_badge} (Confidence: **{idx_dict.get('confidence_score', 0)}%**)")
         if idx_dict.get("blockers"):
             md.append(f"> **Active Indexability Blockers**: {', '.join(idx_dict['blockers'])}")
+        if idx_dict.get("conflicting_signals"):
+            md.append(f"> **Contradictory Directives**: {'; '.join(idx_dict['conflicting_signals'])}")
         md.append("")
         md.append("| Vector | Status | Evaluated Value / Reason |")
         md.append("| :--- | :--- | :--- |")
@@ -1965,7 +2038,6 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append("## GEO Readiness Breakdown (8 Dimensions)")
         md.append("")
         md.append(f"> **GEO Readiness Index**: **{scores.geo_readiness_index} / 100** ({scores.geo_maturity_tier})  ")
-        md.append(f"> **Confidence**: **{geo.confidence}** ({geo.measured_count}/{geo.total_dimensions} dimensions measured)  ")
         unk_str = ", ".join(geo.unknown_dimensions) if geo.unknown_dimensions else "None"
         md.append(f"> **Unknown Dimensions**: `{unk_str}`  ")
         md.append("")
@@ -1979,6 +2051,8 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append(f"| **Schema & Entity Graph** | 10 | **{geo.schema_graph} pts** | Interconnected JSON-LD graph with stable @id anchors |")
         md.append(f"| **Freshness & Temporal** | 5 | **{geo.freshness} pts** | Publication/modification dates and temporal consistency |")
         md.append(f"| **AI Crawler Access** | 5 | **{geo.ai_crawler_access} pts** | Search & retrieval AI bots permitted in robots.txt |")
+        md.append("")
+        md.append("> *Non-Guarantee Policy*: High GEO Readiness indicates document extractability and retrieval readiness; it does not guarantee neural generation or citation by third-party AI models.")
         md.append("")
 
     # E-E-A-T Profile
@@ -2056,8 +2130,8 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     # Full Evidence Ledger Table
     md.append("## Complete Evidence Ledger")
     md.append("")
-    md.append("| Category | Rule ID | Status | Confidence | Observed Value | Expected Contract |")
-    md.append("| :--- | :--- | :--- | :--- | :--- | :--- |")
+    md.append("| Category | Rule ID | Tier | Status | Confidence | Observed Value | Expected Contract |")
+    md.append("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
     for ev in ledger.evidence:
         status_badge = (
             "[CRITICAL]" if ev.status == STATUS_CRITICAL
@@ -2067,7 +2141,8 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         )
         obs_str = str(ev.observed).replace("\n", " ")[:60]
         exp_str = str(ev.expected).replace("\n", " ")[:60]
-        md.append(f"| `{ev.category}` | `{ev.rule_id}` | `{status_badge}` | `{ev.confidence}` | {obs_str} | {exp_str} |")
+        ev_tier = getattr(ev, "tier", "") or "Tier E"
+        md.append(f"| `{ev.category}` | `{ev.rule_id}` | `{ev_tier}` | `{status_badge}` | `{ev.confidence}` | {obs_str} | {exp_str} |")
     md.append("")
 
     return "\n".join(md)
@@ -2080,7 +2155,7 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.0.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.1.0")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
@@ -2097,8 +2172,33 @@ def main():
     parser.add_argument("--crawl", action="store_true", help="Enable multi-page crawl mode starting from target URL")
     parser.add_argument("--max-pages", type=int, default=50, help="Maximum number of pages to crawl (default: 50)")
     parser.add_argument("--depth", type=int, default=3, help="Maximum crawl depth from seed (default: 3)")
+    parser.add_argument("--config", default=None, help="Path to ultimate-seo-geo.json configuration file")
+    parser.add_argument("--experiment", action="store_true", help="Run AI Citation Benchmark Before/After experiment comparison")
+    parser.add_argument("--before", help="Path to baseline benchmark JSON file")
+    parser.add_argument("--after", help="Path to post-optimization benchmark JSON file")
 
     args = parser.parse_args()
+
+    # AI Citation Benchmark Experiment Mode
+    if args.experiment:
+        if not args.before or not args.after:
+            parser.error("--experiment requires both --before <file> and --after <file>")
+        comp_res = compare_experiments(args.before, args.after)
+        if args.format == "json":
+            import json
+            out_str = json.dumps(comp_res, indent=2)
+        else:
+            out_str = render_experiment_markdown(comp_res)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(out_str)
+            print(f"Experiment results saved to {args.output}")
+        else:
+            print(out_str)
+        return
+
+    # Load configuration
+    cfg = EngineConfig.load(args.config)
 
     # Standalone Schema Validation Mode
     if args.validate_schema:

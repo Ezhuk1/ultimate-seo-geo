@@ -2,6 +2,26 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.1.0] - 2026-09-18
+
+### Added
+- **Epistemic Tier System & Source Registry (`references/sources.json`, `METHODOLOGY.md`):**
+  - Standardized all rules and evidence ledger findings with strict 6-tier classification (`Tier A`..`Tier F`) and explicit linkage to verified primary sources (RFCs, W3C, Schema.org, Google Search Central, Princeton KDD, OWASP).
+  - Deterministic anti-inflation validator (`validate_epistemic_integrity()`) preventing promotion of heuristics or unofficial tips to standard protocols.
+- **Web Content Prompt Injection Defense (`engine/analyzers/security_analyzer.py`):**
+  - Scans crawled web content for adversarial prompt injection payloads targeting LLMs: direct instruction overrides, role hijacks, delimiter attacks (`[INST]`, `<|im_start|>`), and hidden CSS elements (`display:none`, `font-size:0`, invisible comments).
+  - Segregated `SEC-PROMPT-INJECTION-001` critical security finding and sanitization utility (`sanitize_for_llm()`).
+- **Indexability Matrix v2 (`engine/indexability.py`):**
+  - Added `CONFLICTED` state with explicit multi-signal conflict detection (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex, HTTP header vs meta tag robots).
+- **AI Citation Benchmark Experimental Layer (`engine/experiment.py`):**
+  - Structured tracking of citation experiments (`experiments/sample_before.json`, `experiments/sample_after.json`) with strict non-causal disclaimers preserving epistemic integrity.
+- **Unified Engine Configuration (`ultimate-seo-geo.json`, `engine/config.py`):**
+  - Centralized configurable thresholds, timeouts, and scoring parameters with graceful fallback defaults.
+- **Expanded Test Harness (53 automated tests passing):**
+  - 10/10 Canonical fixture evals.
+  - 20/20 Negative mutation and adversarial defense tests.
+  - 23/23 Deterministic engine integration tests.
+
 ## [3.0.0] - 2026-09-17
 
 ### Added

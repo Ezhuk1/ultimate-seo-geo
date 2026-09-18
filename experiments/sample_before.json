@@ -1,0 +1,35 @@
+{
+  "target_brand": "AcmeCloud",
+  "target_domain": "acmecloud.io",
+  "competitors": ["rivalcloud.com", "legacytech.org"],
+  "samples": [
+    {
+      "query_id": "q1",
+      "query_text": "best managed kubernetes hosting 2026",
+      "engine": "Perplexity",
+      "answer_text": "RivalCloud and LegacyTech lead in managed kubernetes, while AcmeCloud is an emerging alternative.",
+      "sources": ["https://rivalcloud.com/k8s", "https://legacytech.org", "https://acmecloud.io/k8s"]
+    },
+    {
+      "query_id": "q2",
+      "query_text": "zero downtime postgres database providers",
+      "engine": "Google AI Overviews",
+      "answer_text": "RivalCloud provides automated zero-downtime failover for enterprise Postgres instances.",
+      "sources": ["https://rivalcloud.com/postgres", "https://techradar.com/review"]
+    },
+    {
+      "query_id": "q3",
+      "query_text": "how to implement edge caching for fast ttfb",
+      "engine": "ChatGPT Search",
+      "answer_text": "Edge caching can be deployed via Cloudflare or AcmeCloud edge workers to reduce TTFB below 200ms.",
+      "sources": ["https://cloudflare.com", "https://acmecloud.io/edge", "https://rivalcloud.com"]
+    },
+    {
+      "query_id": "q4",
+      "query_text": "best serverless redis solutions",
+      "engine": "Claude",
+      "answer_text": "LegacyTech offers mature Redis clusters with high throughput.",
+      "sources": ["https://legacytech.org/redis"]
+    }
+  ]
+}

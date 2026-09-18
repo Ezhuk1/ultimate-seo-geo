@@ -1,13 +1,13 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Version: 3.0.0](https://img.shields.io/badge/Version-3.0.0-blue.svg)](evals/CHANGELOG.md)
+[![Version: 3.1.0](https://img.shields.io/badge/Version-3.1.0-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
 [![Language](https://img.shields.io/badge/Language-English%20%7C%20Русский-purple.svg)](#language--язык)
 
 > **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) intelligence platform for AI agents & CI/CD pipelines.**  
-> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, zero dependencies) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), evaluates E-E-A-T trust signals & content freshness, crawls site architecture & internal links, validates unified Schema.org `@graph` ASTs, and enforces CI/CD quality gates via OASIS SARIF v2.1.0.
+> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, zero dependencies) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, protects against web content prompt injection (`SEC-PROMPT-INJECTION-001`), classifies signals into 6 epistemic tiers (Tier A–F), maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), evaluates E-E-A-T trust signals & content freshness, crawls site architecture & internal links, resolves indexability signal conflicts (`CONFLICTED`), validates unified Schema.org `@graph` ASTs, benchmarks AI citations, and enforces CI/CD quality gates via OASIS SARIF v2.1.0.
 
 ---
 
@@ -30,7 +30,8 @@ Modern AI Search operates in **two interconnected stages**:
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ STAGE 1: CANDIDATE RETRIEVAL (Traditional Technical SEO)                                                        │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ • Indexability Matrix: Multi-signal verdict (HTTP 200, Canonical, Robots, Sitemap, Internal links)             │
+│ • Indexability Matrix v2: Multi-signal verdict (INDEXABLE, BLOCKED, AMBIGUOUS, CONFLICTED)                      │
+│ • Prompt Injection Defense: Detection of instruction hijacking, role overrides, hidden CSS (SEC-PROMPT-INJECTION) │
 │ • Crawlability & Site Architecture (Polite BFS Crawler, crawl depth, orphan candidate identification)          │
 │ • Canonicalization (RFC 6596) & Document Outline (Single H1, semantic H2-H6 hierarchy)                         │
 │ • Server-Side Rendering (SSR/SSG): Detection of empty CSR shells (div#root) blinding fast AI scrapers          │
