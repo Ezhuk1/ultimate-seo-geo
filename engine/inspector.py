@@ -1371,30 +1371,105 @@ def run_inspection(
 
     # SOCIAL-OG-017: Open Graph Metadata
     og_data = html_data.get("open_graph", {})
-    has_og_title = bool(og_data.get("og:title"))
-    has_og_image = bool(og_data.get("og:image"))
-    if not (has_og_title and has_og_image):
+    if not og_data:
         builder.add_evidence(
             rule_id="SOCIAL-OG-017",
             category="technical",
             title="Open Graph Metadata",
             status=STATUS_INFO,
             confidence=CONFIDENCE_VERIFIED,
-            observed="Incomplete Open Graph tags" if og_data else "No Open Graph tags",
-            expected="og:title and og:image declared",
-            message="Document lacks essential Open Graph metadata (og:title, og:image) for rich social media cards."
+            observed="No Open Graph tags declared",
+            expected="og:title, og:type, og:image, and og:url declared",
+            message="Document lacks Open Graph metadata tags for rich social media cards across Meta (Threads/Facebook/Instagram), Telegram, and LinkedIn."
         )
     else:
+        required_og = ["og:title", "og:type", "og:image", "og:url"]
+        missing_required = [tag for tag in required_og if not og_data.get(tag)]
+        if missing_required:
+            meta_note = " Note: Meta (Threads/Facebook/Instagram) strictly requires 'og:type' to compile preview objects and monetization assets." if "og:type" in missing_required else ""
+            builder.add_evidence(
+                rule_id="SOCIAL-OG-017",
+                category="technical",
+                title="Open Graph Metadata",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Missing: {', '.join(missing_required)}",
+                expected="og:title, og:type, og:image, and og:url declared",
+                message=f"Incomplete Open Graph protocol configuration. Missing required tags: {', '.join(missing_required)}.{meta_note}"
+            )
+            builder.add_finding(
+                rule_id="SOCIAL-OG-017",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Incomplete Open Graph Protocol Metadata",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    f"Declare missing Open Graph tags in <head>: {', '.join(missing_required)}.",
+                    "In Next.js, ensure child pages re-specify 'type: website' when overriding openGraph."
+                ],
+                impact_estimate="Meta (Threads, Instagram, Facebook) and social scrapers cannot generate rich link cards or monetization objects."
+            )
+        else:
+            og_type_val = og_data.get("og:type")
+            builder.add_evidence(
+                rule_id="SOCIAL-OG-017",
+                category="technical",
+                title="Open Graph Metadata",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"og:title, og:type ('{og_type_val}'), og:image, and og:url present",
+                expected="og:title, og:type, og:image, and og:url declared",
+                message=f"Essential Open Graph metadata tags are configured (type: '{og_type_val}')."
+            )
+
+    # SOCIAL-TWITTER-032: Twitter Card Metadata
+    tw_data = html_data.get("twitter_card", {})
+    if not tw_data:
         builder.add_evidence(
-            rule_id="SOCIAL-OG-017",
+            rule_id="SOCIAL-TWITTER-032",
             category="technical",
-            title="Open Graph Metadata",
-            status=STATUS_PASS,
+            title="Twitter Card Metadata",
+            status=STATUS_INFO,
             confidence=CONFIDENCE_VERIFIED,
-            observed="og:title and og:image present",
-            expected="og:title and og:image declared",
-            message="Essential Open Graph metadata tags are configured."
+            observed="No Twitter Card tags declared",
+            expected="twitter:card declared (e.g. summary_large_image)",
+            message="Document does not declare explicit Twitter card tags; social crawlers on X/Twitter will attempt fallback to Open Graph metadata."
         )
+    else:
+        card_type = tw_data.get("twitter:card")
+        if not card_type:
+            builder.add_evidence(
+                rule_id="SOCIAL-TWITTER-032",
+                category="technical",
+                title="Twitter Card Metadata",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="twitter:card tag is missing",
+                expected="twitter:card declared with 'summary' or 'summary_large_image'",
+                message="Twitter card properties are declared, but 'twitter:card' is missing. Rich previews on X/Twitter cannot render without a valid card type."
+            )
+            builder.add_finding(
+                rule_id="SOCIAL-TWITTER-032",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Twitter Card Type Tag Missing",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Add <meta name='twitter:card' content='summary_large_image'> to <head>."],
+                impact_estimate="X/Twitter cannot render rich summary cards without an explicit twitter:card tag."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="SOCIAL-TWITTER-032",
+                category="technical",
+                title="Twitter Card Metadata",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"twitter:card='{card_type}' present",
+                expected="twitter:card declared",
+                message=f"Twitter Card metadata is configured with card type '{card_type}'."
+            )
 
     # TECH-REDIRECT-018: Redirect Chain Integrity
     chain = http_res.get("redirect_chain", [])

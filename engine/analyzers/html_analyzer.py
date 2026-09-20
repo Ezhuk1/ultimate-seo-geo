@@ -149,10 +149,12 @@ class DocumentParser(HTMLParser):
                     d_clean = directive.strip().lower()
                     if d_clean:
                         self.robots_directives.add(d_clean)
-            elif prop.startswith("og:"):
-                self.open_graph[prop] = content
-            elif name.startswith("twitter:"):
-                self.twitter_card[name] = content
+            elif prop.startswith("og:") or name.startswith("og:"):
+                key = prop if prop.startswith("og:") else name
+                self.open_graph[key] = content
+            elif name.startswith("twitter:") or prop.startswith("twitter:"):
+                key = name if name.startswith("twitter:") else prop
+                self.twitter_card[key] = content
 
         elif tag == "link":
             rel = attr_dict.get("rel", "").lower()

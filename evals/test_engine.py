@@ -24,6 +24,7 @@ from engine.analyzers.robots_simulator import parse_robots_txt, simulate_ai_craw
 from engine.analyzers.schema_analyzer import analyze_json_ld
 from engine.analyzers.sitemap_analyzer import parse_sitemap_xml
 from engine.scoring import calculate_scores
+from engine.ledger import STATUS_PASS, STATUS_WARNING, STATUS_INFO
 
 
 def test_clean_page_inspection():
@@ -1519,6 +1520,113 @@ def test_redirect_loops_and_soft_404():
     print("[PASS] test_redirect_loops_and_soft_404")
 
 
+def test_social_metadata_validation():
+    # 1. Page with missing og:type (Next.js bug pattern)
+    html_missing_og_type = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Social Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Test page checking social metadata validation and og:type detection.">
+    <link rel="canonical" href="https://example.com/test">
+    <meta property="og:title" content="Social Test Title">
+    <meta property="og:image" content="https://example.com/image.jpg">
+    <meta property="og:url" content="https://example.com/test">
+    <!-- Notice: og:type is missing! -->
+</head>
+<body>
+    <h1>Social Metadata Verification</h1>
+    <p>Testing missing og:type detection in engine.</p>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_missing_og_type)
+
+    try:
+        ledger, scores = run_inspection(path)
+        og_ev = next((e for e in ledger.evidence if e.rule_id == "SOCIAL-OG-017"), None)
+        assert og_ev is not None, "Expected SOCIAL-OG-017 evidence in ledger"
+        assert og_ev.status == STATUS_WARNING, f"Expected STATUS_WARNING for missing og:type, got {og_ev.status}"
+        assert "og:type" in og_ev.observed
+        assert "Meta (Threads/Facebook/Instagram) strictly requires 'og:type'" in og_ev.message
+
+        # Twitter card was not declared -> INFO
+        tw_ev = next((e for e in ledger.evidence if e.rule_id == "SOCIAL-TWITTER-032"), None)
+        assert tw_ev is not None
+        assert tw_ev.status == STATUS_INFO
+    finally:
+        os.unlink(path)
+
+    # 2. Page with complete Open Graph and Twitter Card
+    html_complete = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Full Social Metadata Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Test page with full Open Graph and Twitter card tags properly declared.">
+    <link rel="canonical" href="https://example.com/test">
+    <meta property="og:title" content="Full Social Metadata Title">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://example.com/image.jpg">
+    <meta property="og:url" content="https://example.com/test">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Full Social Metadata Title">
+    <meta name="twitter:image" content="https://example.com/image.jpg">
+</head>
+<body>
+    <h1>Complete Social Verification</h1>
+    <p>Testing complete og:* and twitter:* verification.</p>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_complete)
+
+    try:
+        ledger, scores = run_inspection(path)
+        og_ev = next((e for e in ledger.evidence if e.rule_id == "SOCIAL-OG-017"), None)
+        assert og_ev is not None
+        assert og_ev.status == STATUS_PASS, f"Expected STATUS_PASS, got {og_ev.status}"
+        assert "website" in og_ev.observed
+
+        tw_ev = next((e for e in ledger.evidence if e.rule_id == "SOCIAL-TWITTER-032"), None)
+        assert tw_ev is not None
+        assert tw_ev.status == STATUS_PASS, f"Expected STATUS_PASS, got {tw_ev.status}"
+        assert "summary_large_image" in tw_ev.observed
+    finally:
+        os.unlink(path)
+
+    # 3. Page with twitter tags but missing twitter:card
+    html_missing_card = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Missing Card Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Test page with twitter:title but missing twitter:card.">
+    <link rel="canonical" href="https://example.com/test">
+    <meta name="twitter:title" content="Twitter Title Only">
+</head>
+<body>
+    <h1>Missing Twitter Card Type</h1>
+    <p>Testing missing twitter:card detection.</p>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_missing_card)
+
+    try:
+        ledger, scores = run_inspection(path)
+        tw_ev = next((e for e in ledger.evidence if e.rule_id == "SOCIAL-TWITTER-032"), None)
+        assert tw_ev is not None
+        assert tw_ev.status == STATUS_WARNING, f"Expected STATUS_WARNING for missing twitter:card, got {tw_ev.status}"
+    finally:
+        os.unlink(path)
+
+    print("[PASS] test_social_metadata_validation")
+
+
 if __name__ == "__main__":
     print("Running Engine v3.1.0 integration suite...")
     test_clean_page_inspection()
@@ -1544,5 +1652,6 @@ if __name__ == "__main__":
     test_source_registry_and_tiers()
     test_engine_config_integration()
     test_redirect_loops_and_soft_404()
-    print("All Engine v3.1.0 tests passed successfully (23 deterministic test suites)!")
+    test_social_metadata_validation()
+    print("All Engine v3.1.0 tests passed successfully (24 deterministic test suites)!")
 

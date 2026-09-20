@@ -292,18 +292,18 @@
     },
     {
       "id": "SOCIAL-OG-017",
-      "name": "Open Graph & Social Card Metadata",
+      "name": "Open Graph Protocol Metadata",
       "category": "technical",
-      "severity": "INFO",
-      "impact": "P3",
+      "severity": "WARNING",
+      "impact": "P2",
       "score_weight": 0,
       "max_penalty_cap": 0,
       "confidence_type": "deterministic",
       "unknown_policy": "exclude",
       "tier": "Tier E (Social Sharing Heuristic)",
       "selector": "meta[property^='og:']",
-      "description": "Page should provide essential Open Graph tags (og:title, og:image) for rich social media cards and AI multi-modal previews.",
-      "remediation": "Add og:title, og:description, and og:image meta tags to <head>.",
+      "description": "Page should provide complete Open Graph tags (og:title, og:type, og:image, og:url) for rich social media cards across Meta (Facebook, Threads, Instagram), Telegram, and LinkedIn.",
+      "remediation": "Declare og:title, og:type (e.g. 'website'), og:image, and og:url in <head>. In Next.js, ensure inner pages re-specify 'type: website' in openGraph when overriding layout metadata.",
       "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     },
     {
@@ -513,6 +513,22 @@
       "selector": "Indexability Matrix",
       "description": "Page exhibits contradictory indexing directives (e.g., sitemap inclusion vs robots.txt Disallow, or self-canonical vs noindex).",
       "remediation": "Align robots.txt, meta robots tags, canonical URLs, and sitemap entries into a consistent configuration."
+    },
+    {
+      "id": "SOCIAL-TWITTER-032",
+      "name": "Twitter Card Metadata",
+      "category": "technical",
+      "severity": "INFO",
+      "impact": "P3",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier E (Social Sharing Heuristic)",
+      "selector": "meta[name^='twitter:']",
+      "description": "Page should declare explicit Twitter card tags (twitter:card, twitter:title, twitter:image) for rich card rendering on X/Twitter.",
+      "remediation": "Add <meta name='twitter:card' content='summary_large_image'> and relevant twitter metadata to <head>.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     }
   ]
 }
