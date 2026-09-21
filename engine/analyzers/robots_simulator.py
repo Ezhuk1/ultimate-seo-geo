@@ -58,6 +58,8 @@ class RobotsData:
     sitemaps: List[str] = field(default_factory=list)
     disallowed_paths: List[str] = field(default_factory=list)
     clean_params: List[str] = field(default_factory=list)
+    size_bytes: int = 0
+    exceeds_size_limit: bool = False  # RFC 9309 Section 2.1: 500 KiB (512,000 bytes)
 
 
 def _pattern_to_regex(pattern: str) -> re.Pattern:
@@ -86,7 +88,12 @@ def _pattern_to_regex(pattern: str) -> re.Pattern:
 
 def parse_robots_txt(content: str) -> RobotsData:
     """Parses robots.txt content into structured AST."""
-    data = RobotsData(raw_content=content)
+    raw_bytes_len = len(content.encode("utf-8"))
+    data = RobotsData(
+        raw_content=content,
+        size_bytes=raw_bytes_len,
+        exceeds_size_limit=(raw_bytes_len > 512000)
+    )
     lines = content.splitlines()
 
     current_agents: List[str] = []

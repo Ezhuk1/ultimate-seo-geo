@@ -529,6 +529,22 @@
       "description": "Page should declare explicit Twitter card tags (twitter:card, twitter:title, twitter:image) for rich card rendering on X/Twitter.",
       "remediation": "Add <meta name='twitter:card' content='summary_large_image'> and relevant twitter metadata to <head>.",
       "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
+    },
+    {
+      "id": "TECH-HREFLANG-033",
+      "name": "International Hreflang & Regional Annotations",
+      "category": "technical",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (W3C HTML & RFC 8288)",
+      "selector": "link[rel='alternate'][hreflang]",
+      "description": "Multilingual pages must specify valid ISO 639-1 language and optional ISO 3166-1 country codes, absolute canonical URLs, self-referencing hreflang tag, and x-default fallback for multi-regional targeting.",
+      "remediation": "Declare bidirectional <link rel='alternate' hreflang='...' href='https://...'> tags with valid ISO codes and include x-default fallback.",
+      "source_id": "SRC-RFC-8288"
     }
   ]
 }

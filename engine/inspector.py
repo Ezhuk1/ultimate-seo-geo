@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 import sys
 import os
+import re
 import argparse
 from urllib.parse import urlparse
 from typing import Optional, Dict, Any, List
@@ -201,6 +202,7 @@ def run_inspection(
     target_path = parsed_target.path or "/"
 
     robots_sim: Optional[Dict[str, Any]] = None
+    robots_ast: Optional[Any] = None
     sitemap_candidate_urls: List[str] = []
     if robots_content:
         robots_ast = parse_robots_txt(robots_content)
@@ -274,6 +276,7 @@ def run_inspection(
     builder.add_signal("html_h1_count", "H1 Headings Count", html_data["headings"]["h1_count"], unit="count")
     builder.add_signal("html_canonical_present", "Canonical URL Present", html_data["canonical"]["present"])
     builder.add_signal("html_lang", "HTML Document Language", html_data.get("lang"))
+    builder.add_signal("html_hreflang_count", "Hreflang Tags Count", html_data.get("hreflang", {}).get("count", 0), unit="count")
     builder.add_signal("html_meta_charset", "Meta Charset Declaration", html_data.get("meta_charset") or http_res.get("detected_charset"))
     builder.add_signal("http_header_canonical", "Header Link Canonical", http_res.get("header_canonical"))
     builder.add_signal("http_redirect_hops", "Redirect Hops", len(http_res.get("redirect_chain", [])), unit="hops")
@@ -861,16 +864,43 @@ def run_inspection(
             impact_estimate="Pages may render in desktop scale mode on mobile screens."
         )
     else:
-        builder.add_evidence(
-            rule_id="TECH-VIEWPORT-006",
-            category="technical",
-            title="Mobile Responsive Viewport",
-            status=STATUS_PASS,
-            confidence=CONFIDENCE_VERIFIED,
-            observed=vp_data.get("value", ""),
-            expected="width=device-width, initial-scale=1.0",
-            message="Responsive viewport tag properly configured."
-        )
+        vp_parsed = vp_data.get("parsed", {})
+        user_scalable = vp_parsed.get("user-scalable", "").lower()
+        max_scale = vp_parsed.get("maximum-scale", "")
+        is_zoom_blocked = user_scalable in ("no", "0") or max_scale in ("1", "1.0")
+
+        if is_zoom_blocked:
+            builder.add_evidence(
+                rule_id="TECH-VIEWPORT-006",
+                category="technical",
+                title="Mobile Responsive Viewport",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=vp_data.get("value", ""),
+                expected="width=device-width, initial-scale=1.0 without blocking pinch-to-zoom",
+                message="Viewport tag disables pinch-to-zoom scaling ('user-scalable=no' or 'maximum-scale=1.0'). This violates WCAG 1.4.4 accessibility guidelines and harms mobile user experience."
+            )
+            builder.add_finding(
+                rule_id="TECH-VIEWPORT-006",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Mobile Viewport Disables Pinch-to-Zoom",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Remove 'user-scalable=no' and 'maximum-scale=1.0' from the viewport meta tag to permit user scaling."],
+                impact_estimate="Degrades mobile accessibility and fails Google/WCAG mobile usability checks."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-VIEWPORT-006",
+                category="technical",
+                title="Mobile Responsive Viewport",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=vp_data.get("value", ""),
+                expected="width=device-width, initial-scale=1.0",
+                message="Responsive viewport tag properly configured."
+            )
 
     # TECH-NOINDEX-009: Indexation Directives (Meta Robots / X-Robots-Tag)
     robots_meta = html_data.get("meta_robots", {})
@@ -1090,6 +1120,28 @@ def run_inspection(
                 expected="Allow search crawlers",
                 message="Robots.txt permits primary search and AI retrieval engines."
             )
+
+        if robots_ast and getattr(robots_ast, "exceeds_size_limit", False):
+            builder.add_evidence(
+                rule_id="TECH-ROBOTS-AI-002",
+                category="technical",
+                title="Robots.txt Size Limit (RFC 9309)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{robots_ast.size_bytes} bytes",
+                expected="<= 512,000 bytes (500 KiB)",
+                message=f"robots.txt size ({robots_ast.size_bytes} bytes) exceeds the RFC 9309 500 KiB (512,000 bytes) limit. Crawlers may truncate the file, causing trailing rules and sitemaps to be ignored."
+            )
+            builder.add_finding(
+                rule_id="TECH-ROBOTS-AI-002",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Robots.txt Exceeds 500 KiB Limit",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Reduce robots.txt size below 500 KiB by consolidating wildcard rules and removing redundant disallow lines."],
+                impact_estimate="Search engines may truncate robots.txt and ignore directives defined after the first 500 KiB."
+            )
     else:
         builder.add_evidence(
             rule_id="TECH-ROBOTS-AI-002",
@@ -1182,6 +1234,48 @@ def run_inspection(
                 remediation_steps=[f"Add '{final_url}' to sitemap.xml with updated <lastmod> date."],
                 impact_estimate="Search engines may not prioritize crawling or refreshing this unlisted document."
             )
+
+        # TECH-SITEMAP-LIMIT-026: XML Sitemap URL and Size Limit (sitemaps.org)
+        if sitemap_res.exceeds_url_limit or getattr(sitemap_res, "exceeds_byte_limit", False):
+            limit_reasons = []
+            if sitemap_res.exceeds_url_limit:
+                limit_reasons.append(f"{sitemap_res.total_urls} URLs exceeds 50,000 URL limit")
+            if getattr(sitemap_res, "exceeds_byte_limit", False):
+                limit_reasons.append(f"{sitemap_res.size_bytes} bytes exceeds 50 MB (52,428,800 bytes) limit")
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                title="XML Sitemap Size & URL Limit",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="; ".join(limit_reasons),
+                expected="<= 50,000 URLs and <= 50 MB uncompressed",
+                message=f"Sitemap violates sitemaps.org limits: {'; '.join(limit_reasons)}. Search engines may discard or fail to parse oversized sitemaps."
+            )
+            builder.add_finding(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="XML Sitemap Exceeds Protocol Limits",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH",
+                remediation_steps=[
+                    "Split sitemaps containing over 50,000 URLs or 50 MB into multiple smaller sitemap files.",
+                    "Reference all split sitemaps via a parent <sitemapindex> file."
+                ],
+                impact_estimate="Search crawlers will drop URLs exceeding the 50,000 URL / 50 MB boundary."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-SITEMAP-LIMIT-026",
+                category="technical",
+                title="XML Sitemap Size & URL Limit",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{sitemap_res.total_urls} URLs, {sitemap_res.size_bytes} bytes",
+                expected="<= 50,000 URLs and <= 50 MB uncompressed",
+                message="Sitemap respects sitemaps.org URL and byte size limits."
+            )
     elif not http_res["is_local"]:
         builder.add_evidence(
             rule_id="TECH-SITEMAP-011",
@@ -1228,6 +1322,117 @@ def run_inspection(
             expected="<html lang='...'> attribute",
             message=f"HTML document declares language: '{html_lang}'."
         )
+
+    # TECH-HREFLANG-033: International Hreflang & Regional Annotations
+    hreflang_info = html_data.get("hreflang", {})
+    hreflang_tags = hreflang_info.get("tags", [])
+    hreflang_count = len(hreflang_tags)
+
+    if hreflang_count == 0:
+        builder.add_evidence(
+            rule_id="TECH-HREFLANG-033",
+            category="technical",
+            title="International Hreflang & Regional Annotations",
+            status=STATUS_NOT_APPLICABLE,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="0 hreflang tags declared",
+            expected="N/A",
+            message="No hreflang tags declared; multi-regional annotations not applicable for single-region document."
+        )
+    else:
+        hreflang_errors = []
+        hreflang_warnings = []
+        seen_langs = set()
+        has_self_ref = False
+        target_norm = final_url.lower().rstrip("/")
+
+        iso_pattern = re.compile(r"^(?:[a-z]{2,3}(?:-[A-Za-z0-9]{2,4})*|x-default)$", re.IGNORECASE)
+
+        for tag in hreflang_tags:
+            lang_code = tag.get("hreflang", "").strip().lower()
+            href = tag.get("href", "").strip()
+
+            if not iso_pattern.match(lang_code):
+                hreflang_errors.append(f"Invalid hreflang code '{lang_code}'")
+            elif lang_code == "en-uk":
+                hreflang_errors.append("Invalid country code 'en-UK' (must use official ISO 3166-1 code 'en-GB')")
+
+            if not href.startswith(("http://", "https://")):
+                hreflang_errors.append(f"Relative URL in hreflang: '{href}' (must be absolute HTTPS)")
+            elif href.startswith("http://"):
+                hreflang_warnings.append(f"Insecure HTTP URL in hreflang: '{href}'")
+
+            if href.lower().rstrip("/") == target_norm:
+                has_self_ref = True
+
+            if lang_code in seen_langs:
+                hreflang_warnings.append(f"Duplicate hreflang code: '{lang_code}'")
+            seen_langs.add(lang_code)
+
+        if hreflang_count >= 2 and not hreflang_info.get("has_x_default", False):
+            hreflang_warnings.append("Missing 'x-default' fallback hreflang tag for unmatched regional users")
+
+        if not has_self_ref and not http_res.get("is_local", False):
+            hreflang_warnings.append("Missing self-referencing hreflang tag for current page URL")
+
+        if hreflang_errors:
+            builder.add_evidence(
+                rule_id="TECH-HREFLANG-033",
+                category="technical",
+                title="International Hreflang & Regional Annotations",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="; ".join(hreflang_errors[:3]),
+                expected="Valid ISO 639-1 / ISO 3166-1 codes and absolute HTTPS URLs",
+                message=f"Hreflang annotation errors detected: {'; '.join(hreflang_errors[:3])}"
+            )
+            builder.add_finding(
+                rule_id="TECH-HREFLANG-033",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Invalid Hreflang Annotations",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Fix invalid language/region codes (e.g. use en-GB instead of en-UK).",
+                    "Ensure all hreflang URLs are absolute HTTPS URLs."
+                ],
+                impact_estimate="Search engines will ignore invalid hreflang annotations and fail to serve localized versions in regional search."
+            )
+        elif hreflang_warnings:
+            builder.add_evidence(
+                rule_id="TECH-HREFLANG-033",
+                category="technical",
+                title="International Hreflang & Regional Annotations",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="; ".join(hreflang_warnings[:3]),
+                expected="Complete self-referencing and x-default annotations",
+                message=f"Hreflang warnings: {'; '.join(hreflang_warnings[:3])}"
+            )
+            builder.add_finding(
+                rule_id="TECH-HREFLANG-033",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Suboptimal Hreflang Configuration",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Add self-referencing hreflang tag and 'x-default' fallback tag to complete bi-directional hreflang matrix."
+                ],
+                impact_estimate="Missing self-referencing or x-default hreflang tags can lead to unpredictable regional targeting."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-HREFLANG-033",
+                category="technical",
+                title="International Hreflang & Regional Annotations",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{hreflang_count} valid hreflang tag(s)",
+                expected="Valid ISO codes, absolute URLs, and x-default",
+                message="Hreflang international annotations are properly configured."
+            )
 
     # TECH-CHARSET-013: Character Encoding Declaration
     meta_charset = html_data.get("meta_charset") or http_res.get("detected_charset")

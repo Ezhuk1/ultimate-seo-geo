@@ -12,6 +12,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+HAS_BROTLI = False
+try:
+    import brotli  # type: ignore
+    HAS_BROTLI = True
+except ImportError:
+    try:
+        import brotlicffi as brotli  # type: ignore
+        HAS_BROTLI = True
+    except ImportError:
+        pass
+
 
 def _detect_and_decode(raw_bytes: bytes, content_type_header: str | None) -> tuple[str, str]:
     """
@@ -218,12 +229,13 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
             return super().redirect_request(req, fp, code, msg, headers, newurl)
 
     opener = urllib.request.build_opener(RedirectTracker)
+    accept_encoding = "gzip, deflate, br" if HAS_BROTLI else "gzip, deflate"
     req = urllib.request.Request(
         target,
         headers={
             "User-Agent": ua,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Encoding": "gzip, deflate",
+            "Accept-Encoding": accept_encoding,
         },
     )
 
@@ -235,7 +247,13 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
             headers = {k.lower(): v for k, v in resp.headers.items()}
             c_encoding = headers.get("content-encoding", "").lower()
             payload_bytes = raw_bytes
-            if "gzip" in c_encoding:
+            if "br" in c_encoding:
+                if HAS_BROTLI:
+                    try:
+                        payload_bytes = brotli.decompress(raw_bytes)
+                    except Exception:
+                        payload_bytes = raw_bytes
+            elif "gzip" in c_encoding:
                 import gzip
                 try:
                     payload_bytes = gzip.decompress(raw_bytes)
@@ -308,8 +326,28 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         raw_bytes = e.read() if hasattr(e, "read") else b""
         headers = {k.lower(): v for k, v in e.headers.items()} if hasattr(e, "headers") and e.headers else {}
+        err_c_encoding = headers.get("content-encoding", "").lower()
+        err_payload_bytes = raw_bytes
+        if "br" in err_c_encoding:
+            if HAS_BROTLI:
+                try:
+                    err_payload_bytes = brotli.decompress(raw_bytes)
+                except Exception:
+                    err_payload_bytes = raw_bytes
+        elif "gzip" in err_c_encoding:
+            import gzip
+            try:
+                err_payload_bytes = gzip.decompress(raw_bytes)
+            except Exception:
+                err_payload_bytes = raw_bytes
+        elif "deflate" in err_c_encoding:
+            import zlib
+            try:
+                err_payload_bytes = zlib.decompress(raw_bytes)
+            except Exception:
+                err_payload_bytes = raw_bytes
         ct_header = headers.get("content-type")
-        content, detected_charset = _detect_and_decode(raw_bytes, ct_header)
+        content, detected_charset = _detect_and_decode(err_payload_bytes, ct_header)
         content_hash = hashlib.sha256(raw_bytes).hexdigest() if raw_bytes else ""
         header_canonical = _extract_header_canonical(e.headers, headers) if hasattr(e, "headers") else None
         is_challenge = _is_challenge_page(e.code, headers, content)

@@ -38,6 +38,8 @@ class SitemapAnalysisResult:
     invalid_urls: List[str] = field(default_factory=list)
     non_https_urls: List[str] = field(default_factory=list)
     exceeds_url_limit: bool = False
+    size_bytes: int = 0
+    exceeds_byte_limit: bool = False  # sitemaps.org: 50 MB (52,428,800 bytes) uncompressed
 
 
 def _normalize_url_for_compare(u: str) -> str:
@@ -63,14 +65,21 @@ def parse_sitemap_xml(
     Parses XML sitemap string, validating structure, URLs, dates, and target presence.
     Handles both <urlset> and <sitemapindex>.
     """
+    raw_bytes_len = len(xml_content.encode("utf-8"))
+    exceeds_50mb = raw_bytes_len > 52428800
     res = SitemapAnalysisResult(
         present=bool(xml_content.strip()),
         status_code=status_code,
         url=sitemap_url,
         is_valid_xml=False,
         is_sitemap_index=False,
-        total_urls=0
+        total_urls=0,
+        size_bytes=raw_bytes_len,
+        exceeds_byte_limit=exceeds_50mb
     )
+
+    if exceeds_50mb:
+        res.warnings.append(f"Sitemap uncompressed size exceeds 50 MB limit: {raw_bytes_len} bytes.")
 
     if not xml_content.strip():
         res.errors.append("Empty sitemap content.")
@@ -214,6 +223,8 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         invalid_urls=list(parent.invalid_urls),
         non_https_urls=list(parent.non_https_urls),
         exceeds_url_limit=parent.exceeds_url_limit,
+        size_bytes=parent.size_bytes,
+        exceeds_byte_limit=parent.exceeds_byte_limit,
     )
 
     for ch in children:
@@ -223,6 +234,9 @@ def merge_sitemap_results(parent: SitemapAnalysisResult, children: List[SitemapA
         merged.duplicate_urls.extend(ch.duplicate_urls)
         merged.invalid_urls.extend(ch.invalid_urls)
         merged.non_https_urls.extend(ch.non_https_urls)
+        merged.size_bytes += ch.size_bytes
+        if ch.exceeds_byte_limit:
+            merged.exceeds_byte_limit = True
         if ch.target_in_sitemap:
             merged.target_in_sitemap = True
             if ch.target_lastmod:

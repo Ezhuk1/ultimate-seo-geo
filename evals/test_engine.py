@@ -24,7 +24,7 @@ from engine.analyzers.robots_simulator import parse_robots_txt, simulate_ai_craw
 from engine.analyzers.schema_analyzer import analyze_json_ld
 from engine.analyzers.sitemap_analyzer import parse_sitemap_xml
 from engine.scoring import calculate_scores
-from engine.ledger import STATUS_PASS, STATUS_WARNING, STATUS_INFO
+from engine.ledger import STATUS_PASS, STATUS_WARNING, STATUS_INFO, STATUS_NOT_APPLICABLE
 
 
 def test_clean_page_inspection():
@@ -1627,6 +1627,111 @@ def test_social_metadata_validation():
     print("[PASS] test_social_metadata_validation")
 
 
+def test_modern_seo_enhancements():
+    # 1. Hreflang validation: single-language page has NOT_APPLICABLE
+    html_no_hreflang = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Hreflang Test Page</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://example.com/test">
+</head>
+<body>
+    <h1>Single Language Page</h1>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_no_hreflang)
+    try:
+        ledger, _ = run_inspection(path)
+        href_ev = next((e for e in ledger.evidence if e.rule_id == "TECH-HREFLANG-033"), None)
+        assert href_ev is not None, "TECH-HREFLANG-033 evidence missing"
+        assert href_ev.status == STATUS_NOT_APPLICABLE, f"Expected NOT_APPLICABLE, got {href_ev.status}"
+    finally:
+        os.unlink(path)
+
+    # 2. Hreflang validation: defective hreflang (en-UK typo and relative URL)
+    html_defective_hreflang = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Defective Hreflang Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="canonical" href="https://example.com/test">
+    <link rel="alternate" hreflang="en-UK" href="/en-gb">
+    <link rel="alternate" hreflang="es" href="https://example.com/es">
+</head>
+<body>
+    <h1>Defective Hreflang Page</h1>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_defective_hreflang)
+    try:
+        ledger, _ = run_inspection(path)
+        href_ev = next((e for e in ledger.evidence if e.rule_id == "TECH-HREFLANG-033"), None)
+        assert href_ev is not None
+        assert href_ev.status == STATUS_WARNING, f"Expected STATUS_WARNING for defective hreflang, got {href_ev.status}"
+        assert "en-UK" in href_ev.observed or "Relative URL" in href_ev.observed
+    finally:
+        os.unlink(path)
+
+    # 3. Viewport user-scalable=no detection
+    html_no_zoom = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Viewport Zoom Blocking Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="canonical" href="https://example.com/test">
+</head>
+<body>
+    <h1>No Zoom Viewport Page</h1>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(html_no_zoom)
+    try:
+        ledger, _ = run_inspection(path)
+        vp_ev = next((e for e in ledger.evidence if e.rule_id == "TECH-VIEWPORT-006"), None)
+        assert vp_ev is not None
+        assert vp_ev.status == STATUS_WARNING, f"Expected STATUS_WARNING for user-scalable=no, got {vp_ev.status}"
+        assert "user-scalable=no" in vp_ev.message or "pinch-to-zoom" in vp_ev.message
+    finally:
+        os.unlink(path)
+
+    # 4. Robots.txt RFC 9309 size limit (500 KiB)
+    oversized_robots = "User-agent: *\nAllow: /\n" + ("# Disallow line padding\n" * 25000)
+    robots_ast = parse_robots_txt(oversized_robots)
+    assert robots_ast.exceeds_size_limit is True, f"Expected exceeds_size_limit=True for {robots_ast.size_bytes} bytes"
+
+    # 5. Sitemap 50 MB size limit
+    oversized_sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    chunk = "<!-- " + ("A" * 1000) + " -->\n"
+    oversized_sitemap += (chunk * 53000) + "</urlset>"
+    sitemap_res = parse_sitemap_xml(oversized_sitemap)
+    assert sitemap_res.exceeds_byte_limit is True, f"Expected exceeds_byte_limit=True for {sitemap_res.size_bytes} bytes"
+    assert any("50 MB" in w for w in sitemap_res.warnings)
+
+    # 6. Schema merchant policy check (SCHEMA-MERCHANT-POLICIES-011)
+    json_ld_offer = """{
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Widget",
+        "offers": {
+            "@type": "Offer",
+            "price": "19.99",
+            "priceCurrency": "USD"
+        }
+    }"""
+    schema_res = analyze_json_ld([json_ld_offer])
+    merchant_fnd = next((f for f in schema_res.findings if f.rule_id == "SCHEMA-MERCHANT-POLICIES-011"), None)
+    assert merchant_fnd is not None, "Expected SCHEMA-MERCHANT-POLICIES-011 finding for Offer missing merchant policies"
+
+    print("[PASS] test_modern_seo_enhancements")
+
+
 if __name__ == "__main__":
     print("Running Engine v3.1.0 integration suite...")
     test_clean_page_inspection()
@@ -1653,5 +1758,6 @@ if __name__ == "__main__":
     test_engine_config_integration()
     test_redirect_loops_and_soft_404()
     test_social_metadata_validation()
-    print("All Engine v3.1.0 tests passed successfully (24 deterministic test suites)!")
+    test_modern_seo_enhancements()
+    print("All Engine v3.1.0 tests passed successfully (25 deterministic test suites)!")
 

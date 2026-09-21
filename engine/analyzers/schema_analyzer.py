@@ -232,6 +232,23 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
                     details={"invalid_price": price}
                 ))
 
+        # Check Merchant Policies (SCHEMA-MERCHANT-POLICIES-011) for Product / Offer
+        has_return = "hasMerchantReturnPolicy" in offer
+        has_shipping = "shippingDetails" in offer
+        if not (has_return and has_shipping):
+            missing_policies = []
+            if not has_return:
+                missing_policies.append("hasMerchantReturnPolicy")
+            if not has_shipping:
+                missing_policies.append("shippingDetails")
+            result.findings.append(SchemaFinding(
+                rule_id="SCHEMA-MERCHANT-POLICIES-011",
+                severity="INFO",
+                entity_type="Offer",
+                message=f"Offer is missing recommended merchant policies for rich snippets: {', '.join(missing_policies)}.",
+                details={"missing_policies": missing_policies}
+            ))
+
     # 5. Check Author sameAs authority profiles (SCHEMA-AUTHOR-SAMEAS-004)
     raw_authors: List[Dict[str, Any]] = []
     for entity in result.entities:

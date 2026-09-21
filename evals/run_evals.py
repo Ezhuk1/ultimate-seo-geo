@@ -1105,6 +1105,7 @@ def main():
         test_source_registry_and_tiers,
         test_engine_config_integration,
         test_redirect_loops_and_soft_404,
+        test_modern_seo_enhancements,
     )
 
     engine_tests = [
@@ -1131,6 +1132,7 @@ def main():
         ("test_source_registry_and_tiers", test_source_registry_and_tiers),
         ("test_engine_config_integration", test_engine_config_integration),
         ("test_redirect_loops_and_soft_404", test_redirect_loops_and_soft_404),
+        ("test_modern_seo_enhancements", test_modern_seo_enhancements),
     ]
 
     engine_passed = 0
