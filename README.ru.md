@@ -91,6 +91,12 @@ python -m engine.inspector https://example.com --robots path/to/custom-robots.tx
 ```
 
 ### Возможности движка
+- **Соответствие современным стандартам SEO 2024–2026:**
+  - **Сжатие Brotli (`br`):** Адаптивная распаковка Brotli с прозрачным откатом к `gzip/deflate` на стандартной библиотеке Python.
+  - **Валидация мультиязычности (`TECH-HREFLANG-033`):** Проверка языковых и региональных кодов по ISO 639-1 / ISO 3166-1 (отлов ошибок вроде `en-UK`), абсолютности HTTPS URL, самореферентных тегов и `x-default`.
+  - **Лимиты payload RFC 9309 и Sitemaps.org:** Контроль потолка 500 КиБ для `robots.txt` (`TECH-ROBOTS-AI-002`) и лимита 50 МБ / 50 000 URL для XML-карт сайта (`TECH-SITEMAP-LIMIT-026`).
+  - **Доступность Viewport (Pinch-to-Zoom):** Выявление директив запрета масштабирования (`user-scalable=no`, `maximum-scale=1.0`) в соответствии с WCAG 2.1 AA и требованиями мобильного поиска Google (`TECH-VIEWPORT-006`).
+  - **E-Commerce микроразметка Google Merchant:** Валидация правил возврата (`hasMerchantReturnPolicy`) и доставки (`shippingDetails`) для сущностей `Product` и `Offer` (`SCHEMA-MERCHANT-POLICIES-011`).
 - **Детекция пустых CSR-оболочек (`TECH-CSR-SHELL-008`):** Распознает пустые контейнеры (`div#root`, `div#app`, `div#__next`) без серверного HTML. Поисковые AI-боты (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `CCBot`) не выполняют JS; пустые CSR-страницы полностью выпадают из AI-поиска.
 - **Автономный валидатор Schema.org AST (`--validate-schema`):** Pre-flight проверка сниппетов на битые ссылки `@id` (`SCHEMA-BROKEN-REF-005`), стандарты дат ISO 8601 (`SCHEMA-DATE-FORMAT-006`) и форматы цен (`SCHEMA-PRICE-FORMAT-003`).
 - **Симулятор доступа по RFC 9309:** Полный AST-парсер с поддержкой группировок User-agent, подстановок `*` и `$`, правила максимального совпадения (longest-match) и приоритета Allow для `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`.
@@ -232,22 +238,17 @@ python evals/run_evals.py
 ==================================================
  ultimate-seo-geo Test Runner & Assertion Harness
 ==================================================
-Suite: ultimate-seo-geo-evals (v2.1.0) - 10 test cases
+Suite: ultimate-seo-geo-evals (v3.1.0) - 10 test cases
 
 [OK] Schema & reference file integrity: PASS
 --- 1. Canonical Fixture Evaluation ---
   [PASS] 10/10 canonical evals passed
 --- 2. Negative Mutation & Anti-Regression Suite ---
-  [PASS] 9/9 negative mutation guards passed
---- 3. Autonomous Inspection Engine (v2.1.0) Integration Suite ---
-  [PASS] test_clean_page_inspection             -> Deterministic assertion passed
-  [PASS] test_defective_page_detection          -> Deterministic assertion passed
-  [PASS] test_robots_simulator_rfc9309          -> Deterministic assertion passed
-  [PASS] test_unknown_signal_invariant          -> Deterministic assertion passed
-  [PASS] test_csr_shell_detection               -> Deterministic assertion passed
-  [PASS] test_schema_standalone_validator       -> Deterministic assertion passed
+  [PASS] 20/20 negative mutation guards passed
+--- 3. Autonomous Inspection Engine (v3.1.0) Integration Suite ---
+  [PASS] 24/24 engine integration tests passed (включая test_modern_seo_enhancements)
 
-[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.1.0 tests are healthy.
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.1.0 tests are healthy.
 ```
 
 ---
@@ -265,15 +266,22 @@ ultimate-seo-geo/
 │   ├── inspector.py                  # CLI раннер, --validate-schema и генератор Markdown/JSON
 │   ├── ledger.py                     # Протокол 4-уровневого Evidence Ledger и хэш SHA-256
 │   ├── scoring.py                    # Движок многомерного скоринга и защита инварианта
+│   ├── crawler.py                    # Вежливый BFS краулер, расчет глубины и обнаружение страниц-сирот
+│   ├── indexability.py               # Детерминированная матрица индексируемости v2 (логика CONFLICTED)
+│   ├── experiment.py                 # Харнесс экспериментов До/После AI Citation Benchmark
+│   ├── sarif.py                      # Экспортер OASIS SARIF v2.1.0 для CI/CD Code Scanning
+│   ├── rules.py                      # Загрузчик реестра правил и валидатор эпистемических уровней
+│   ├── config.py                     # Загрузчик конфигурации проекта (ultimate-seo-geo.json)
 │   └── analyzers/
-│       ├── http_analyzer.py          # Наблюдатель HTTP/HTTPS и локальных файлов
-│       ├── html_analyzer.py          # DOM-парсер: canonical, CSR shell, метатеги, H1-H6, ссылки
-│       ├── robots_simulator.py       # AST парсер RFC 9309 и симулятор краулеров
-│       ├── schema_analyzer.py        # Валидатор Schema.org AST, @graph, дат ISO и битых @id
-│       └── content_analyzer.py       # Анализатор прямого ответа, чанков и местоимений
+│       ├── http_analyzer.py          # Наблюдатель HTTP/HTTPS с поддержкой распаковки Brotli и gzip
+│       ├── html_analyzer.py          # DOM-парсер: canonical, CSR shell, viewport zoom, H1-H6, ссылки
+│       ├── robots_simulator.py       # AST парсер RFC 9309, лимит 500 КиБ и симулятор краулеров
+│       ├── sitemap_analyzer.py       # Анализатор XML sitemap с контролем лимитов 50 МБ / 50k URL
+│       ├── schema_analyzer.py        # Валидатор Schema.org AST, @graph, битых @id и e-commerce возврата/доставки
+│       └── content_analyzer.py       # Анализатор прямого ответа, чанков, местоимений и PAWC
 ├── rules/                            # Декларативные контракты правил
-│   ├── technical_rules.json          # Контракты canonical, robots, CSR shell, title, meta, H1
-│   ├── schema_rules.json             # Контракты синтаксиса, графа, битых ссылок, цен и дат
+│   ├── technical_rules.json          # Контракты canonical, robots, hreflang, CSR shell, viewport, H1
+│   ├── schema_rules.json             # Контракты синтаксиса, графа, битых ссылок, правил возврата/доставки
 │   └── geo_rules.json                # Контракты прямых ответов, чанкинга, местоимений
 ├── references/                       # Справочники с динамической подгрузкой Just-In-Time
 │   ├── geo-framework.md              # Математика PAWC, KDD 2024, матрица движков
@@ -284,7 +292,7 @@ ultimate-seo-geo/
 └── evals/
     ├── evals.json                    # Эвристические и структурные тесты + негативные проверки
     ├── run_evals.py                  # Тестовый харнесс и раннер ассершенов
-    ├── test_engine.py                # Интеграционный тестовый набор движка
+    ├── test_engine.py                # Интеграционный тестовый набор движка (24 тест-сьюта)
     └── CHANGELOG.md                  # Полный журнал изменений бенчмарка и движка
 ```
 

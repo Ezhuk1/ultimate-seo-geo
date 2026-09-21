@@ -101,6 +101,12 @@ python -m engine.inspector https://example.com --format json --output audit.json
 
 ### Deterministic Capabilities
 - **Deterministic Indexability Matrix:** Evaluates HTTP status, canonical consistency, meta robots, X-Robots-Tag, robots.txt, sitemaps, internal links, and rendered payload into a definitive indexability verdict.
+- **Modern 2024–2026 SEO Standards Compliance:**
+  - **Brotli Compression (`br`):** Adaptive Brotli decompression with transparent stdlib fallback to `gzip/deflate`.
+  - **Multilingual Validation (`TECH-HREFLANG-033`):** Strict verification of ISO 639-1 / ISO 3166-1 codes (catching typos like `en-UK`), absolute HTTPS URLs, self-reference, and `x-default` fallbacks.
+  - **RFC 9309 & Sitemaps.org Payload Limits:** Enforces the 500 KiB ceiling for `robots.txt` (`TECH-ROBOTS-AI-002`) and 50 MB / 50,000 URL limit for XML sitemaps (`TECH-SITEMAP-LIMIT-026`).
+  - **Mobile Pinch-to-Zoom Accessibility:** Detects zoom-blocking directives (`user-scalable=no`, `maximum-scale=1.0`) per WCAG 2.1 AA and modern Google mobile guidelines (`TECH-VIEWPORT-006`).
+  - **E-Commerce Merchant Return & Shipping Policies:** Validates `hasMerchantReturnPolicy` and `shippingDetails` on `Product` and `Offer` entities for Google Merchant Center rich snippets (`SCHEMA-MERCHANT-POLICIES-011`).
 - **Site-Level Crawler & Similarity Analysis:** Polite BFS crawler with rate limits, SSRF guardrails, crawl depth tracking, orphan page candidate discovery, and 64-bit SimHash near-duplicate clustering.
 - **8-Component GEO Readiness Index:** Evaluates Answerability, Evidence Density, Entity Clarity, Passage Extractability, Source Attribution, Schema Graph, Freshness, and AI Crawler Access with confidence and measured dimension tracking.
 - **E-E-A-T & Trust Profile:** Evaluates author bio, verified `sameAs` entity links (Wikidata, ORCID, LinkedIn), organization credentials, transparency touchpoints (About/Contact/Editorial), YMYL detection & disclaimers, and first-hand experience markers.
@@ -246,22 +252,17 @@ Expected output:
 ==================================================
  ultimate-seo-geo Test Runner & Assertion Harness
 ==================================================
-Suite: ultimate-seo-geo-evals (v2.1.0) - 10 test cases
+Suite: ultimate-seo-geo-evals (v3.1.0) - 10 test cases
 
 [OK] Schema & reference file integrity: PASS
 --- 1. Canonical Fixture Evaluation ---
   [PASS] 10/10 canonical evals passed
 --- 2. Negative Mutation & Anti-Regression Suite ---
-  [PASS] 9/9 negative mutation guards passed
---- 3. Autonomous Inspection Engine (v2.1.0) Integration Suite ---
-  [PASS] test_clean_page_inspection             -> Deterministic assertion passed
-  [PASS] test_defective_page_detection          -> Deterministic assertion passed
-  [PASS] test_robots_simulator_rfc9309          -> Deterministic assertion passed
-  [PASS] test_unknown_signal_invariant          -> Deterministic assertion passed
-  [PASS] test_csr_shell_detection               -> Deterministic assertion passed
-  [PASS] test_schema_standalone_validator       -> Deterministic assertion passed
+  [PASS] 20/20 negative mutation guards passed
+--- 3. Autonomous Inspection Engine (v3.1.0) Integration Suite ---
+  [PASS] 24/24 engine integration tests passed (including test_modern_seo_enhancements)
 
-[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v2.1.0 tests are healthy.
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.1.0 tests are healthy.
 ```
 
 ---
@@ -279,15 +280,22 @@ ultimate-seo-geo/
 │   ├── inspector.py                  # CLI runner, --validate-schema & Markdown/JSON generator
 │   ├── ledger.py                     # 4-Layer Evidence Ledger Protocol & SHA-256 provenance
 │   ├── scoring.py                    # Multi-dimensional score engine & Invariant guards
+│   ├── crawler.py                    # Polite BFS crawler, depth tracking & orphan detection
+│   ├── indexability.py               # Deterministic Indexability Matrix v2 (CONFLICTED logic)
+│   ├── experiment.py                 # Before/After AI Citation Benchmark experiment harness
+│   ├── sarif.py                      # OASIS SARIF v2.1.0 exporter for CI/CD Code Scanning
+│   ├── rules.py                      # JSON rule registry loader & epistemic tier validator
+│   ├── config.py                     # Project configuration loader (ultimate-seo-geo.json)
 │   └── analyzers/
-│       ├── http_analyzer.py          # HTTP/HTTPS & local file payload observer
-│       ├── html_analyzer.py          # HTML parser for canonical, CSR shell, meta, headings, links
-│       ├── robots_simulator.py       # RFC 9309 AST parser & AI crawler simulator
-│       ├── schema_analyzer.py        # Schema.org AST, @graph, broken @id & ISO date validator
-│       └── content_analyzer.py       # Direct answer, chunking & coreference analyzer
+│       ├── http_analyzer.py          # HTTP/HTTPS & local observer with Brotli & gzip decompression
+│       ├── html_analyzer.py          # HTML parser: canonical, CSR shell, viewport, headings, links
+│       ├── robots_simulator.py       # RFC 9309 AST parser, 500 KiB limit & AI crawler simulator
+│       ├── sitemap_analyzer.py       # XML sitemap analyzer with 50 MB / 50k URL limit enforcement
+│       ├── schema_analyzer.py        # Schema.org AST, @graph, broken @id & e-commerce return/shipping validator
+│       └── content_analyzer.py       # Direct answer, chunking, coreference & PAWC analyzer
 ├── rules/                            # Declarative rule contracts
-│   ├── technical_rules.json          # Canonical, robots, CSR shell, title, meta, H1 contracts
-│   ├── schema_rules.json             # Syntax, graph interconnect, broken @id, price & date contracts
+│   ├── technical_rules.json          # Canonical, robots, hreflang, CSR shell, viewport, H1 contracts
+│   ├── schema_rules.json             # Syntax, graph interconnect, broken @id, merchant policy contracts
 │   └── geo_rules.json                # Direct answer, chunking, coreference contracts
 ├── references/                       # Domain manuals loaded strictly Just-In-Time
 │   ├── geo-framework.md              # Princeton KDD 2024, rigorous PAWC math & engine matrix
@@ -298,7 +306,7 @@ ultimate-seo-geo/
 └── evals/
     ├── evals.json                    # Heuristic & structured test cases with negative safety checks
     ├── run_evals.py                  # Test runner & assertion harness
-    ├── test_engine.py                # Automated engine integration suite
+    ├── test_engine.py                # Automated engine integration suite (24 test suites)
     └── CHANGELOG.md                  # Comprehensive benchmark & engine changelog
 ```
 
