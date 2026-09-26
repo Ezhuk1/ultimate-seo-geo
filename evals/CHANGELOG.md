@@ -2,6 +2,35 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.2.0] - 2026-09-26
+
+### Added
+- **Performance & Core Web Vitals Suite (`engine/analyzers/performance_analyzer.py`):**
+  - Added DOM size and maximum depth tracking (`PERF-DOM-005`, Tier E) per HTTP Archive benchmarks (warns at >1500 nodes or >32 depth).
+  - Added `<head>` render-blocking resource detection (`PERF-RENDER-BLOCK-003`, Tier E) detecting synchronous stylesheets and scripts without `defer`/`async`.
+  - Added hero image priority and resource hint checks (`PERF-RESOURCE-HINTS-006`, Tier E) flagging anti-patterns such as `loading="lazy"` on LCP hero image and validating `fetchpriority="high"`.
+  - Added next-gen image format evaluation (`TECH-IMAGE-MODERN-038`, Tier E) calculating WebP/AVIF vs legacy JPEG/PNG asset distribution.
+  - Added Google PageSpeed Insights API integration (`PERF-CWV-PSI-001` / `PERF-CWV-FIELD-007`, Tier C) evaluating real-user CrUX metrics with zero penalty when unmeasured (`UNKNOWN != FAILURE`).
+- **Modern Technical SEO & Hygiene (`engine/inspector.py`, `rules/technical_rules.json`):**
+  - Added robots.txt `Sitemap:` directive validation (`TECH-ROBOTS-SITEMAP-034`, Tier A) per RFC 9309.
+  - Added URL structure hygiene check (`TECH-URL-STRUCTURE-037`, Tier B) flagging uppercase paths, path depth > 4, underscores, and session ID parameters (`jsessionid`, `phpsessid`, `aspsessionid`).
+- **On-Page & Architecture Heuristics (`engine/analyzers/html_analyzer.py`, `engine/analyzers/content_analyzer.py`):**
+  - Added title pixel width estimation (`estimate_title_pixel_width`) and H1 semantic parity (`CONTENT-TITLE-QUALITY-001`, Tier B) based on desktop Google SERP ~580px limit.
+  - Added interrogative heading analysis and direct concise answer extraction (`CONTENT-QUESTION-HEADINGS-002`, Tier C) for PAA/AEO visibility.
+  - Added extractable elements evaluation (`CONTENT-EXTRACTABLE-003`, Tier E) identifying tables, lists, and TL;DR summary blocks.
+  - Added substantive content-to-boilerplate ratio calculation (`CONTENT-TEXT-RATIO-004`, Tier E).
+  - Added Schema date vs visibly rendered date parity check (`CONTENT-DATE-VISIBLE-005`, Tier B).
+- **GEO / AEO (Generative Engine Optimization) (`engine/analyzers/llms_analyzer.py`, `engine/scoring.py`):**
+  - Implemented Position-Adjusted Word Weighting (`compute_pawc`, `GEO-PAWC-SCORE-001`, Tier C) applying exponential decay $W(s) = F(s) \cdot e^{-\alpha \cdot \frac{pos(s)}{N}}$ to factual assertions per Princeton KDD 2024.
+  - Implemented `/llms.txt` specification parser (`GEO-LLMS-TXT-CHECK-006`, Tier E) verifying H1 title, blockquote summary, and structured documentation links.
+  - Added `--generate-llms-txt` CLI argument compiling standard-compliant `/llms.txt` directly from inspected target metadata and internal link graph.
+  - Added Search Retrieval AI crawler policy validator (`GEO-AI-BOT-POLICY-007`, Tier B) inspecting `OAI-SearchBot`, `PerplexityBot`, and `Claude-SearchBot` permissions.
+  - Added statistical claims outbound source grounding (`GEO-CITATION-LINKS-008`, Tier C) verifying external reference links.
+- **Schema Validation (`rules/schema_rules.json`):**
+  - Added author `Person` byline parity (`SCHEMA-AUTHOR-LINK-012`, Tier B) verifying declared Schema author against rendered HTML text across both root and nested entity nodes.
+- **Evaluation & Test Harness (`evals/test_engine.py`, `evals/run_evals.py`):**
+  - Added `test_v3_2_0_performance_geo_pawc_suite` expanding engine test suite to 27 deterministic suites (57/57 total passing across canonical evals, mutations, and engine integration).
+
 ## [3.1.1] - 2026-09-26
 
 ### Fixed & Remediated

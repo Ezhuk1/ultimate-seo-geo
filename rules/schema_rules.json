@@ -177,6 +177,22 @@
       "description": "Google Search Central 2024–2026 recommends hasMerchantReturnPolicy and shippingDetails on Offer/Product entities for enhanced merchant listing rich snippets.",
       "remediation": "Add hasMerchantReturnPolicy and shippingDetails to Product or Offer nodes.",
       "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
+    },
+    {
+      "id": "SCHEMA-AUTHOR-LINK-012",
+      "name": "Author Person Byline & SameAs Parity",
+      "category": "schema",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier B (Google E-E-A-T Guidelines)",
+      "selector": "Person.name",
+      "description": "Author name declared in Schema Person nodes should visibly match the byline author name displayed in the article text.",
+      "remediation": "Ensure author name in Schema JSON-LD matches the visible author name in the page header/footer.",
+      "source_id": "SRC-GOOGLE-EEAT"
     }
   ]
 }

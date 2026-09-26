@@ -1,6 +1,6 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Version: 3.1.1](https://img.shields.io/badge/Version-3.1.1-blue.svg)](evals/CHANGELOG.md)
+[![Version: 3.2.0](https://img.shields.io/badge/Version-3.2.0-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
@@ -271,17 +271,17 @@ Expected output:
 ==================================================
  ultimate-seo-geo Test Runner & Assertion Harness
 ==================================================
-Suite: ultimate-seo-geo-evals (v3.1.0) - 10 test cases
+Suite: ultimate-seo-geo-evals (v3.2.0) - 10 test cases
 
 [OK] Schema & reference file integrity: PASS
 --- 1. Canonical Fixture Evaluation ---
   [PASS] 10/10 canonical evals passed
 --- 2. Negative Mutation & Anti-Regression Suite ---
   [PASS] 20/20 negative mutation guards passed
---- 3. Autonomous Inspection Engine (v3.1.0) Integration Suite ---
-  [PASS] 24/24 engine integration tests passed (including test_modern_seo_enhancements)
+--- 3. Autonomous Inspection Engine (v3.2.0) Integration Suite ---
+  [PASS] 27/27 engine integration tests passed (including test_v3_2_0_performance_geo_pawc_suite)
 
-[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.1.0 tests are healthy.
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.2.0 tests are healthy.
 ```
 
 ---

@@ -176,15 +176,23 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
 
         # Component 1: Answerability (Weight: 20)
         ev_ans = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
+        ev_pawc = next((e for e in ledger.evidence if e.rule_id == "GEO-PAWC-SCORE-001"), None)
         if ev_ans:
             if ev_ans.status == STATUS_PASS:
-                dim_ans = 20
+                dim_ans = 20 if (not ev_pawc or ev_pawc.status == STATUS_PASS) else 16
             elif ev_ans.status == STATUS_WARNING:
-                dim_ans = 10
+                dim_ans = 10 if (not ev_pawc or ev_pawc.status == STATUS_PASS) else 8
             elif ev_ans.status == STATUS_CRITICAL:
                 dim_ans = 0
             else:
                 dim_ans = 5
+        elif ev_pawc:
+            if ev_pawc.status == STATUS_PASS:
+                dim_ans = 15
+            elif ev_pawc.status == STATUS_WARNING:
+                dim_ans = 8
+            else:
+                dim_ans = 0
         else:
             dim_ans = 0
             unknown_dims.append("answerability")
@@ -224,6 +232,7 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         # Evaluates primary attribution evidence (GEO-SOURCE-ATTRIBUTION-005) or metrics fallback
         ev_source = next((e for e in ledger.evidence if e.rule_id == "GEO-SOURCE-ATTRIBUTION-005"), None)
         ev_metrics = next((e for e in ledger.evidence if e.rule_id == "GEO-EVIDENCE-METRICS-004"), None)
+        ev_cite_links = next((e for e in ledger.evidence if e.rule_id == "GEO-CITATION-LINKS-008"), None)
         cit_signal = ledger.signals.get("content_citations_count")
         ev_sig_val = ledger.signals.get("content_evidence_density_score")
         has_citations = (
@@ -233,7 +242,10 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             or (ev_sig_val and ev_sig_val.value and ev_sig_val.value >= 30)
         )
         if has_citations:
-            dim_src = 10
+            if ev_cite_links and ev_cite_links.status == STATUS_INFO:
+                dim_src = 8
+            else:
+                dim_src = 10
         elif (ev_source and ev_source.status == STATUS_WARNING) or (ev_metrics and ev_metrics.status == STATUS_WARNING):
             dim_src = 4
         else:
@@ -264,8 +276,16 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
 
         # Component 8: AI Crawler Access (Weight: 5)
         rob_sig = ledger.signals.get("ai_crawler_summary")
+        ev_ai_policy = next((e for e in ledger.evidence if e.rule_id == "GEO-AI-BOT-POLICY-007"), None)
         dim_crawl = 5  # RFC 9309 neutral default allow
-        if rob_sig and isinstance(rob_sig.value, dict) and rob_sig.value:
+        if ev_ai_policy:
+            if ev_ai_policy.status == STATUS_PASS:
+                dim_crawl = 5
+            elif ev_ai_policy.status == STATUS_WARNING:
+                dim_crawl = 2
+            elif ev_ai_policy.status == STATUS_CRITICAL:
+                dim_crawl = 0
+        elif rob_sig and isinstance(rob_sig.value, dict) and rob_sig.value:
             blocked = sum(1 for b, info in rob_sig.value.items() if not info.get("root_allowed", True))
             if blocked > 5:
                 dim_crawl = 0

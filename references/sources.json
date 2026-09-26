@@ -142,6 +142,66 @@
       "verified_at": "2026-09-18",
       "confidence": "high",
       "scope": "Direct and indirect prompt injection detection, untrusted data isolation, delimiter safety."
+    },
+    {
+      "id": "SRC-PAGESPEED-API",
+      "title": "Google PageSpeed Insights & CrUX Field Data API",
+      "tier": "Tier C",
+      "source_type": "official",
+      "url": "https://developers.google.com/speed/docs/insights/v5/about",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "Field Core Web Vitals (LCP, INP, CLS) and lab Total Blocking Time telemetry."
+    },
+    {
+      "id": "SRC-HTTP-ARCHIVE",
+      "title": "HTTP Archive Web Almanac: Performance, Markup & DOM Benchmarks",
+      "tier": "Tier E",
+      "source_type": "research",
+      "url": "https://almanac.httparchive.org/",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "DOM element counts, DOM nesting depth, script counts, modern asset formats."
+    },
+    {
+      "id": "SRC-GOOGLE-TITLE-SNIPPETS",
+      "title": "Google Search Central: Controlling Your Title Links in Search Results",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://developers.google.com/search/docs/appearance/title-link",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "Title length, pixel truncation, brand separation, H1 parity."
+    },
+    {
+      "id": "SRC-LLMS-TXT",
+      "title": "The /llms.txt Standard Specification (Answer.AI)",
+      "tier": "Tier E",
+      "source_type": "standard",
+      "url": "https://llmstxt.org/",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "/llms.txt file format, blockquote summary, sectioned markdown links."
+    },
+    {
+      "id": "SRC-INDEXNOW",
+      "title": "IndexNow Protocol Specification (Microsoft Bing & Yandex)",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://www.indexnow.org/",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "Search engine instant indexing notifications and key verification."
+    },
+    {
+      "id": "SRC-GOOGLE-SEARCH-CENTRAL-URL",
+      "title": "Google Search Central: URL Structure Best Practices",
+      "tier": "Tier B",
+      "source_type": "official",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/url-structure",
+      "verified_at": "2026-09-26",
+      "confidence": "high",
+      "scope": "Hyphens vs underscores, lowercase URLs, query parameter hygiene."
     }
   ]
 }

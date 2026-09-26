@@ -52,6 +52,24 @@ INTENT_KEYWORDS = {
 }
 
 
+import math
+
+QUESTION_HEADING_PATTERN = re.compile(
+    r"^(\s*(what|how|why|who|when|where|which|can|is|are|does|do|как|что|почему|зачем|где|кто|когда|какой|каковы|як|чаму|ці)\b|.*\?\s*$)",
+    re.IGNORECASE
+)
+
+
+@dataclass
+class PawcAnalysisResult:
+    score: int = 0
+    opening_evidence_weight: float = 0.0
+    heading_answer_weight: float = 0.0
+    sentences_count: int = 0
+    decay_alpha: float = 1.0
+    top_sentences: List[Dict[str, Any]] = field(default_factory=list)
+
+
 @dataclass
 class ContentChunk:
     heading: str
@@ -89,6 +107,9 @@ class ContentAnalysisResult:
     unsupported_superlatives: List[str] = field(default_factory=list)
     fluff_count: int = 0
     is_thin_content: bool = False
+    pawc: PawcAnalysisResult = field(default_factory=PawcAnalysisResult)
+    question_headings_count: int = 0
+    question_answers_count: int = 0
     findings: List[ContentFinding] = field(default_factory=list)
 
     def __getitem__(self, key: str) -> Any:
@@ -100,11 +121,87 @@ class ContentAnalysisResult:
         return getattr(self, key, default)
 
 
+def compute_pawc(
+    visible_text: str,
+    headings: Optional[List[Dict[str, Any]]] = None,
+    alpha: float = 1.0
+) -> PawcAnalysisResult:
+    """
+    Computes Position-Adjusted Word Count / Weighting (PAWC) per Princeton KDD 2024.
+    Weights factual definitions, empirical statistics, and authoritative citations
+    exponentially higher when placed in early positions (W = F * exp(-alpha * (pos / N))).
+    """
+    res = PawcAnalysisResult()
+    raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", visible_text) if len(s.strip().split()) >= 3]
+    N = len(raw_sentences)
+    res.sentences_count = N
+    if N == 0:
+        return res
+
+    heading_texts = {h.get("text", "").strip().lower() for h in (headings or []) if h.get("text")}
+
+    total_weighted_points = 0.0
+    ideal_max_points = 0.0
+    opening_pts = 0.0
+    heading_pts = 0.0
+
+    for i, sent in enumerate(raw_sentences):
+        pos_ratio = i / float(N)
+        decay = math.exp(-alpha * pos_ratio)
+
+        features = 0.0
+        sent_lower = sent.lower()
+
+        # 1. Definition syntax
+        if any(p.search(sent) for p in DEFINITION_PATTERNS):
+            features += 2.5
+        # 2. Empirical statistics
+        if PERCENTAGE_PATTERN.search(sent) or NUMERIC_STAT_PATTERN.search(sent):
+            features += 2.0
+        # 3. Citation cues
+        if any(cue in sent_lower for cue in CITATION_CUES):
+            features += 2.5
+        # 4. Heading proximity
+        is_hdg_adjacent = (i == 0) or any(sent_lower.startswith(ht[:20]) for ht in heading_texts if len(ht) >= 5)
+        if is_hdg_adjacent:
+            features += 1.5
+
+        if features > 0:
+            weighted = features * decay
+            total_weighted_points += weighted
+            if i < 3:
+                opening_pts += weighted
+            if is_hdg_adjacent:
+                heading_pts += weighted
+            if len(res.top_sentences) < 5:
+                res.top_sentences.append({
+                    "sentence": sent[:100] + ("..." if len(sent) > 100 else ""),
+                    "position": i,
+                    "decay": round(decay, 3),
+                    "score": round(weighted, 2)
+                })
+
+        ideal_max_points += 3.0 * math.exp(-alpha * (min(i, 4) / float(N)))
+
+    res.opening_evidence_weight = round(opening_pts, 2)
+    res.heading_answer_weight = round(heading_pts, 2)
+
+    raw_norm = (total_weighted_points / max(1.0, ideal_max_points)) * 100.0
+    if opening_pts > 2.0:
+        raw_norm += 15.0
+    res.score = min(100, max(0, int(round(raw_norm))))
+    return res
+
+
 def analyze_content(
     visible_text: str,
     headings: Optional[List[Dict[str, Any]]] = None,
     title: Optional[str] = None,
-    description: Optional[str] = None
+    description: Optional[str] = None,
+    extractable_elements: Optional[Dict[str, Any]] = None,
+    content_ratio: Optional[Dict[str, Any]] = None,
+    schema_entities: Optional[List[Dict[str, Any]]] = None,
+    links: Optional[List[Dict[str, Any]]] = None
 ) -> ContentAnalysisResult:
     """
     Performs deterministic content and GEO inspection on visible page text.
@@ -121,6 +218,9 @@ def analyze_content(
             message="No visible content found on page."
         ))
         return result
+
+    # Compute PAWC Positional Weighting
+    result.pawc = compute_pawc(visible_text, headings)
 
     # 1. Direct Answer Frontloading in Opening Block (first 60 words)
     opening_words = words[:60]
@@ -267,5 +367,65 @@ def analyze_content(
             message=f"Page has thin content ({result.total_words} words). Search engines and AI retrieval bots may consider it low utility.",
             details={"word_count": result.total_words}
         ))
+
+    # 8. Question Headings & Direct Answer Architecture (CONTENT-QUESTION-HEADINGS-002)
+    if headings:
+        q_headings = [h for h in headings if QUESTION_HEADING_PATTERN.search(h.get("text", ""))]
+        result.question_headings_count = len(q_headings)
+        if q_headings:
+            answered_count = 0
+            for qh in q_headings:
+                qh_text = qh.get("text", "").lower()
+                for chk in result.chunks:
+                    if chk.heading.lower() == qh_text or chk.text.lower().startswith(qh_text[:20]):
+                        if chk.word_count <= 80 and (chk.has_definition_pattern or not chk.has_pronoun_lead):
+                            answered_count += 1
+                            break
+            result.question_answers_count = max(1, answered_count) if result.opening_has_direct_answer else answered_count
+
+    # 9. Structured Extractable Elements (CONTENT-EXTRACTABLE-003)
+    if extractable_elements:
+        tables = extractable_elements.get("tables_count", 0)
+        lists = extractable_elements.get("lists_count", 0)
+        tldr = extractable_elements.get("tldr_blocks_count", 0)
+        dl = extractable_elements.get("definition_lists_count", 0)
+        has_extractable = (tables > 0 or lists > 0 or tldr > 0 or dl > 0)
+        if not has_extractable and result.total_words >= 300:
+            result.findings.append(ContentFinding(
+                rule_id="CONTENT-EXTRACTABLE-003",
+                severity="INFO",
+                message="Page contains >=300 words but lacks structured comparison tables, bulleted lists, or TL;DR summary blocks.",
+                details={"tables": tables, "lists": lists, "tldr": tldr}
+            ))
+
+    # 10. Content-to-Boilerplate Ratio (CONTENT-TEXT-RATIO-004)
+    if content_ratio:
+        tot_w = content_ratio.get("total_words", 0)
+        ratio = content_ratio.get("ratio", 1.0)
+        if tot_w >= 300 and ratio < 0.20:
+            result.findings.append(ContentFinding(
+                rule_id="CONTENT-TEXT-RATIO-004",
+                severity="WARNING",
+                message=f"Substantive main content ratio ({int(ratio*100)}%) is below recommended 20% threshold. Page template is dominated by boilerplate header/nav/footer.",
+                details={"ratio": ratio, "total_words": tot_w}
+            ))
+
+    # 11. Schema Date Visible Parity (CONTENT-DATE-VISIBLE-005)
+    if schema_entities:
+        for ent in schema_entities:
+            if isinstance(ent, dict):
+                d_pub = ent.get("datePublished")
+                d_mod = ent.get("dateModified")
+                for d_val in (d_pub, d_mod):
+                    if d_val and isinstance(d_val, str) and len(d_val) >= 4:
+                        year = d_val[:4]
+                        if year.isdigit() and int(year) >= 2000 and year not in clean_text:
+                            result.findings.append(ContentFinding(
+                                rule_id="CONTENT-DATE-VISIBLE-005",
+                                severity="WARNING",
+                                message=f"Schema declares publication/modification date '{d_val}', but year '{year}' is not visibly rendered in document body.",
+                                details={"schema_date": d_val}
+                            ))
+                            break
 
     return result

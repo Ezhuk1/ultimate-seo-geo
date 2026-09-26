@@ -23,6 +23,8 @@ from .analyzers.content_analyzer import analyze_content
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
 from .analyzers.eeat_analyzer import analyze_eeat
 from .analyzers.freshness_analyzer import analyze_freshness
+from .analyzers.performance_analyzer import analyze_performance
+from .analyzers.llms_analyzer import check_llms_txt, generate_llms_txt, LlmsTxtResult
 from .analyzers.security_analyzer import SecurityAnalyzer
 from .sarif import format_sarif_json, generate_sarif_report
 from .indexability import evaluate_indexability_matrix, VERDICT_CONFLICTED
@@ -194,11 +196,26 @@ def run_inspection(
     content_text = SecurityAnalyzer.sanitize_for_llm(content_text)
     content_data = analyze_content(
         content_text,
-        headings=html_data["headings"].get("outline", [])
+        headings=html_data["headings"].get("outline", []),
+        title=html_data["title"].get("value"),
+        description=html_data["meta_description"].get("value"),
+        extractable_elements=html_data.get("extractable_elements"),
+        content_ratio=html_data.get("content_ratio"),
+        schema_entities=schema_data.entities if schema_data else [],
+        links=html_data.get("links", {}).get("all", [])
     )
 
-    # 5. Robots & Sitemap Inspection
+    # 4.5 Performance & Asset Inspection
     final_url = http_res.get("final_url", target)
+    psi_key = getattr(config, "psi_api_key", None) if config else None
+    perf_data = analyze_performance(html_data, target_url=final_url, psi_api_key=psi_key)
+
+    # 4.6 /llms.txt AI Context File Check
+    llms_res: Optional[LlmsTxtResult] = None
+    if not http_res["is_local"] and final_url.startswith(("http://", "https://")):
+        llms_res = check_llms_txt(final_url, timeout=min(3.0, timeout))
+
+    # 5. Robots & Sitemap Inspection
     parsed_target = urlparse(final_url)
     target_path = parsed_target.path or "/"
 
@@ -296,6 +313,9 @@ def run_inspection(
 
     builder.metadata["eeat_analysis"] = eeat_data.to_dict()
     builder.metadata["freshness_analysis"] = freshness_data.to_dict()
+    builder.metadata["page_title"] = html_data["title"]["value"]
+    builder.metadata["meta_description"] = html_data["meta_description"]["value"]
+    builder.metadata["html_links"] = html_data.get("links", {}).get("all", [])
     builder.metadata["schema_verdict"] = {
         "syntax_valid": schema_data.syntax_valid,
         "schema_org_structure": schema_data.schema_org_structure,
@@ -2259,6 +2279,8 @@ def run_inspection(
 
     # CONTENT & GEO EVIDENCE
     for cf in content_data.findings:
+        if cf.rule_id in ("CONTENT-DATE-VISIBLE-005", "CONTENT-QUESTION-HEADINGS-002", "CONTENT-EXTRACTABLE-003", "CONTENT-TEXT-RATIO-004"):
+            continue
         builder.add_evidence(
             rule_id=cf.rule_id,
             category="geo",
@@ -2396,17 +2418,690 @@ def run_inspection(
                 impact_estimate="Search crawlers detect temporal contradictions or discard stale documents."
             )
 
-    # UNMEASURED FIELD EVIDENCE (Demonstrates strict "Unknown != Failure" invariant)
-    builder.add_evidence(
-        rule_id="PERF-CWV-FIELD-007",
-        category="performance",
-        title="Core Web Vitals Real-User Field Metrics (CrUX)",
-        status=STATUS_NOT_MEASURED,
-        confidence=CONFIDENCE_UNVERIFIABLE,
-        observed="No CrUX field API token provided",
-        expected="75th percentile LCP < 2.5s, INP < 200ms, CLS < 0.1",
-        message="Real-user field performance is NOT MEASURED. In accordance with Evidence Ledger invariants, this unmeasured hypothesis carries 0 penalty."
-    )
+    # PERFORMANCE EVIDENCE
+    dom_findings = [f for f in perf_data.findings if f.rule_id == "PERF-DOM-005"]
+    if dom_findings:
+        builder.add_evidence(
+            rule_id="PERF-DOM-005",
+            category="performance",
+            title="DOM Size and Tree Nesting Depth",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=dom_findings[0].message,
+            expected="<= 1500 nodes, <= 32 depth, <= 50 scripts",
+            message=dom_findings[0].message
+        )
+        builder.add_finding(
+            rule_id="PERF-DOM-005",
+            category="performance",
+            severity=STATUS_WARNING,
+            title="Excessive DOM Tree Complexity",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=dom_findings[0].remediation_steps,
+            impact_estimate=dom_findings[0].impact_estimate
+        )
+    else:
+        builder.add_evidence(
+            rule_id="PERF-DOM-005",
+            category="performance",
+            title="DOM Size and Tree Nesting Depth",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{perf_data.dom_nodes_count} nodes, max depth {perf_data.max_dom_depth}, {perf_data.script_tags_count} scripts",
+            expected="<= 1500 nodes and <= 32 depth",
+            message="DOM tree complexity is within optimal bounds."
+        )
+
+    rb_findings = [f for f in perf_data.findings if f.rule_id == "PERF-RENDER-BLOCK-003"]
+    if rb_findings:
+        builder.add_evidence(
+            rule_id="PERF-RENDER-BLOCK-003",
+            category="performance",
+            title="Render-Blocking CSS and Synchronous JavaScript",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=rb_findings[0].message,
+            expected="Asynchronous non-critical styles and scripts",
+            message=rb_findings[0].message
+        )
+        builder.add_finding(
+            rule_id="PERF-RENDER-BLOCK-003",
+            category="performance",
+            severity=STATUS_WARNING,
+            title="Render-Blocking Assets in <head>",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=rb_findings[0].remediation_steps,
+            impact_estimate=rb_findings[0].impact_estimate
+        )
+    else:
+        builder.add_evidence(
+            rule_id="PERF-RENDER-BLOCK-003",
+            category="performance",
+            title="Render-Blocking CSS and Synchronous JavaScript",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="0 render-blocking assets in <head>",
+            expected="Asynchronous non-critical styles and scripts",
+            message="No render-blocking scripts or non-print stylesheets detected in <head>."
+        )
+
+    hint_lazy = next((f for f in perf_data.findings if f.rule_id == "PERF-RESOURCE-HINTS-006" and f.severity == STATUS_WARNING), None)
+    if hint_lazy:
+        builder.add_evidence(
+            rule_id="PERF-RESOURCE-HINTS-006",
+            category="performance",
+            title="Resource Hints and LCP Priority Optimization",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=hint_lazy.message,
+            expected="Eager high-priority loading for hero image",
+            message=hint_lazy.message
+        )
+        builder.add_finding(
+            rule_id="PERF-RESOURCE-HINTS-006",
+            category="performance",
+            severity=STATUS_WARNING,
+            title=hint_lazy.title,
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P1_HIGH",
+            remediation_steps=hint_lazy.remediation_steps,
+            impact_estimate=hint_lazy.impact_estimate
+        )
+    else:
+        builder.add_evidence(
+            rule_id="PERF-RESOURCE-HINTS-006",
+            category="performance",
+            title="Resource Hints and LCP Priority Optimization",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{len(perf_data.resource_hints)} resource hint(s)",
+            expected="Optimized above-the-fold image delivery",
+            message="Above-the-fold image delivery is optimized without lazy-load anti-patterns."
+        )
+
+    img_mod_finding = next((f for f in perf_data.findings if f.rule_id == "TECH-IMAGE-MODERN-038"), None)
+    if img_mod_finding:
+        builder.add_evidence(
+            rule_id="TECH-IMAGE-MODERN-038",
+            category="technical",
+            title="Modern Image Formats (WebP / AVIF)",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=img_mod_finding.message,
+            expected="Next-gen WebP/AVIF format utilization",
+            message=img_mod_finding.message
+        )
+        builder.add_finding(
+            rule_id="TECH-IMAGE-MODERN-038",
+            category="technical",
+            severity=STATUS_WARNING,
+            title=img_mod_finding.title,
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=img_mod_finding.remediation_steps,
+            impact_estimate=img_mod_finding.impact_estimate
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-IMAGE-MODERN-038",
+            category="technical",
+            title="Modern Image Formats (WebP / AVIF)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{perf_data.image_formats.get('modern', 0)} modern image(s)",
+            expected="Modern format utilization or compact asset count",
+            message="Image assets leverage modern compressed formats or document is compact."
+        )
+
+    # TECH-ROBOTS-SITEMAP-034
+    if robots_ast:
+        if len(robots_ast.sitemaps) == 0:
+            builder.add_evidence(
+                rule_id="TECH-ROBOTS-SITEMAP-034",
+                category="technical",
+                title="XML Sitemap Declaration in robots.txt",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="0 Sitemap directives declared in robots.txt",
+                expected="At least 1 Sitemap: directive",
+                message="robots.txt lacks a Sitemap: directive pointing search crawlers to the sitemap index."
+            )
+            builder.add_finding(
+                rule_id="TECH-ROBOTS-SITEMAP-034",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Missing Sitemap Directive in robots.txt",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Add 'Sitemap: https://example.com/sitemap.xml' to the end of robots.txt."],
+                impact_estimate="Search crawlers take longer to discover new content and taxonomy changes."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-ROBOTS-SITEMAP-034",
+                category="technical",
+                title="XML Sitemap Declaration in robots.txt",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{len(robots_ast.sitemaps)} sitemap directive(s) declared",
+                expected="At least 1 Sitemap: directive",
+                message=f"robots.txt declares sitemap(s): {', '.join(robots_ast.sitemaps[:2])}."
+            )
+
+    # TECH-URL-STRUCTURE-037
+    if not http_res.get("is_local", False) and final_url.startswith(("http://", "https://")):
+        parsed_u = urlparse(final_url)
+        u_path = parsed_u.path or "/"
+        u_query = parsed_u.query or ""
+        u_issues = []
+        if any(c.isupper() for c in u_path):
+            u_issues.append("Uppercase characters in URL path")
+        if "_" in u_path:
+            u_issues.append("Underscores in URL path instead of hyphens")
+        q_parts = [qp.split("=")[0].lower() for qp in u_query.split("&") if qp]
+        if any(sid in q_parts for sid in ("sid", "phpsessid", "jsessionid", "aspsessionid")):
+            u_issues.append("Session ID in query parameters")
+        if len(q_parts) > 3:
+            u_issues.append(f"Excessive query parameters ({len(q_parts)} > 3)")
+        path_segs = [s for s in u_path.split("/") if s]
+        if len(path_segs) > 4:
+            u_issues.append(f"Excessive directory depth ({len(path_segs)} levels > 4)")
+        if u_issues:
+            builder.add_evidence(
+                rule_id="TECH-URL-STRUCTURE-037",
+                category="technical",
+                title="Clean URL Structure & Parameter Hygiene",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="; ".join(u_issues),
+                expected="Lowercase alphanumeric paths with hyphens and <=3 query parameters",
+                message=f"URL structure irregularities detected: {'; '.join(u_issues)}."
+            )
+            builder.add_finding(
+                rule_id="TECH-URL-STRUCTURE-037",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Suboptimal URL Structure",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Use lowercase alphanumeric characters separated by hyphens.",
+                    "Eliminate session parameters and minimize query parameters."
+                ],
+                impact_estimate="Poor readability, crawling overhead, and potential duplicate content."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="TECH-URL-STRUCTURE-037",
+                category="technical",
+                title="Clean URL Structure & Parameter Hygiene",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Clean URL structure (depth {len(path_segs)})",
+                expected="Lowercase alphanumeric paths with hyphens",
+                message="URL conforms to search engine best practices."
+            )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-URL-STRUCTURE-037",
+            category="technical",
+            title="Clean URL Structure & Parameter Hygiene",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Clean URL structure",
+            expected="Clean URL structure",
+            message="URL structure check evaluated cleanly."
+        )
+
+    # CONTENT-TITLE-QUALITY-001
+    title_dict = html_data.get("title", {})
+    t_val = title_dict.get("value", "")
+    p_width = title_dict.get("pixel_width", 0)
+    h1_vals = html_data.get("headings", {}).get("h1_values", [])
+    first_h1 = h1_vals[0].strip() if h1_vals else ""
+    t_issues = []
+    if t_val and first_h1 and t_val.strip().lower() == first_h1.strip().lower() and len(t_val.split()) > 2:
+        t_issues.append("Title and H1 are verbatim identical")
+    if p_width > 580:
+        t_issues.append(f"Title pixel width ({p_width}px) exceeds 580px desktop SERP limit")
+    if t_issues:
+        builder.add_evidence(
+            rule_id="CONTENT-TITLE-QUALITY-001",
+            category="technical",
+            title="Title Pixel Width & Snippet Formatting",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="; ".join(t_issues),
+            expected="Width <= 580px and distinct from H1",
+            message=f"Title snippet optimization issue: {'; '.join(t_issues)}."
+        )
+        builder.add_finding(
+            rule_id="CONTENT-TITLE-QUALITY-001",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Title Snippet Truncation or Duplication",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=[
+                "Format title to under 580px in desktop Google SERP.",
+                "Ensure <title> and H1 have distinct nuances rather than identical copy."
+            ],
+            impact_estimate="Google SERP truncates long titles with ellipses (...) or rewrites them non-deterministically."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="CONTENT-TITLE-QUALITY-001",
+            category="technical",
+            title="Title Pixel Width & Snippet Formatting",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{p_width}px (~580px desktop limit), distinct from H1",
+            expected="Width <= 580px and distinct from H1",
+            message="Title is well-proportioned for Google desktop search snippets."
+        )
+
+    # CONTENT-QUESTION-HEADINGS-002
+    q_cnt = content_data.question_headings_count
+    ans_cnt = content_data.question_answers_count
+    if q_cnt > 0:
+        builder.add_evidence(
+            rule_id="CONTENT-QUESTION-HEADINGS-002",
+            category="technical",
+            title="Question Headings & Direct Answer Architecture",
+            status=STATUS_PASS if ans_cnt > 0 else STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"{q_cnt} question heading(s), {ans_cnt} direct answer block(s)",
+            expected="Question headings followed by direct 40–60 word answer passages",
+            message=f"Content declares {q_cnt} question headings with {ans_cnt} direct answer blocks for PAA/AEO extraction."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="CONTENT-QUESTION-HEADINGS-002",
+            category="technical",
+            title="Question Headings & Direct Answer Architecture",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed="0 question headings declared",
+            expected="Optional question-style subheadings for PAA/AEO",
+            message="No question-style headings (What/How/Why) declared. Consider structuring FAQ sections for PAA inclusion."
+        )
+
+    # CONTENT-EXTRACTABLE-003
+    extr = html_data.get("extractable_elements", {})
+    tb_c = extr.get("tables_count", 0)
+    li_c = extr.get("lists_count", 0)
+    tldr_c = extr.get("tldr_blocks_count", 0)
+    has_extr = (tb_c > 0 or li_c > 0 or tldr_c > 0 or extr.get("definition_lists_count", 0) > 0)
+    if has_extr:
+        builder.add_evidence(
+            rule_id="CONTENT-EXTRACTABLE-003",
+            category="technical",
+            title="Structured Extractable Elements (Tables, Lists, TL;DR)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"Tables: {tb_c}, Lists: {li_c}, TL;DR: {tldr_c}",
+            expected="Structured tables, bulleted lists, or summary callout boxes",
+            message="Document provides structured extractable elements that generative engines favor for direct citations."
+        )
+    elif content_data.total_words >= 300:
+        builder.add_evidence(
+            rule_id="CONTENT-EXTRACTABLE-003",
+            category="technical",
+            title="Structured Extractable Elements (Tables, Lists, TL;DR)",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed="No comparison tables, structured lists, or TL;DR callouts",
+            expected="Structured tables, bulleted lists, or summary callout boxes",
+            message="Longer content document lacks structured tables or bulleted lists that AI engines extract for synthesis."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="CONTENT-EXTRACTABLE-003",
+            category="technical",
+            title="Structured Extractable Elements (Tables, Lists, TL;DR)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed="Compact document",
+            expected="Structured elements",
+            message="Compact page format."
+        )
+
+    # CONTENT-TEXT-RATIO-004
+    c_rat = html_data.get("content_ratio", {})
+    r_val = c_rat.get("ratio", 1.0)
+    tot_w = c_rat.get("total_words", 0)
+    if tot_w >= 300 and r_val < 0.20:
+        builder.add_evidence(
+            rule_id="CONTENT-TEXT-RATIO-004",
+            category="technical",
+            title="Content-to-Boilerplate Ratio (Thin Template Guard)",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"Substantive content ratio: {int(r_val*100)}% (< 20%)",
+            expected="Substantive main content >= 20% of total page words",
+            message=f"Page is dominated by header/nav/footer boilerplate ({int(r_val*100)}% substantive main text)."
+        )
+        builder.add_finding(
+            rule_id="CONTENT-TEXT-RATIO-004",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Low Substantive Content-to-Boilerplate Ratio",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Expand main body content or streamline redundant header, footer, and navigation boilerplate."],
+            impact_estimate="Search crawlers classify low-content-ratio pages as thin templates with reduced indexing priority."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="CONTENT-TEXT-RATIO-004",
+            category="technical",
+            title="Content-to-Boilerplate Ratio (Thin Template Guard)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"Substantive content ratio: {int(r_val*100)}%",
+            expected="Substantive main content >= 20%",
+            message="Content-to-boilerplate ratio is healthy."
+        )
+
+    # CONTENT-DATE-VISIBLE-005
+    date_finding = next((f for f in content_data.findings if f.rule_id == "CONTENT-DATE-VISIBLE-005"), None)
+    if date_finding:
+        builder.add_evidence(
+            rule_id="CONTENT-DATE-VISIBLE-005",
+            category="technical",
+            title="Schema Date Visible Rendering Parity",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=date_finding.message,
+            expected="Schema publication/modification dates visibly rendered in document body",
+            message=date_finding.message
+        )
+        builder.add_finding(
+            rule_id="CONTENT-DATE-VISIBLE-005",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Schema Date Not Rendered in Visible HTML",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=["Add a visible byline date (e.g. 'Updated: [Date]') to ensure parity with Schema JSON-LD."],
+            impact_estimate="Google search spam guidelines penalize misleading metadata that contradicts visible content."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="CONTENT-DATE-VISIBLE-005",
+            category="technical",
+            title="Schema Date Visible Rendering Parity",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Schema date consistent with visible HTML text or unassigned",
+            expected="Visible publication date parity",
+            message="Schema dates align with human-visible document bylines."
+        )
+
+    # GEO-PAWC-SCORE-001
+    pawc_obj = content_data.pawc
+    if pawc_obj.score >= 50 or content_data.total_words < 25:
+        builder.add_evidence(
+            rule_id="GEO-PAWC-SCORE-001",
+            category="geo",
+            title="Position-Adjusted Word Weighting (PAWC)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"PAWC Score: {pawc_obj.score}/100 (opening weight: {pawc_obj.opening_evidence_weight}, heading weight: {pawc_obj.heading_answer_weight})",
+            expected="PAWC score >= 50/100 with evidence frontloading",
+            message="Document successfully frontloads factual definitions and metrics before exponential position decay."
+        )
+    elif pawc_obj.score >= 30:
+        builder.add_evidence(
+            rule_id="GEO-PAWC-SCORE-001",
+            category="geo",
+            title="Position-Adjusted Word Weighting (PAWC)",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"PAWC Score: {pawc_obj.score}/100 (moderate frontloading)",
+            expected="PAWC score >= 50/100",
+            message="Document has moderate evidence frontloading. Advancing key definitions to the first 60 words will increase LLM citation probability."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="GEO-PAWC-SCORE-001",
+            category="geo",
+            title="Position-Adjusted Word Weighting (PAWC)",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"PAWC Score: {pawc_obj.score}/100 (low early evidence density)",
+            expected="PAWC score >= 50/100",
+            message="Key claims and factual definitions are buried deep in the document, succumbing to exponential citation decay."
+        )
+        builder.add_finding(
+            rule_id="GEO-PAWC-SCORE-001",
+            category="geo",
+            severity=STATUS_WARNING,
+            title="Low PAWC Evidence Frontloading Score",
+            confidence=CONFIDENCE_HEURISTIC,
+            action_priority="P1_HIGH",
+            remediation_steps=[
+                "State core definition in the opening sentence: '[Topic] is [category] designed to [function]'.",
+                "Lead sub-sections with verifiable quantitative metrics before narrative background."
+            ],
+            impact_estimate="Generative answer engines (ChatGPT, Perplexity) extract earlier sentences; delayed definitions are omitted from synthesis."
+        )
+
+    # GEO-LLMS-TXT-CHECK-006
+    if llms_res:
+        if llms_res.is_valid:
+            builder.add_evidence(
+                rule_id="GEO-LLMS-TXT-CHECK-006",
+                category="geo",
+                title="/llms.txt AI Context File & Syntax Compliance",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Valid /llms.txt ('{llms_res.title}', {llms_res.links_count} links)",
+                expected="Valid /llms.txt with H1, blockquote summary, and documentation links",
+                message=f"Website declares standard-compliant /llms.txt for autonomous agent traversal ({llms_res.links_count} links)."
+            )
+        elif llms_res.is_present:
+            builder.add_evidence(
+                rule_id="GEO-LLMS-TXT-CHECK-006",
+                category="geo",
+                title="/llms.txt AI Context File & Syntax Compliance",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"/llms.txt present but invalid: {'; '.join(llms_res.validation_errors[:2])}",
+                expected="Valid /llms.txt structure",
+                message=f"/llms.txt syntax errors: {'; '.join(llms_res.validation_errors)}."
+            )
+            builder.add_finding(
+                rule_id="GEO-LLMS-TXT-CHECK-006",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="Invalid /llms.txt Syntax",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=["Ensure /llms.txt begins with '# Project Title' and a blockquote '> Summary'."],
+                impact_estimate="Autonomous LLM agents fail to parse website overview and documentation links."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-LLMS-TXT-CHECK-006",
+                category="geo",
+                title="/llms.txt AI Context File & Syntax Compliance",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="No /llms.txt found at website root",
+                expected="Optional /llms.txt specification",
+                message="Website does not publish /llms.txt. Creating one per Answer.AI specification accelerates LLM agent comprehension."
+            )
+    else:
+        builder.add_evidence(
+            rule_id="GEO-LLMS-TXT-CHECK-006",
+            category="geo",
+            title="/llms.txt AI Context File & Syntax Compliance",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Local file inspection or unprobed /llms.txt",
+            expected="N/A",
+            message="Local inspection mode; remote /llms.txt probe skipped."
+        )
+
+    # GEO-AI-BOT-POLICY-007
+    if robots_sim:
+        blocked_search_bots = []
+        for b_name in ("OAI-SearchBot", "PerplexityBot", "Claude-SearchBot"):
+            b_info = robots_sim.get(b_name, {})
+            if not b_info.get("root_allowed", True) or not b_info.get("target_allowed", True):
+                blocked_search_bots.append(b_name)
+        if blocked_search_bots:
+            builder.add_evidence(
+                rule_id="GEO-AI-BOT-POLICY-007",
+                category="geo",
+                title="AI Search Engine Retrieval Bot Permissibility",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Blocked search retrieval crawler(s): {', '.join(blocked_search_bots)}",
+                expected="Allow directives for search retrieval bots",
+                message=f"robots.txt disallows search retrieval bot(s): {', '.join(blocked_search_bots)}. Site is invisible in AI search engines."
+            )
+            builder.add_finding(
+                rule_id="GEO-AI-BOT-POLICY-007",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="Search Retrieval AI Crawlers Blocked in robots.txt",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH",
+                remediation_steps=[
+                    "Add explicit permissive directives in robots.txt:",
+                    "User-agent: OAI-SearchBot\\nAllow: /\\n\\nUser-agent: PerplexityBot\\nAllow: /\\n\\nUser-agent: Claude-SearchBot\\nAllow: /"
+                ],
+                impact_estimate="Total exclusion from ChatGPT Search, Perplexity answer citations, and Claude search results."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-AI-BOT-POLICY-007",
+                category="geo",
+                title="AI Search Engine Retrieval Bot Permissibility",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="All search retrieval bots (OAI-SearchBot, PerplexityBot, Claude-SearchBot) allowed",
+                expected="Permissive search retrieval policy",
+                message="Search retrieval bots have full access to index and cite site content."
+            )
+    else:
+        builder.add_evidence(
+            rule_id="GEO-AI-BOT-POLICY-007",
+            category="geo",
+            title="AI Search Engine Retrieval Bot Permissibility",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="Default allow policy (RFC 9309)",
+            expected="Permissive search retrieval policy",
+            message="No robots.txt restrictions detected; search retrieval bots allowed by default."
+        )
+
+    # GEO-CITATION-LINKS-008
+    st_count = content_data.unverified_stats_count
+    ext_links_count = html_data.get("links", {}).get("external_count", 0)
+    if st_count > 0 and ext_links_count == 0:
+        builder.add_evidence(
+            rule_id="GEO-CITATION-LINKS-008",
+            category="geo",
+            title="Statistical Claims Outbound Source Grounding",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"{st_count} numeric claims without external hyperlink citations",
+            expected="External anchor links backing factual assertions",
+            message="Page presents statistics without outbound hyperlink sources. Adding <a href='...'> citations enables AI crawlers to verify claims."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="GEO-CITATION-LINKS-008",
+            category="geo",
+            title="Statistical Claims Outbound Source Grounding",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"Claims grounded ({ext_links_count} external links present)",
+            expected="External anchor links or verified citations",
+            message="Claims are grounded with outbound link references or verified citations."
+        )
+
+    # SCHEMA-AUTHOR-LINK-012
+    if schema_data and schema_data.entities:
+        person_nodes = []
+        for e in schema_data.entities:
+            if e.get("@type") == "Person" and e.get("name"):
+                person_nodes.append(e)
+            auth = e.get("author")
+            if isinstance(auth, dict) and auth.get("name"):
+                person_nodes.append(auth)
+            elif isinstance(auth, list):
+                for a in auth:
+                    if isinstance(a, dict) and a.get("name"):
+                        person_nodes.append(a)
+        if person_nodes:
+            v_text = html_data.get("visible_text", "")
+            p_name = person_nodes[0].get("name", "").strip()
+            if p_name and p_name.lower() in v_text.lower():
+                builder.add_evidence(
+                    rule_id="SCHEMA-AUTHOR-LINK-012",
+                    category="schema",
+                    title="Author Person Byline & SameAs Parity",
+                    status=STATUS_PASS,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"Schema author '{p_name}' verified in visible document text",
+                    expected="Schema author name visibly rendered in HTML",
+                    message="Author identity in Schema matches visible author byline."
+                )
+            elif p_name:
+                builder.add_evidence(
+                    rule_id="SCHEMA-AUTHOR-LINK-012",
+                    category="schema",
+                    title="Author Person Byline & SameAs Parity",
+                    status=STATUS_WARNING,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"Schema author '{p_name}' not found in visible text",
+                    expected="Schema author name visibly rendered in HTML",
+                    message=f"Schema declares author '{p_name}', but name is not rendered in visible HTML text."
+                )
+                builder.add_finding(
+                    rule_id="SCHEMA-AUTHOR-LINK-012",
+                    category="schema",
+                    severity=STATUS_WARNING,
+                    title="Schema Author Name Missing From Visible Byline",
+                    confidence=CONFIDENCE_VERIFIED,
+                    action_priority="P2_MEDIUM",
+                    remediation_steps=[f"Add visible author byline mentioning '{p_name}'."],
+                    impact_estimate="Google E-E-A-T evaluator guidelines require author transparency."
+                )
+
+    # PERF-CWV-FIELD-007
+    if perf_data.cwv_field.is_measured and perf_data.cwv_field.lcp_ms is not None:
+        lcp = perf_data.cwv_field.lcp_ms
+        inp = perf_data.cwv_field.inp_ms
+        cls = perf_data.cwv_field.cls_score
+        is_good = (lcp <= 2500 and (inp is None or inp <= 200) and (cls is None or cls <= 0.1))
+        builder.add_evidence(
+            rule_id="PERF-CWV-FIELD-007",
+            category="performance",
+            title="Core Web Vitals Real-User Field Metrics (CrUX)",
+            status=STATUS_PASS if is_good else STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"CrUX Field Data: LCP={lcp}ms, INP={inp}ms, CLS={cls}",
+            expected="75th percentile LCP < 2.5s, INP < 200ms, CLS < 0.1",
+            message=f"Real-user field performance from PageSpeed Insights API. Overall Performance Score: {perf_data.cwv_field.performance_score or 'N/A'}/100."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="PERF-CWV-FIELD-007",
+            category="performance",
+            title="Core Web Vitals Real-User Field Metrics (CrUX)",
+            status=STATUS_NOT_MEASURED,
+            confidence=CONFIDENCE_UNVERIFIABLE,
+            observed="No CrUX field API token provided",
+            expected="75th percentile LCP < 2.5s, INP < 200ms, CLS < 0.1",
+            message="Real-user field performance is NOT MEASURED. In accordance with Evidence Ledger invariants, this unmeasured hypothesis carries 0 penalty."
+        )
 
     ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
     if config and config.disabled_rules:
@@ -2621,7 +3316,7 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.1.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.2.0")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
@@ -2639,6 +3334,7 @@ def main():
     parser.add_argument("--max-pages", type=int, default=50, help="Maximum number of pages to crawl (default: 50)")
     parser.add_argument("--depth", type=int, default=3, help="Maximum crawl depth from seed (default: 3)")
     parser.add_argument("--config", default=None, help="Path to ultimate-seo-geo.json configuration file")
+    parser.add_argument("--generate-llms-txt", action="store_true", help="Generate standard-compliant /llms.txt file from target/crawl metadata")
     parser.add_argument("--experiment", action="store_true", help="Run AI Citation Benchmark Before/After experiment comparison")
     parser.add_argument("--before", help="Path to baseline benchmark JSON file")
     parser.add_argument("--after", help="Path to post-optimization benchmark JSON file")
@@ -2735,6 +3431,40 @@ def main():
     except Exception as exc:
         sys.stderr.write(f"Error executing inspection: {exc}\n")
         sys.exit(1)
+
+    # Standard-Compliant /llms.txt Generation Mode
+    if args.generate_llms_txt:
+        from .analyzers.llms_analyzer import generate_llms_txt
+        site_title = ledger.metadata.get("page_title") or "Website Documentation"
+        site_desc = ledger.metadata.get("meta_description") or "Curated content and key documentation pages for LLM context grounding."
+        pages_list = [{"title": site_title, "url": args.target, "description": site_desc}]
+        seen_urls = {args.target}
+        raw_links = ledger.metadata.get("html_links", [])
+        for link in raw_links:
+            href = link.get("href", "").strip()
+            anchor = link.get("text", "").strip()
+            if href and href not in seen_urls and not href.startswith(("#", "mailto:", "tel:", "javascript:")):
+                seen_urls.add(href)
+                pages_list.append({
+                    "title": anchor or href.rstrip("/").split("/")[-1].replace("-", " ").capitalize() or "Documentation",
+                    "url": href,
+                    "description": ""
+                })
+            if len(pages_list) >= 20:
+                break
+
+        llms_txt_str = generate_llms_txt(
+            title=site_title,
+            summary=site_desc,
+            pages=pages_list
+        )
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(llms_txt_str)
+            print(f"Generated /llms.txt saved to {args.output}")
+        else:
+            print(llms_txt_str)
+        return
 
     # Historical Audit Comparison
     if args.previous_audit and os.path.exists(args.previous_audit):

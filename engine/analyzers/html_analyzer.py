@@ -9,6 +9,44 @@ from urllib.parse import urlsplit
 import re
 
 
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+
+def estimate_title_pixel_width(title: str, font_size: int = 18) -> int:
+    """
+    Estimates desktop Google SERP title width in pixels based on Arial 18px proportional character metrics.
+    Google desktop SERP truncates titles at approximately 580-600px.
+    """
+    if not title:
+        return 0
+    width = 0.0
+    for ch in title:
+        if ch in "ijl|'!,.:; ":
+            width += 4.5
+        elif ch in "fkt-`\"":
+            width += 6.5
+        elif ch in "abcdeghnopqrsuvxyz0123456789":
+            width += 10.0
+        elif ch in "mwMW_~":
+            width += 16.0
+        elif ch in "ABCDEFGHJKLMNOPQRSTUVXYZ":
+            width += 12.0
+        elif "\u0400" <= ch <= "\u04FF":  # Cyrillic
+            if ch in "шщюжфШЩЮЖФ":
+                width += 16.0
+            elif ch in "іії!":
+                width += 4.5
+            elif ch.isupper():
+                width += 13.0
+            else:
+                width += 10.0
+        elif ord(ch) > 127:
+            width += 16.0
+        else:
+            width += 10.0
+    return int(round(width))
+
+
 class DocumentParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -22,6 +60,25 @@ class DocumentParser(HTMLParser):
         self.has_header = False
         self.has_nav = False
         self.has_footer = False
+        self.boilerplate_depth = 0
+
+        # DOM & Performance metrics
+        self.dom_nodes_count = 0
+        self.current_dom_depth = 0
+        self.max_dom_depth = 0
+        self.script_tags_count = 0
+        self.render_blocking_css = []
+        self.render_blocking_js = []
+        self.resource_hints = []
+        self.hero_image = None
+
+        # Content structure & extractable elements
+        self.tables_count = 0
+        self.has_comparison_table = False
+        self.lists_count = 0
+        self.definition_lists_count = 0
+        self.tldr_blocks_count = 0
+        self.image_formats = {"modern": 0, "legacy": 0}
 
         self.form_inputs = []
         self.label_for_ids = set()
@@ -58,11 +115,12 @@ class DocumentParser(HTMLParser):
         self.hreflang_tags = []
 
         self.headings = []  # List of {"level": int, "text": str}
-        self.images = []    # List of {"src": str, "alt": str | None, "has_dims": bool}
+        self.images = []    # List of {"src": str, "alt": str | None, "has_dims": bool, "loading": str, "fetchpriority": str}
         self.links = []     # List of {"href": str, "rel": str, "text": str, "aria_label": str, "has_text": bool}
         self.json_ld_blocks = []
         self.visible_text_parts = []
         self.main_text_parts = []
+        self.boilerplate_text_parts = []
 
         # CSR / SPA Shell detection
         self.csr_mount_elements = []
@@ -71,6 +129,12 @@ class DocumentParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
+
+        self.dom_nodes_count += 1
+        if tag not in VOID_TAGS:
+            self.current_dom_depth += 1
+            if self.current_dom_depth > self.max_dom_depth:
+                self.max_dom_depth = self.current_dom_depth
 
         # Check for mixed content
         if tag in ("img", "script", "link", "iframe", "video", "audio"):
@@ -89,32 +153,55 @@ class DocumentParser(HTMLParser):
                 self.lang = html_lang
         elif tag == "header":
             self.has_header = True
+            self.boilerplate_depth += 1
         elif tag == "nav":
             self.has_nav = True
+            self.boilerplate_depth += 1
         elif tag == "main":
             self.in_main = True
             self.has_main = True
         elif tag == "footer":
             self.has_footer = True
+            self.boilerplate_depth += 1
+        elif tag == "aside":
+            self.boilerplate_depth += 1
         elif tag == "svg":
             self.in_svg = True
 
         tag_id = attr_dict.get("id", "").lower()
+        tag_cls = attr_dict.get("class", "").lower()
         if tag_id in ("root", "app", "__next", "__nuxt"):
             self.csr_mount_elements.append(f"{tag}#{tag_id}")
+
+        if any(marker in tag_id or marker in tag_cls for marker in ("tldr", "key-takeaway", "summary-box", "takeaways", "quick-answer")):
+            self.tldr_blocks_count += 1
 
         if tag == "title" and not self.in_svg:
             self.in_title = True
             self._current_title_text = []
         elif tag == "style":
             self.in_style = True
+        elif tag == "table":
+            self.tables_count += 1
+        elif tag == "th":
+            self.has_comparison_table = True
+        elif tag in ("ul", "ol"):
+            self.lists_count += 1
+        elif tag == "dl":
+            self.definition_lists_count += 1
         elif tag == "script":
             self.in_script = True
+            self.script_tags_count += 1
             self.current_script_type = attr_dict.get("type", "").lower()
             self._current_script_text = []
             script_src = attr_dict.get("src", "").lower()
             if script_src and any(pattern in script_src for pattern in ("chunk", "bundle", "main.", "app.", "/static/js/", "_next/static/")):
                 self.has_client_bundle = True
+            if self.in_head and script_src:
+                is_async = "async" in attr_dict
+                is_defer = "defer" in attr_dict
+                if not is_async and not is_defer and self.current_script_type not in ("module", "application/ld+json"):
+                    self.render_blocking_js.append(script_src)
         elif tag == "meta":
             name = attr_dict.get("name", "").lower()
             prop = attr_dict.get("property", "").lower()
@@ -173,6 +260,16 @@ class DocumentParser(HTMLParser):
                     "hreflang": attr_dict.get("hreflang", "").lower(),
                     "href": href
                 })
+            elif "stylesheet" in rel_tokens and self.in_head:
+                media = attr_dict.get("media", "").strip().lower()
+                if media != "print" and "preload" not in rel_tokens:
+                    self.render_blocking_css.append(href)
+            if any(r in rel_tokens for r in ("preconnect", "dns-prefetch", "preload")):
+                self.resource_hints.append({
+                    "rel": rel,
+                    "href": href,
+                    "as": attr_dict.get("as", "").lower()
+                })
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.current_heading_tag = tag
             self.current_heading_text = []
@@ -196,11 +293,28 @@ class DocumentParser(HTMLParser):
             alt = attr_dict.get("alt")
             has_w = "width" in attr_dict
             has_h = "height" in attr_dict
+            loading_attr = attr_dict.get("loading", "").lower()
+            fetch_attr = attr_dict.get("fetchpriority", "").lower()
             self.images.append({
                 "src": src,
                 "alt": alt,
-                "has_dimensions": (has_w and has_h)
+                "has_dimensions": (has_w and has_h),
+                "loading": loading_attr,
+                "fetchpriority": fetch_attr
             })
+            if not self.in_head and self.hero_image is None and src:
+                self.hero_image = {
+                    "src": src,
+                    "loading": loading_attr,
+                    "fetchpriority": fetch_attr
+                }
+            clean_src = src.split("?")[0].lower()
+            ext = clean_src.rsplit(".", 1)[-1] if "." in clean_src else ""
+            if ext in ("webp", "avif", "svg"):
+                self.image_formats["modern"] += 1
+            elif ext in ("jpg", "jpeg", "png", "gif", "bmp", "ico"):
+                self.image_formats["legacy"] += 1
+
             if self.in_a and alt is not None and alt.strip():
                 self.current_a_has_img_alt = True
         elif tag == "a":
@@ -213,6 +327,11 @@ class DocumentParser(HTMLParser):
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
+        if tag not in VOID_TAGS and self.current_dom_depth > 0:
+            self.current_dom_depth -= 1
+        if tag in ("header", "footer", "nav", "aside") and self.boilerplate_depth > 0:
+            self.boilerplate_depth -= 1
+
         if tag == "head":
             self.in_head = False
         elif tag == "main":
@@ -256,7 +375,7 @@ class DocumentParser(HTMLParser):
             })
             self.current_heading_tag = None
             self.current_heading_text = []
-        elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main"):
+        elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main", "aside"):
             if self.visible_text_parts and self.visible_text_parts[-1] != "\n\n":
                 self.visible_text_parts.append("\n\n")
             if self.in_main and self.main_text_parts and self.main_text_parts[-1] != "\n\n":
@@ -277,6 +396,8 @@ class DocumentParser(HTMLParser):
                 self.visible_text_parts.append(cleaned)
                 if self.in_main:
                     self.main_text_parts.append(cleaned)
+                if self.boilerplate_depth > 0:
+                    self.boilerplate_text_parts.append(cleaned)
 
 
 def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]:
@@ -363,6 +484,20 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
                 main_text_chunks.append(" ")
             main_text_chunks.append(part)
     main_text = "".join(main_text_chunks)
+    boilerplate_text_chunks = []
+    for part in parser.boilerplate_text_parts:
+        if part == "\n\n":
+            boilerplate_text_chunks.append("\n\n")
+        else:
+            if boilerplate_text_chunks and boilerplate_text_chunks[-1] != "\n\n":
+                boilerplate_text_chunks.append(" ")
+            boilerplate_text_chunks.append(part)
+    boilerplate_text = "".join(boilerplate_text_chunks)
+    boilerplate_words = len(boilerplate_text.split())
+    total_words = len(full_text.split())
+    substantive_words = len(main_text.split()) if parser.has_main else max(0, total_words - boilerplate_words)
+    content_ratio = round((substantive_words / max(1, total_words)), 3)
+    title_pixel_width = estimate_title_pixel_width(title_clean)
 
     return {
         "lang": parser.lang,
@@ -370,6 +505,7 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "title": {
             "value": title_clean,
             "length": len(title_clean),
+            "pixel_width": title_pixel_width,
             "present": bool(title_clean),
             "count": len(parser.title_tags),
             "all_titles": parser.title_tags
@@ -422,7 +558,9 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             "total_count": len(parser.images),
             "missing_alt": missing_alt_count,
             "decorative_alt": decorative_alt_count,
-            "missing_dimensions": missing_dims_count
+            "missing_dimensions": missing_dims_count,
+            "hero_image": parser.hero_image,
+            "formats": parser.image_formats
         },
         "links": {
             "total_count": len(parser.links),
@@ -437,6 +575,31 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             "has_main": parser.has_main,
             "has_footer": parser.has_footer
         },
+        "dom_stats": {
+            "nodes_count": parser.dom_nodes_count,
+            "max_depth": parser.max_dom_depth,
+            "script_tags_count": parser.script_tags_count
+        },
+        "performance_assets": {
+            "render_blocking_css": parser.render_blocking_css,
+            "render_blocking_js": parser.render_blocking_js,
+            "resource_hints": parser.resource_hints,
+            "hero_image": parser.hero_image,
+            "image_formats": parser.image_formats
+        },
+        "extractable_elements": {
+            "tables_count": parser.tables_count,
+            "has_comparison_table": parser.has_comparison_table,
+            "lists_count": parser.lists_count,
+            "definition_lists_count": parser.definition_lists_count,
+            "tldr_blocks_count": parser.tldr_blocks_count
+        },
+        "content_ratio": {
+            "substantive_words": substantive_words,
+            "boilerplate_words": boilerplate_words,
+            "total_words": total_words,
+            "ratio": content_ratio
+        },
         "forms": {
             "total_inputs": len(parser.form_inputs),
             "unlabelled_count": unlabelled_inputs_count
@@ -448,7 +611,7 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "json_ld_raw_blocks": parser.json_ld_blocks,
         "visible_text": full_text,
         "visible_text_preview": full_text[:1000] if full_text else "",
-        "word_count": len(full_text.split()),
+        "word_count": total_words,
         "main_text": main_text,
         "has_main": parser.has_main,
         "csr_detection": {

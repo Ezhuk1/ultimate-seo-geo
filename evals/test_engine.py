@@ -1290,7 +1290,7 @@ def test_week4_geo_eeat_and_production():
         assert len(sarif_doc["runs"]) == 1
         run = sarif_doc["runs"][0]
         assert run["tool"]["driver"]["name"] == "ultimate-seo-geo"
-        assert run["tool"]["driver"]["version"] == "3.1.1"
+        assert run["tool"]["driver"]["version"] == "3.2.0"
         assert len(run["results"]) > 0
 
         # Verify 8-dimension GEO score
@@ -1961,8 +1961,208 @@ def test_v3_1_1_remediation_suite():
     print("[PASS] test_v3_1_1_remediation_suite")
 
 
+def test_v3_2_0_performance_geo_pawc_suite():
+    from engine.analyzers.content_analyzer import compute_pawc
+    from engine.analyzers.html_analyzer import estimate_title_pixel_width
+    from engine.analyzers.llms_analyzer import generate_llms_txt
+    from engine.ledger import STATUS_PASS, STATUS_WARNING
+
+    # 1. Title Pixel Width Metric
+    w1 = estimate_title_pixel_width("Short Title")
+    w2 = estimate_title_pixel_width("This is an extremely long title that exceeds the maximum standard 580 pixel desktop container boundary for Google SERP")
+    assert w1 < 580, f"Expected short title < 580px, got {w1}"
+    assert w2 > 580, f"Expected long title > 580px, got {w2}"
+
+    # 2. PAWC Exponential Decay Verification (Front-Loaded vs Back-Loaded)
+    front_loaded_text = (
+        "Generative Engine Optimization is a semantic indexing strategy for AI answer engines. "
+        "The system processes structured knowledge triples across multiple entities. "
+        "General discussion follows with standard narrative text and background history. "
+        "Additional supplemental background text is provided here for context."
+    )
+    back_loaded_text = (
+        "General discussion follows with standard narrative text and background history. "
+        "Additional supplemental background text is provided here for context. "
+        "The system processes structured knowledge triples across multiple entities. "
+        "Generative Engine Optimization is a semantic indexing strategy for AI answer engines."
+    )
+    score_front = compute_pawc(front_loaded_text)
+    score_back = compute_pawc(back_loaded_text)
+    assert score_front.score > score_back.score, (
+        f"Front-loaded PAWC score ({score_front.score}) must exceed back-loaded ({score_back.score})"
+    )
+
+    # 3. /llms.txt Generation & Structural Validation
+    generated_txt = generate_llms_txt(
+        title="Test Project Documentation",
+        summary="A comprehensive reference for AI agents and search indexers.",
+        pages=[
+            {"title": "Overview", "url": "https://example.com/docs/overview", "description": "Core architecture"},
+            {"title": "API Reference", "url": "https://example.com/docs/api", "description": "Endpoint definitions"}
+        ]
+    )
+    assert generated_txt.startswith("# Test Project Documentation")
+    assert "> A comprehensive reference" in generated_txt
+    assert "- [Overview](https://example.com/docs/overview): Core architecture" in generated_txt
+
+    # 4. End-to-End Inspection of Modern Performance & GEO Rules
+    perf_geo_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>What is Generative Engine Optimization? A Complete Benchmark and Architecture Guide for Modern Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A comprehensive analysis of GEO techniques, Core Web Vitals, and structured data with empirical benchmarks.">
+    <link rel="canonical" href="https://example.com/geo-guide">
+    
+    <!-- Render-blocking CSS without media/rel=preload -->
+    <link rel="stylesheet" href="/assets/style.css">
+    
+    <!-- Render-blocking script in head without defer/async -->
+    <script src="/assets/bundle.js"></script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://example.com/geo-guide#page",
+          "url": "https://example.com/geo-guide",
+          "name": "GEO Guide",
+          "datePublished": "2026-01-15T00:00:00Z",
+          "dateModified": "2026-03-01T12:00:00Z",
+          "author": {
+            "@type": "Person",
+            "name": "Dr. Alex Rivera"
+          }
+        }
+      ]
+    }
+    </script>
+</head>
+<body>
+    <header>
+        <nav><a href="/">Home</a> | <a href="/blog">Blog</a></nav>
+    </header>
+    <main>
+        <!-- LCP Hero image with anti-pattern loading="lazy" -->
+        <img src="/hero.jpg" alt="Hero banner" loading="lazy" width="800" height="400">
+
+        <h1>What is Generative Engine Optimization? A Complete Benchmark and Architecture Guide for Modern Search</h1>
+        <p>Published on March 1, 2026 by Dr. Alex Rivera.</p>
+
+        <h2>What is Generative Engine Optimization?</h2>
+        <p>Generative Engine Optimization is the technical process of formatting web documents so synthetic AI models extract and synthesize authoritative answers directly.</p>
+
+        <h2>Why are statistical citations critical?</h2>
+        <p>In empirical evaluations of 15,000 queries, citation frequency increased by 37.8% when claims were backed by <a href="https://arxiv.org/abs/2311.09735" target="_blank" rel="noopener">academic research</a>.</p>
+
+        <h2>Performance Benchmark Matrix</h2>
+        <table>
+            <thead><tr><th>Technique</th><th>Visibility Lift</th><th>Latency Impact</th></tr></thead>
+            <tbody><tr><td>Schema Graphs</td><td>+24%</td><td>0ms</td></tr></tbody>
+        </table>
+
+        <ul>
+            <li>Step 1: Front-load definitions</li>
+            <li>Step 2: Maintain entity consistency</li>
+        </ul>
+    </main>
+    <footer>
+        <p>&copy; 2026 Example Corp. All rights reserved.</p>
+    </footer>
+</body>
+</html>"""
+
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(perf_geo_html)
+
+    try:
+        ledger, scores = run_inspection(path)
+
+        evidence_ids = {e.rule_id: e for e in ledger.evidence}
+
+        # Assert PERF-DOM-005 exists
+        assert "PERF-DOM-005" in evidence_ids, "PERF-DOM-005 must be evaluated"
+        assert evidence_ids["PERF-DOM-005"].status == STATUS_PASS
+
+        # Assert PERF-RENDER-BLOCK-003 detected render-blocking assets
+        assert "PERF-RENDER-BLOCK-003" in evidence_ids, "PERF-RENDER-BLOCK-003 must be evaluated"
+        assert evidence_ids["PERF-RENDER-BLOCK-003"].status == STATUS_WARNING, (
+            "Render-blocking CSS and JS in <head> should trigger WARNING"
+        )
+
+        # Assert PERF-RESOURCE-HINTS-006 detected lazy loading hero image
+        assert "PERF-RESOURCE-HINTS-006" in evidence_ids, "PERF-RESOURCE-HINTS-006 must be evaluated"
+        assert evidence_ids["PERF-RESOURCE-HINTS-006"].status == STATUS_WARNING, (
+            "Hero image with loading='lazy' should trigger WARNING"
+        )
+
+        # Assert CONTENT-TITLE-QUALITY-001 evaluated pixel width
+        assert "CONTENT-TITLE-QUALITY-001" in evidence_ids, "CONTENT-TITLE-QUALITY-001 must be evaluated"
+
+        # Assert CONTENT-QUESTION-HEADINGS-002 detected question headings with answers
+        assert "CONTENT-QUESTION-HEADINGS-002" in evidence_ids, "CONTENT-QUESTION-HEADINGS-002 must be evaluated"
+        assert evidence_ids["CONTENT-QUESTION-HEADINGS-002"].status == STATUS_PASS
+
+        # Assert CONTENT-EXTRACTABLE-003 detected tables and lists
+        assert "CONTENT-EXTRACTABLE-003" in evidence_ids, "CONTENT-EXTRACTABLE-003 must be evaluated"
+        assert evidence_ids["CONTENT-EXTRACTABLE-003"].status == STATUS_PASS
+
+        # Assert CONTENT-TEXT-RATIO-004 evaluated content-to-boilerplate ratio
+        assert "CONTENT-TEXT-RATIO-004" in evidence_ids, "CONTENT-TEXT-RATIO-004 must be evaluated"
+
+        # Assert CONTENT-DATE-VISIBLE-005 matched Schema date to visible date
+        assert "CONTENT-DATE-VISIBLE-005" in evidence_ids, "CONTENT-DATE-VISIBLE-005 must be evaluated"
+        assert evidence_ids["CONTENT-DATE-VISIBLE-005"].status == STATUS_PASS
+
+        # Assert SCHEMA-AUTHOR-LINK-012 matched author byline
+        assert "SCHEMA-AUTHOR-LINK-012" in evidence_ids, "SCHEMA-AUTHOR-LINK-012 must be evaluated"
+        assert evidence_ids["SCHEMA-AUTHOR-LINK-012"].status == STATUS_PASS
+
+        # Assert GEO-PAWC-SCORE-001 evaluated position-adjusted word weighting
+        assert "GEO-PAWC-SCORE-001" in evidence_ids, "GEO-PAWC-SCORE-001 must be evaluated"
+        assert evidence_ids["GEO-PAWC-SCORE-001"].status == STATUS_PASS
+
+        # Assert GEO-CITATION-LINKS-008 verified external links for statistical claims
+        assert "GEO-CITATION-LINKS-008" in evidence_ids, "GEO-CITATION-LINKS-008 must be evaluated"
+        assert evidence_ids["GEO-CITATION-LINKS-008"].status == STATUS_PASS
+
+    finally:
+        os.remove(path)
+
+    # 5. Test GEO-AI-BOT-POLICY-007 with blocked search bots in robots.txt
+    robots_blocking_search = """User-agent: *
+Disallow: /admin/
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+"""
+    clean_html = "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Hello</h1></body></html>"
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as f_html:
+        f_html.write(clean_html)
+        html_p = f_html.name
+
+    try:
+        ledger_blocked, scores_blocked = run_inspection(html_p, custom_robots_txt=robots_blocking_search)
+        ev_policy = next((e for e in ledger_blocked.evidence if e.rule_id == "GEO-AI-BOT-POLICY-007"), None)
+        assert ev_policy is not None, "GEO-AI-BOT-POLICY-007 must be emitted"
+        assert ev_policy.status == STATUS_WARNING, "Blocking OAI-SearchBot and PerplexityBot must trigger WARNING"
+        assert scores_blocked.geo_dimensions.ai_crawler_access == 2, (
+            f"Expected dim_crawl == 2 for partial AI search block, got {scores_blocked.geo_dimensions.ai_crawler_access}"
+        )
+    finally:
+        os.remove(html_p)
+
+    print("[PASS] test_v3_2_0_performance_geo_pawc_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.1.1 integration suite...")
+    print("Running Engine v3.2.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -1989,5 +2189,6 @@ if __name__ == "__main__":
     test_social_metadata_validation()
     test_modern_seo_enhancements()
     test_v3_1_1_remediation_suite()
-    print("All Engine v3.1.1 tests passed successfully (26 deterministic test suites)!")
+    test_v3_2_0_performance_geo_pawc_suite()
+    print("All Engine v3.2.0 tests passed successfully (27 deterministic test suites)!")
 

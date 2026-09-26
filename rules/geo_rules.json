@@ -106,6 +106,90 @@
       "description": "Content must contain zero fabricated credentials, quotes, or statistics; unverified data must use explicit placeholders.",
       "remediation": "Replace unverified claims with verified telemetry or [VERIFY_BEFORE_PUBLISHING: URL] placeholders.",
       "source_id": "SRC-SECURITY-PROMPT-INJECTION"
+    },
+    {
+      "id": "GEO-PAWC-SCORE-001",
+      "name": "Position-Adjusted Word Weighting (PAWC)",
+      "category": "geo",
+      "severity": "WARNING",
+      "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
+      "confidence_type": "empirical",
+      "unknown_policy": "neutral",
+      "geo_points": {
+        "pass": 25,
+        "warning": 10,
+        "neutral": 15
+      },
+      "tier": "Tier C (Princeton KDD 2024 Research)",
+      "selector": "body text positional decay",
+      "description": "Factual definitions, empirical metrics, and primary citations must be frontloaded in early positions and after headings to overcome exponential citation decay W = F * exp(-alpha * pos/N).",
+      "remediation": "Frontload key definitions and metrics in the first 60 words and immediately following H2/H3 headings.",
+      "source_id": "SRC-GEO-PRINCETON"
+    },
+    {
+      "id": "GEO-LLMS-TXT-CHECK-006",
+      "name": "/llms.txt AI Context File & Syntax Compliance",
+      "category": "geo",
+      "severity": "INFO",
+      "impact": "P1",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "geo_points": {
+        "pass": 5,
+        "warning": 2,
+        "neutral": 5
+      },
+      "tier": "Tier E (Standard Emerging Specification)",
+      "selector": "/llms.txt",
+      "description": "Site should publish a valid /llms.txt file containing an H1 title, blockquote summary, and structured documentation links for autonomous LLM agents.",
+      "remediation": "Create and publish /llms.txt at website root per Answer.AI specification (or run agy with --generate-llms-txt).",
+      "source_id": "SRC-LLMS-TXT"
+    },
+    {
+      "id": "GEO-AI-BOT-POLICY-007",
+      "name": "AI Search Engine Retrieval Bot Permissibility",
+      "category": "geo",
+      "severity": "WARNING",
+      "impact": "P1",
+      "score_weight": 10,
+      "max_penalty_cap": 15,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "geo_points": {
+        "pass": 10,
+        "warning": 2,
+        "neutral": 5
+      },
+      "tier": "Tier B (Search Engine Documentation)",
+      "selector": "robots.txt User-agent: OAI-SearchBot / PerplexityBot / Claude-SearchBot",
+      "description": "Robots.txt should permit live search retrieval bots (OAI-SearchBot, PerplexityBot, Claude-SearchBot) to ensure visibility in AI answer engines.",
+      "remediation": "Allow search retrieval bots in robots.txt while maintaining training crawler restrictions if desired.",
+      "source_id": "SRC-OPENAI-BOT"
+    },
+    {
+      "id": "GEO-CITATION-LINKS-008",
+      "name": "Statistical Claims Outbound Source Grounding",
+      "category": "geo",
+      "severity": "INFO",
+      "impact": "P2",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "heuristic",
+      "unknown_policy": "neutral",
+      "geo_points": {
+        "pass": 5,
+        "warning": 2,
+        "neutral": 5
+      },
+      "tier": "Tier C (Princeton KDD 2024 Research)",
+      "selector": "a[href]",
+      "description": "Numerical and statistical assertions should be accompanied by outbound anchor links to primary data sources, enabling AI retrieval crawlers to extract grounded citations.",
+      "remediation": "Add hyperlink citations (<a href='...'>) pointing directly to primary studies or RFC sources for numeric claims.",
+      "source_id": "SRC-GEO-PRINCETON"
     }
   ]
 }
