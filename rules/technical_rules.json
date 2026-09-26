@@ -545,6 +545,22 @@
       "description": "Multilingual pages must specify valid ISO 639-1 language and optional ISO 3166-1 country codes, absolute canonical URLs, self-referencing hreflang tag, and x-default fallback for multi-regional targeting.",
       "remediation": "Declare bidirectional <link rel='alternate' hreflang='...' href='https://...'> tags with valid ISO codes and include x-default fallback.",
       "source_id": "SRC-RFC-8288"
+    },
+    {
+      "id": "SOCIAL-PREVIEW-SYNC-033",
+      "name": "Social Metadata Parity & Preview Integrity",
+      "category": "technical",
+      "severity": "WARNING",
+      "impact": "P1",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier E (Social Sharing Heuristic)",
+      "selector": "meta[property^='og:'], meta[name^='twitter:']",
+      "description": "Open Graph and Twitter Card tags must maintain title, description, and image parity across subpages to prevent root layout defaults from overriding page-specific preview cards in Telegram, Discord, and X.",
+      "remediation": "Synchronize twitter:title with og:title and twitter:description with og:description on child routes. In Next.js, explicitly declare twitter metadata on inner pages to prevent root layout metadata inheritance from overriding link previews.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     }
   ]
 }

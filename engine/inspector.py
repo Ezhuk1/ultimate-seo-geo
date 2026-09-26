@@ -52,7 +52,8 @@ def run_inspection(
     custom_sitemap_xml: Optional[str] = None,
     timeout: float = 15.0,
     user_agent: Optional[str] = None,
-    rendered_html: Optional[str] = None
+    rendered_html: Optional[str] = None,
+    config: Optional[EngineConfig] = None
 ) -> tuple[EvidenceLedger, ScoreBreakdown]:
     """
     Executes full deterministic audit on URL or local file and returns ledger + score.
@@ -1676,6 +1677,187 @@ def run_inspection(
                 message=f"Twitter Card metadata is configured with card type '{card_type}'."
             )
 
+    # SOCIAL-PREVIEW-SYNC-033: Social Preview Parity & Metadata Consistency
+    # Prevents Next.js / meta-framework root layout inheritance bugs where
+    # twitter:title defaults to site brand while og:title has the page-specific title,
+    # causing Telegram, Discord, and X previews to display generic homepage titles.
+    og_title = (og_data.get("og:title") or "").strip() if og_data else ""
+    tw_title = (tw_data.get("twitter:title") or "").strip() if tw_data else ""
+    og_desc = (og_data.get("og:description") or "").strip() if og_data else ""
+    tw_desc = (tw_data.get("twitter:description") or "").strip() if tw_data else ""
+    og_site_name = (og_data.get("og:site_name") or "").strip() if og_data else ""
+    tw_card_type = (tw_data.get("twitter:card") or "").strip() if tw_data else ""
+    page_h1_list = html_data.get("headings", {}).get("h1_values", [])
+    first_h1 = page_h1_list[0].strip() if page_h1_list else ""
+
+    if not og_title and not tw_title:
+        builder.add_evidence(
+            rule_id="SOCIAL-PREVIEW-SYNC-033",
+            category="technical",
+            title="Social Preview Parity",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="No Open Graph or Twitter title tags declared",
+            expected="Synchronized og:title and twitter:title across social tags",
+            message="Document does not declare social card title tags; social preview parity cannot be evaluated."
+        )
+    elif og_title and not tw_title:
+        if tw_card_type:
+            builder.add_evidence(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                title="Social Preview Parity",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"og:title='{og_title}', twitter:card='{tw_card_type}' (no conflicting twitter:title)",
+                expected="Synchronized or fallback-safe social metadata",
+                message=f"Document relies on Open Graph fallback for Twitter card ('{og_title}'). No conflicting twitter:title detected."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                title="Social Preview Parity",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"og:title='{og_title}' present",
+                expected="Open Graph metadata present",
+                message=f"Open Graph title declared ('{og_title}'). Social crawlers will render this title cleanly."
+            )
+    elif tw_title and not og_title:
+        builder.add_evidence(
+            rule_id="SOCIAL-PREVIEW-SYNC-033",
+            category="technical",
+            title="Social Preview Parity",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"twitter:title='{tw_title}' present but og:title is missing",
+            expected="Both og:title and twitter:title declared or og:title provided for standard Open Graph crawlers",
+            message="Document declares 'twitter:title' without 'og:title'. Non-Twitter crawlers (Facebook, LinkedIn, Slack) will lack a title."
+        )
+        builder.add_finding(
+            rule_id="SOCIAL-PREVIEW-SYNC-033",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Missing og:title for Social Preview Parity",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=[
+                f"Add <meta property='og:title' content='{tw_title}'> to <head> to ensure non-Twitter social crawlers display a rich title."
+            ],
+            impact_estimate="Facebook, LinkedIn, and Slack scrapers rely on og:title and may display raw URLs without it."
+        )
+    else:
+        # Both og_title and tw_title are present! Check for divergence / conflict
+        def _extract_core_title(t: str) -> str:
+            for sep in [" | ", " — ", " - ", " · "]:
+                if sep in t:
+                    return t.split(sep)[0].strip()
+            return t.strip()
+
+        core_og = _extract_core_title(og_title)
+        core_tw = _extract_core_title(tw_title)
+        titles_match = (og_title == tw_title)
+        brand_variant = (core_og.lower() == core_tw.lower() and len(core_og) > 0)
+
+        # Check for classic Next.js layout inheritance trap:
+        # twitter:title matches site_name or generic brand while og:title has page-specific title
+        is_site_name_fallback = False
+        if og_site_name:
+            if tw_title.lower() == og_site_name.lower() and og_title.lower() != og_site_name.lower():
+                is_site_name_fallback = True
+            elif core_tw.lower() == og_site_name.lower() and core_og.lower() != og_site_name.lower():
+                is_site_name_fallback = True
+
+        if not titles_match and not brand_variant:
+            diag_reason = (
+                f"Root layout inheritance conflict: 'twitter:title' equals site name '{og_site_name}' while 'og:title' has page title '{og_title}'."
+                if is_site_name_fallback else
+                f"'og:title' ('{og_title}') and 'twitter:title' ('{tw_title}') are in direct conflict."
+            )
+            builder.add_evidence(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                title="Social Preview Metadata Parity",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Conflict: og:title='{og_title}' vs twitter:title='{tw_title}'",
+                expected="Synchronized og:title and twitter:title",
+                message=f"Conflicting social title tags detected. {diag_reason} Telegram, Discord, and X prioritize 'twitter:title' when 'twitter:card' is present, rendering '{tw_title}' instead of '{og_title}'."
+            )
+            builder.add_finding(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Social Preview Metadata Mismatch (og:title vs twitter:title)",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH",
+                remediation_steps=[
+                    f"Update <meta name='twitter:title' content='{og_title}'> to match <meta property='og:title'>.",
+                    "In Next.js, export child page 'twitter: { title: ... }' alongside 'openGraph' to prevent root layout twitter inheritance from overriding link previews."
+                ],
+                impact_estimate="Social messengers (Telegram, Discord) and X will display generic or conflicting titles instead of the specific page topic."
+            )
+        elif og_desc and tw_desc and og_desc != tw_desc:
+            builder.add_evidence(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                title="Social Preview Metadata Parity",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="Title parity OK, but description divergence detected",
+                expected="Synchronized og:description and twitter:description",
+                message=f"Social descriptions diverge: og:description ('{og_desc[:50]}...') vs twitter:description ('{tw_desc[:50]}...'). Social link previews will show differing descriptions across platforms."
+            )
+            builder.add_finding(
+                rule_id="SOCIAL-PREVIEW-SYNC-033",
+                category="technical",
+                severity=STATUS_WARNING,
+                title="Social Description Metadata Divergence",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Align <meta name='twitter:description'> with <meta property='og:description'> on child routes."
+                ],
+                impact_estimate="Previews across Telegram, Discord, and X may show inconsistent snippet descriptions."
+            )
+        else:
+            if og_site_name and og_title.lower() == og_site_name.lower() and first_h1 and first_h1.lower() != og_site_name.lower():
+                builder.add_evidence(
+                    rule_id="SOCIAL-PREVIEW-SYNC-033",
+                    category="technical",
+                    title="Social Preview Metadata Parity",
+                    status=STATUS_WARNING,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"og:title and twitter:title equal site_name ('{og_site_name}') on deep page with H1='{first_h1}'",
+                    expected=f"Page-specific social title matching H1 ('{first_h1}') rather than generic site name",
+                    message=f"Deep page uses generic site name '{og_site_name}' as social preview title instead of page topic '{first_h1}'."
+                )
+                builder.add_finding(
+                    rule_id="SOCIAL-PREVIEW-SYNC-033",
+                    category="technical",
+                    severity=STATUS_WARNING,
+                    title="Generic Site Title on Deep Page Social Preview",
+                    confidence=CONFIDENCE_VERIFIED,
+                    action_priority="P1_HIGH",
+                    remediation_steps=[
+                        f"Set og:title and twitter:title to reflect the page content (e.g. '{first_h1} | {og_site_name}').",
+                        "In Next.js, define page-level metadata on inner page routes."
+                    ],
+                    impact_estimate="Social shares of this page will only display the brand name without indicating what the page is about."
+                )
+            else:
+                builder.add_evidence(
+                    rule_id="SOCIAL-PREVIEW-SYNC-033",
+                    category="technical",
+                    title="Social Preview Metadata Parity",
+                    status=STATUS_PASS,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed=f"og:title and twitter:title synchronized ('{tw_title}')",
+                    expected="Synchronized og:title and twitter:title",
+                    message="Open Graph and Twitter Card metadata are synchronized, ensuring consistent link previews across Telegram, Discord, X, and LinkedIn."
+                )
+
     # TECH-REDIRECT-018: Redirect Chain Integrity
     chain = http_res.get("redirect_chain", [])
     if len(chain) > 2:
@@ -2227,6 +2409,10 @@ def run_inspection(
     )
 
     ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
+    if config and config.disabled_rules:
+        disabled_set = set(config.disabled_rules)
+        ledger.evidence = [e for e in ledger.evidence if e.rule_id not in disabled_set]
+
     scores = calculate_scores(ledger)
     return ledger, scores
 
@@ -2504,13 +2690,15 @@ def main():
 
     # Site-Level Crawl Mode
     if args.crawl:
-        from .crawler import CrawlConfig, crawl_site, format_site_crawl_markdown
+        from .config import CrawlConfig
+        from .crawler import crawl_site, format_site_crawl_markdown
         config = CrawlConfig(
             seed_url=args.target,
-            max_pages=args.max_pages,
-            max_depth=args.depth,
-            timeout=args.timeout,
-            user_agent=args.user_agent
+            max_pages=args.max_pages if args.max_pages != 50 else cfg.crawl.max_pages,
+            max_depth=args.depth if args.depth != 3 else cfg.crawl.max_depth,
+            timeout=args.timeout if args.timeout != 15.0 else cfg.crawl.timeout,
+            delay_seconds=cfg.crawl.delay_seconds,
+            user_agent=args.user_agent or cfg.crawl.user_agent
         )
         report = crawl_site(config)
         if args.format == "json":
@@ -2541,7 +2729,8 @@ def main():
             custom_robots_txt=custom_robots,
             timeout=args.timeout,
             user_agent=args.user_agent,
-            rendered_html=args.rendered_html
+            rendered_html=args.rendered_html,
+            config=cfg
         )
     except Exception as exc:
         sys.stderr.write(f"Error executing inspection: {exc}\n")
@@ -2602,11 +2791,22 @@ def main():
     ci_failed = False
     failure_reasons = []
 
-    if args.strict:
+    if args.strict or (cfg and cfg.strict_mode):
         critical_findings = [f for f in ledger.findings if f.severity == STATUS_CRITICAL]
         if critical_findings:
             ci_failed = True
-            failure_reasons.append(f"--strict mode: {len(critical_findings)} CRITICAL finding(s) detected")
+            failure_reasons.append(f"strict mode: {len(critical_findings)} CRITICAL finding(s) detected")
+
+    if cfg and cfg.strict_mode:
+        if scores.observable_technical_score < cfg.thresholds.technical_score:
+            ci_failed = True
+            failure_reasons.append(f"Config strict_mode: Technical score {scores.observable_technical_score} below threshold {cfg.thresholds.technical_score}")
+        if scores.geo_readiness_index < cfg.thresholds.geo_score:
+            ci_failed = True
+            failure_reasons.append(f"Config strict_mode: GEO score {scores.geo_readiness_index} below threshold {cfg.thresholds.geo_score}")
+        if scores.security_score < cfg.thresholds.security_score:
+            ci_failed = True
+            failure_reasons.append(f"Config strict_mode: Security score {scores.security_score} below threshold {cfg.thresholds.security_score}")
 
     if args.fail_on:
         matching = []

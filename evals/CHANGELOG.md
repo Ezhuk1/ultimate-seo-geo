@@ -2,6 +2,29 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.1.1] - 2026-09-26
+
+### Fixed & Remediated
+- **Crawler Broken Links Tracking (`engine/crawler.py`):**
+  - Resolved bug where `broken_links` was never populated during site crawls. HTTP 4xx/5xx responses are now logged with status codes, depth, and inbound referring sources, and rendered in markdown and JSON reports.
+- **End-to-End EngineConfig Wiring (`engine/inspector.py`, `engine/config.py`):**
+  - Unified duplicate `CrawlConfig` classes between `config.py` and `crawler.py` with synchronized rate limit delays.
+  - Wired `EngineConfig.load()` into CLI execution: `cfg.disabled_rules` now suppresses evidence deductions from the ledger, `cfg.crawl` populates crawl defaults, and `cfg.strict_mode` enforces CI quality gates against custom thresholds.
+- **SSRF Hardening & Safe Redirects (`engine/security_utils.py`, `engine/analyzers/http_analyzer.py`):**
+  - Fixed critical SSRF vulnerability: implemented `is_safe_target_url` validation across all initial targets and every HTTP redirect hop in `SafeRedirectTracker`. Prevents access to loopback, link-local (cloud metadata `169.254.169.254`), private RFC 1918 networks, and IPv6 mapped addresses.
+- **Cloudflare Challenge False Positive Elimination (`engine/analyzers/http_analyzer.py`):**
+  - Removed false-positive challenge detection on 403/503 responses that merely contain the ubiquitous `cf-ray` header. Now exclusively detects genuine challenges via `cf-mitigated: challenge` or specific challenge body markers.
+- **Prompt Injection Exemption for Documentation (`engine/analyzers/security_analyzer.py`):**
+  - Added smart content exemptions for `<code>`, `<pre>`, `<kbd>`, `<samp>`, and `<blockquote>` blocks, preventing false positive security penalties on technical blogs, tutorials, and cybersecurity articles citing injection payloads.
+- **Refined CSR Empty Shell & Soft-404 Detection (`engine/analyzers/html_analyzer.py`):**
+  - Prevented compact SSR pages (e.g. Next.js/Nuxt landing pages with rendered H1 and concise copy) from being falsely marked as empty CSR shells or non-indexable.
+  - Refined soft-404 detection to avoid false positives on troubleshooting guides discussing 404 errors.
+- **Scoring Invariant & Version Sync (`engine/scoring.py`, `engine/sarif.py`, `engine/__init__.py`):**
+  - Restored invariant: missing schema is now registered in `unknown_dimensions` for the `schema_graph` component.
+  - Resolved version drift across `engine/__init__.py`, SARIF driver, and User-Agents to `v3.1.1`.
+- **Honest Positioning & Boundaries (`README.md`, `README.ru.md`):**
+  - Added explicit "Scope & Boundaries" section detailing core strengths (On-page technical, Schema AST, internal link graph, prompt injection defense, Princeton GEO model) vs non-goals (external backlink profiling, live SERP rank tracking, CrUX field measurements).
+
 ## [3.1.0] - 2026-09-18
 
 ### Added

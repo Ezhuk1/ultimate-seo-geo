@@ -452,7 +452,10 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         "main_text": main_text,
         "has_main": parser.has_main,
         "csr_detection": {
-            "is_csr_shell": (bool(parser.csr_mount_elements) and len(full_text.split()) < 35) or (parser.has_client_bundle and len(full_text.split()) < 25),
+            "is_csr_shell": (
+                (bool(parser.csr_mount_elements) and len(full_text.split()) < 8)
+                or (bool(parser.csr_mount_elements) and parser.has_client_bundle and len(full_text.split()) < 25 and not (h1_headings and any(len(h.strip()) > 0 for h in h1_headings)))
+            ),
             "mount_elements": parser.csr_mount_elements,
             "has_client_bundle": parser.has_client_bundle,
             "visible_word_count": len(full_text.split())

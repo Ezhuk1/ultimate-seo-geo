@@ -1,5 +1,5 @@
 """
-Configuration management for ultimate-seo-geo v3.1.0.
+Configuration management for ultimate-seo-geo v3.1.1.
 
 Loads optional configuration from ultimate-seo-geo.json or custom path.
 Provides sensible production defaults without requiring external dependencies.
@@ -22,10 +22,23 @@ class ThresholdConfig:
 
 @dataclass
 class CrawlConfig:
+    seed_url: str = ""
     max_pages: int = 50
     max_depth: int = 3
-    rate_limit_delay: float = 0.2
-    timeout: float = 15.0
+    delay_seconds: float = 0.05
+    rate_limit_delay: float = 0.05
+    timeout: float = 10.0
+    max_response_bytes: int = 5_000_000  # 5 MB
+    respect_robots: bool = True
+    allowed_domains: Optional[List[str]] = None
+    user_agent: str = "UltimateSeoGeoCrawler/3.1.1"
+
+    def __post_init__(self):
+        # Synchronize delay_seconds and rate_limit_delay
+        if self.rate_limit_delay != 0.05 and self.delay_seconds == 0.05:
+            self.delay_seconds = self.rate_limit_delay
+        elif self.delay_seconds != 0.05:
+            self.rate_limit_delay = self.delay_seconds
 
 
 @dataclass
@@ -70,11 +83,16 @@ class EngineConfig:
             )
 
             c_data = data.get("crawl", {})
+            delay = float(c_data.get("delay_seconds", c_data.get("rate_limit_delay", 0.05)))
             crawl = CrawlConfig(
                 max_pages=int(c_data.get("max_pages", 50)),
                 max_depth=int(c_data.get("max_depth", 3)),
-                rate_limit_delay=float(c_data.get("rate_limit_delay", 0.2)),
-                timeout=float(c_data.get("timeout", 15.0))
+                delay_seconds=delay,
+                rate_limit_delay=delay,
+                timeout=float(c_data.get("timeout", 10.0)),
+                max_response_bytes=int(c_data.get("max_response_bytes", 5_000_000)),
+                respect_robots=bool(c_data.get("respect_robots", True)),
+                user_agent=str(c_data.get("user_agent", "UltimateSeoGeoCrawler/3.1.1"))
             )
 
             return cls(

@@ -1,19 +1,38 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Version: 3.1.0](https://img.shields.io/badge/Version-3.1.0-blue.svg)](evals/CHANGELOG.md)
+[![Version: 3.1.1](https://img.shields.io/badge/Version-3.1.1-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
 [![Language](https://img.shields.io/badge/Language-English%20%7C%20Русский-purple.svg)](#language--язык)
 
-> **The definitive, production-grade SEO and Generative Engine Optimization (GEO/AEO) intelligence platform for AI agents & CI/CD pipelines.**  
-> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, zero dependencies) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, protects against web content prompt injection (`SEC-PROMPT-INJECTION-001`), classifies signals into 6 epistemic tiers (Tier A–F), maximizes generative citation probability (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), evaluates E-E-A-T trust signals & content freshness, crawls site architecture & internal links, resolves indexability signal conflicts (`CONFLICTED`), validates unified Schema.org `@graph` ASTs, benchmarks AI citations, and enforces CI/CD quality gates via OASIS SARIF v2.1.0.
+> **The definitive, production-grade Technical SEO and Generative Engine Optimization (GEO) linter for AI agents & CI/CD pipelines.**  
+> Combines an **autonomous, deterministic inspection engine** (pure Python stdlib, zero dependencies) with an **evidence-driven AI reasoning agent**. Audits technical SEO, detects client-side rendering (CSR) invisibility, protects against web content prompt injection (`SEC-PROMPT-INJECTION-001`), classifies signals into 6 epistemic tiers (Tier A–F), evaluates generative citation readiness (ChatGPT Search, Perplexity AI, Claude, Gemini, Google AI Overviews), evaluates E-E-A-T trust signals & content freshness, crawls site architecture & internal links, resolves indexability signal conflicts (`CONFLICTED`), validates unified Schema.org `@graph` ASTs, and enforces CI/CD quality gates via OASIS SARIF v2.1.0.
 
 ---
 
 ### Language / Язык
 * 🇬🇧 **English** (You are here)
 * 🇷🇺 **[Русская версия (Russian Version)](README.ru.md)**
+
+---
+
+## 🎯 Scope & Boundaries (What it is vs What it isn't)
+
+To maintain absolute technical integrity, `ultimate-seo-geo` explicitly defines its operational boundaries:
+
+### In-Scope (Core Strengths)
+- **Deterministic Technical On-Page Linter**: Strict RFC 9309 robots.txt simulator, RFC 9110 HTTP/compression checks, RFC 6596 canonical audits, XML sitemap validation, and CSR dummy shell detection.
+- **Deep Schema.org Graph Architecture**: AST parsing of `@graph` structures, broken `@id` pointer detection, ISO 8601 temporal audits, and rich result eligibility.
+- **Site-Wide Crawl & Link Graph**: Polite BFS crawler, orphan page candidate identification, deep page tracking (>3 clicks), redirect tracing, and broken link (4xx/5xx) detection.
+- **Web Content Prompt Injection Defense**: Scans web content for adversarial injection vectors and system delimiter spoofing (OWASP LLM01) with smart exemption for documentation code blocks.
+- **Generative Engine Optimization (GEO) Readiness**: Computes fact density, source attribution, answer front-loading, and passage extractability based on empirical methodologies from the Princeton / Georgia Tech GEO research (KDD 2024, arXiv:2311.09735).
+
+### Out-of-Scope (Non-Goals)
+- **Not an Off-Page Backlink Indexer**: Does not crawl the entire global web to compute domain authority or backlink counts (use Ahrefs, Semrush, or Majestic for external link profiling).
+- **Not a Live SERP Rank Tracker**: Does not track daily keyword rank positions across global search locales.
+- **Not a Real-User CrUX Monitor**: Core Web Vitals (LCP, INP, CLS) field metrics require Chrome UX Report (CrUX) or PageSpeed API access. Without external RUM/field tokens, these are flagged `NOT_MEASURED` (0 penalty per Evidence Ledger invariants).
+- **Synthetic GEO Heuristic, Not a Search Placement Guarantee**: A high GEO Readiness Index reflects optimal content structure, clear entities, and fact density for retrieval. However, actual inclusion in live generative search engines (ChatGPT Search, Perplexity, Google AI Overviews) depends on real-time engine retrieval algorithms, domain indexation, and query context.
 
 ---
 

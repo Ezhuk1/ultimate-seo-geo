@@ -78,7 +78,7 @@ def generate_sarif_report(ledger: EvidenceLedger) -> Dict[str, Any]:
                 "tool": {
                     "driver": {
                         "name": "ultimate-seo-geo",
-                        "version": "3.0.0",
+                        "version": "3.1.1",
                         "informationUri": "https://github.com/Ezhuk1/ultimate-seo-geo",
                         "rules": list(rules_dict.values())
                     }

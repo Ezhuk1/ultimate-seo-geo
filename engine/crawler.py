@@ -19,23 +19,12 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Set, Any, Optional, Union, Tuple
 from urllib.parse import urlparse, urljoin, urlsplit
 
+from .config import CrawlConfig
+from .security_utils import is_safe_target_url
 from .analyzers.http_analyzer import analyze_target_http
 from .analyzers.html_analyzer import analyze_target_html
 from .analyzers.robots_simulator import parse_robots_txt, is_user_agent_allowed
 from .analyzers.similarity import find_duplicate_clusters
-
-
-@dataclass
-class CrawlConfig:
-    seed_url: str
-    max_pages: int = 50
-    max_depth: int = 3
-    delay_seconds: float = 0.05
-    timeout: float = 10.0
-    max_response_bytes: int = 5_000_000  # 5 MB
-    respect_robots: bool = True
-    allowed_domains: Optional[List[str]] = None
-    user_agent: str = "UltimateSeoGeoCrawler/2.1"
 
 
 @dataclass
@@ -113,51 +102,6 @@ class SiteCrawlReport:
                 for u, p in self.pages.items()
             }
         }
-
-
-def is_safe_target_url(url: str) -> Tuple[bool, str]:
-    """
-    Validates target URL against SSRF and protocol exploits:
-    Rejects loopback (127.0.0.1, localhost), private networks (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16),
-    link-local (169.254.0.0/16), and non-http(s) schemes.
-    """
-    try:
-        parsed = urlsplit(url.strip())
-    except Exception as e:
-        return False, f"Malformed URL syntax: {e}"
-
-    scheme = parsed.scheme.lower()
-    if scheme not in ("http", "https"):
-        return False, f"Insecure or invalid URI scheme '{scheme}' (only HTTP/HTTPS permitted)"
-
-    hostname = parsed.netloc.split(":")[0].strip().lower()
-    if not hostname:
-        return False, "Missing hostname in target URL"
-
-    if hostname in ("localhost", "local", "127.0.0.1", "::1", "0.0.0.0"):
-        return False, f"Destination '{hostname}' is a forbidden loopback target (SSRF prevention)"
-
-    # Resolve hostname to check IP range if possible
-    try:
-        addr_info = socket.getaddrinfo(hostname, None)
-        for entry in addr_info:
-            ip_str = entry[4][0]
-            ip_obj = ipaddress.ip_address(ip_str)
-            if (
-                ip_obj.is_loopback
-                or ip_obj.is_private
-                or ip_obj.is_link_local
-                or ip_obj.is_unspecified
-                or ip_obj.is_reserved
-            ):
-                return False, f"Target hostname '{hostname}' resolves to private/internal IP {ip_str} (SSRF block)"
-    except socket.gaierror:
-        # If DNS fails here, analyzer will report reachability error naturally
-        pass
-    except Exception:
-        pass
-
-    return True, "Target URL passed SSRF validation"
 
 
 def _normalize_crawl_url(raw_url: str, base_url: str = "") -> Optional[str]:
@@ -268,7 +212,7 @@ def crawl_site(
             time.sleep(config.delay_seconds)
 
         # Fetch HTTP
-        http_res = analyze_target_http(current_url, timeout=config.timeout)
+        http_res = analyze_target_http(current_url, timeout=config.timeout, user_agent=config.user_agent)
         code = http_res.get("status_code", 0)
         status_codes[code] = status_codes.get(code, 0) + 1
 
@@ -280,6 +224,13 @@ def crawl_site(
                 is_indexable=False,
                 response_time_ms=http_res.get("response_time_ms", 0.0)
             )
+            broken_links.append({
+                "url": current_url,
+                "status_code": code,
+                "depth": depth,
+                "inbound_sources": list(inbound_links.get(current_url, set())),
+                "error": http_res.get("error") or f"HTTP {code}"
+            })
             continue
 
         if 300 <= code < 400 or (http_res.get("redirect_chain") and len(http_res["redirect_chain"]) > 0):
@@ -350,6 +301,10 @@ def crawl_site(
         if p.depth > 0 and p.inbound_links_count == 0:
             orphan_candidates.append(u)
 
+    # Ensure broken_links have complete inbound_sources
+    for bl in broken_links:
+        bl["inbound_sources"] = list(inbound_links.get(bl["url"], set()))
+
     # Compute duplicate clusters across all crawled pages
     cluster_inputs = [
         {
@@ -410,6 +365,15 @@ def format_site_crawl_markdown(report: SiteCrawlReport) -> str:
     md.append(f"- **Redirect Links**: **{len(report.redirect_links)}**")
     md.append(f"- **Broken Links (4xx/5xx)**: **{len(report.broken_links)}**")
     md.append("")
+
+    if report.broken_links:
+        md.append("### Broken Links (4xx/5xx)")
+        for bl in report.broken_links[:10]:
+            inbound_info = f" (linked from {len(bl.get('inbound_sources', []))} page(s))" if bl.get("inbound_sources") else ""
+            md.append(f"- `{bl['url']}` — Status: `{bl['status_code']}`{inbound_info}")
+        if len(report.broken_links) > 10:
+            md.append(f"- *...and {len(report.broken_links) - 10} more*")
+        md.append("")
 
     if report.orphan_candidates:
         md.append("### Orphan Page Candidates")

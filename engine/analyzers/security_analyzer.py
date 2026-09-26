@@ -96,11 +96,19 @@ class SecurityAnalyzer:
                         ))
 
         # 3. Check general text / markup for direct injections
+        # Exclude code, pre, kbd, samp, and blockquote blocks from visible attack detection
+        # (Legitimate technical documentation and cybersecurity research cite injection payloads)
+        content_for_visible_scan = re.sub(
+            r'<(code|pre|kbd|samp|blockquote)[^>]*>.*?</\1>',
+            ' [CODE_EXEMPT] ',
+            html_content,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+
         for pattern, p_type in DIRECT_INJECTION_PATTERNS:
-            m = re.search(pattern, html_content, re.IGNORECASE)
+            m = re.search(pattern, content_for_visible_scan, re.IGNORECASE)
             if m:
-                # Avoid duplicate if already caught in comments or hidden elements
-                snippet = html_content[max(0, m.start() - 30):min(len(html_content), m.end() + 30)]
+                snippet = content_for_visible_scan[max(0, m.start() - 30):min(len(content_for_visible_scan), m.end() + 30)]
                 if not any(f.snippet in snippet for f in findings):
                     findings.append(PromptInjectionFinding(
                         pattern_type=p_type,
@@ -113,9 +121,9 @@ class SecurityAnalyzer:
 
         # 4. Check for delimiter injections in body
         for pattern, p_type in DELIMITER_INJECTION_PATTERNS:
-            m = re.search(pattern, html_content, re.IGNORECASE)
+            m = re.search(pattern, content_for_visible_scan, re.IGNORECASE)
             if m:
-                snippet = html_content[max(0, m.start() - 20):min(len(html_content), m.end() + 20)]
+                snippet = content_for_visible_scan[max(0, m.start() - 20):min(len(content_for_visible_scan), m.end() + 20)]
                 if not any(f.snippet in snippet for f in findings):
                     findings.append(PromptInjectionFinding(
                         pattern_type=p_type,

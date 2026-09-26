@@ -74,6 +74,18 @@ Ensure optimal link previews across messaging apps and social feeds:
 <meta name="twitter:image" content="https://domain.com/og-image.jpg" />
 ```
 
+### Social Preview Parity & Framework Inheritance Hazards (`SOCIAL-PREVIEW-SYNC-033`)
+* **Crawler Precedence:** Telegram, Discord, and X (Twitter) prioritize `twitter:title` and `twitter:description` over Open Graph when `twitter:card` is present. Facebook, LinkedIn, and Slack prioritize `og:title` and `og:description`.
+* **The Root Layout Inheritance Trap (Next.js / Nuxt / Astro):**
+  - If a root layout (`layout.tsx`) defines static `twitter: { title: 'Brand', description: '...' }` while child pages only export `openGraph`, frameworks shallowly merge metadata.
+  - Resulting HTML contains child-specific `og:title` alongside root generic `twitter:title`.
+  - **Failure Mode:** Telegram and Twitter link previews render the generic homepage/brand title instead of the page's actual title.
+* **Audit Checklist:**
+  - [ ] **Title Parity:** `twitter:title` must strictly match `og:title` (or only differ by branded suffix).
+  - [ ] **Description Parity:** `twitter:description` must match `og:description`.
+  - [ ] **Image Parity:** Both `og:image` and `twitter:image` must be declared and point to identical or properly aspect-ratioed assets.
+  - [ ] **Explicit Child Declaration:** In Next.js App Router, child pages must always declare `twitter` metadata alongside `openGraph` to prevent root layout inheritance from taking precedence in social previews.
+
 ---
 
 ## 5. The Evidence Ledger Protocol & Schema `[STANDARD]`

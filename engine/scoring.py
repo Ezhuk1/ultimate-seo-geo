@@ -221,18 +221,20 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             unknown_dims.append("passage_extractability")
 
         # Component 5: Source Attribution (Weight: 10)
-        # Bugfix: evaluate citations via typed signal and PASS status, never grep error messages
-        cit_rule = next((e for e in ledger.evidence if e.rule_id in ("GEO-EVIDENCE-METRICS-004", "GEO-SOURCE-ATTRIBUTION-005")), None)
+        # Evaluates primary attribution evidence (GEO-SOURCE-ATTRIBUTION-005) or metrics fallback
+        ev_source = next((e for e in ledger.evidence if e.rule_id == "GEO-SOURCE-ATTRIBUTION-005"), None)
+        ev_metrics = next((e for e in ledger.evidence if e.rule_id == "GEO-EVIDENCE-METRICS-004"), None)
         cit_signal = ledger.signals.get("content_citations_count")
         ev_sig_val = ledger.signals.get("content_evidence_density_score")
         has_citations = (
-            (cit_rule and cit_rule.status == STATUS_PASS)
+            (ev_source and ev_source.status == STATUS_PASS)
+            or (ev_metrics and ev_metrics.status == STATUS_PASS)
             or (cit_signal and cit_signal.value and cit_signal.value > 0)
             or (ev_sig_val and ev_sig_val.value and ev_sig_val.value >= 30)
         )
         if has_citations:
             dim_src = 10
-        elif cit_rule and cit_rule.status == STATUS_WARNING:
+        elif (ev_source and ev_source.status == STATUS_WARNING) or (ev_metrics and ev_metrics.status == STATUS_WARNING):
             dim_src = 4
         else:
             dim_src = 0
@@ -249,6 +251,7 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             dim_schema = 5
         else:
             dim_schema = 0
+            unknown_dims.append("schema_graph")
 
         # Component 7: Freshness (Weight: 5)
         fresh_sig = ledger.signals.get("freshness_score")

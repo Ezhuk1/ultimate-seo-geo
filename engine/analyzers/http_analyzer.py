@@ -7,6 +7,7 @@ import hashlib
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,8 @@ except ImportError:
         HAS_BROTLI = True
     except ImportError:
         pass
+
+from engine.security_utils import is_safe_target_url
 
 
 def _detect_and_decode(raw_bytes: bytes, content_type_header: str | None) -> tuple[str, str]:
@@ -82,16 +85,19 @@ def _extract_header_canonical(headers_obj: Any, headers_dict: dict[str, str]) ->
 
 
 def _is_challenge_page(status_code: int, headers: dict[str, str], raw_content: str) -> bool:
-    if status_code in (403, 503):
-        if "cf-mitigated" in headers or "cf-ray" in headers:
-            return True
-    content_lower = raw_content[:4096].lower()
+    # Dedicated Cloudflare mitigation header
+    if headers.get("cf-mitigated") == "challenge":
+        return True
+    content_lower = raw_content[:4096].lower() if raw_content else ""
     challenge_indicators = (
         "cf-browser-verification",
         "cf-challenge",
         "turnstile",
         "just a moment...",
         "attention required! | cloudflare",
+        "cloudflare ray id",
+        "please wait while your request is being verified",
+        "verify you are human",
     )
     return any(ind in content_lower for ind in challenge_indicators)
 
@@ -110,12 +116,20 @@ def _is_soft_404(status_code: int, raw_content: str) -> bool:
         "error 404",
         "not found 404",
     ]
+    exemption_words = ("how to", "как исправить", "fixing", "tutorial", "guide to", "руководство")
+
     m_title = re.search(r'<title[^>]*>(.*?)</title>', lower_content, re.DOTALL)
-    if m_title and any(p in m_title.group(1) for p in patterns):
-        return True
+    if m_title:
+        title_val = m_title.group(1).strip()
+        if any(p in title_val for p in patterns) and not any(ex in title_val for ex in exemption_words):
+            return True
+
     m_h1 = re.search(r'<h1[^>]*>(.*?)</h1>', lower_content, re.DOTALL)
-    if m_h1 and any(p in m_h1.group(1) for p in patterns):
-        return True
+    if m_h1:
+        h1_val = m_h1.group(1).strip()
+        if any(p in h1_val for p in patterns) and not any(ex in h1_val for ex in exemption_words):
+            return True
+
     return False
 
 
@@ -141,7 +155,7 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
     and computing SHA-256 provenance hash.
     """
     timestamp = datetime.now(timezone.utc).isoformat()
-    ua = user_agent or "Mozilla/5.0 (compatible; UltimateSeoGeoEngine/2.0; +https://github.com/Ezhuk1/ultimate-seo-geo)"
+    ua = user_agent or "Mozilla/5.0 (compatible; UltimateSeoGeoEngine/3.1.1; +https://github.com/Ezhuk1/ultimate-seo-geo)"
 
     # Check if target is a local file
     local_path = Path(target)
@@ -221,14 +235,59 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
     if not target.startswith(("http://", "https://")):
         target = f"https://{target}"
 
+    # Enforce SSRF validation on target
+    is_safe, ssrf_reason = is_safe_target_url(target)
+    if not is_safe:
+        return {
+            "target": target,
+            "final_url": target,
+            "is_local": False,
+            "status_code": 403,
+            "headers": {},
+            "x_robots_tag": None,
+            "x_robots_raw": [],
+            "x_robots_directives": [],
+            "x_robots_bot_directives": {},
+            "redirect_chain": [],
+            "response_time_ms": 0.0,
+            "tls_valid": False,
+            "content_sha256": "",
+            "raw_content": "",
+            "detected_charset": "utf-8",
+            "header_canonical": None,
+            "content_encoding": None,
+            "body_bytes_len": 0,
+            "is_challenge_page": False,
+            "cache_control": None,
+            "expires": None,
+            "hsts": None,
+            "content_language": None,
+            "last_modified": None,
+            "etag": None,
+            "is_soft_404": False,
+            "has_redirect_loop": False,
+            "timestamp": timestamp,
+            "error": f"SSRF Protection Blocked Request: {ssrf_reason}",
+        }
+
     redirect_chain = []
 
-    class RedirectTracker(urllib.request.HTTPRedirectHandler):
+    class SafeRedirectTracker(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
-            redirect_chain.append({"code": code, "from": req.full_url, "to": newurl})
-            return super().redirect_request(req, fp, code, msg, headers, newurl)
+            resolved_newurl = urllib.parse.urljoin(req.full_url, newurl)
+            is_hop_safe, hop_reason = is_safe_target_url(resolved_newurl)
+            if not is_hop_safe:
+                raise urllib.error.HTTPError(
+                    resolved_newurl,
+                    403,
+                    f"SSRF Protection Blocked Redirect: destination '{resolved_newurl}' is forbidden ({hop_reason})",
+                    headers,
+                    fp,
+                )
+            redirect_chain.append({"code": code, "from": req.full_url, "to": resolved_newurl})
+            return super().redirect_request(req, fp, code, msg, headers, resolved_newurl)
 
-    opener = urllib.request.build_opener(RedirectTracker)
+    opener = urllib.request.build_opener(SafeRedirectTracker)
     accept_encoding = "gzip, deflate, br" if HAS_BROTLI else "gzip, deflate"
     req = urllib.request.Request(
         target,

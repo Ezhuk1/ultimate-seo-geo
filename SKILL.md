@@ -129,9 +129,9 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
 Structure all action items into actionable tiers accompanied by testable verification criteria:
 * **P0 (Critical / Blockers):** Crawl governance / indexation exposure risks (RFC 9309 crawler exposure of `/api/` or `/admin/`), bot blockouts, missing canonicals, unindexed pages.
   - *Leading Indicator:* Server log confirms 200 OK without crawl exposure; immediate indexation recovery.
-* **P1 (High Citation Impact):** Evidence deficit (missing metrics, zero citations on research articles, disconnected Schema `@graph`), missing `dateModified`, poor direct answer positioning, pronoun ambiguity. (Note: Lack of quotes on documentation/API pages is NOT a P1 issue).
-  - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days.
-* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, unobserved field metrics.
+* **P1 (High Citation & Share Impact):** Evidence deficit (missing metrics, zero citations on research articles, disconnected Schema `@graph`), missing `dateModified`, poor direct answer positioning, pronoun ambiguity, social preview title conflict/mismatch (`SOCIAL-PREVIEW-SYNC-033`).
+  - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days; social link previews (Telegram/X) display page title instead of root site fallback.
+* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, social description divergence, unobserved field metrics.
   - *Leading Indicator:* Clean social cards on preview; zero CLS warnings.
 
 ---
