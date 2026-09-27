@@ -1079,8 +1079,8 @@ def main():
         if ok:
             mutations_passed += 1
 
-    # 4. Autonomous Inspection Engine (v3.2.0) Integration Suite
-    print("\n--- 3. Autonomous Inspection Engine (v3.2.0) Integration Suite ---")
+    # 4. Autonomous Inspection Engine (v3.3.0) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v3.3.0) Integration Suite ---")
     from evals.test_engine import (
         test_clean_page_inspection,
         test_defective_page_detection,
@@ -1109,6 +1109,7 @@ def main():
         test_social_metadata_validation,
         test_v3_1_1_remediation_suite,
         test_v3_2_0_performance_geo_pawc_suite,
+        test_v3_3_0_openseo_integration_suite,
     )
 
     engine_tests = [
@@ -1139,6 +1140,7 @@ def main():
         ("test_social_metadata_validation", test_social_metadata_validation),
         ("test_v3_1_1_remediation_suite", test_v3_1_1_remediation_suite),
         ("test_v3_2_0_performance_geo_pawc_suite", test_v3_2_0_performance_geo_pawc_suite),
+        ("test_v3_3_0_openseo_integration_suite", test_v3_3_0_openseo_integration_suite),
     ]
 
     engine_passed = 0
@@ -1160,7 +1162,7 @@ def main():
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
     ):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.2.0 tests are healthy.")
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.3.0 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")

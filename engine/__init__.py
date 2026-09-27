@@ -1,6 +1,6 @@
 """
-ultimate-seo-geo inspection engine (v3.2.0)
+ultimate-seo-geo inspection engine (v3.3.0)
 Deterministic Evidence-Driven SEO & GEO Inspection Architecture.
 """
 
-__version__ = "3.2.0"
+__version__ = "3.3.0"

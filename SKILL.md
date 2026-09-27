@@ -50,6 +50,16 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 
 ---
 
+## Epistemic Guardrails of Honesty
+
+A report with twenty undifferentiated findings has failed. Every audit, recommendation, and rewrite must uphold four non-negotiable guardrails:
+1. **Observations Are Not Causes:** A crawler warning, uneven rankings between sibling pages, or missing metadata never proves an algorithmic penalty, an indexing exclusion, or the sole reason a page ranks where it does. Label technical defects as observed friction, not fabricated causes.
+2. **Honest Sizing (No Invented Revenue or Conversion Rates):** Sizing an opportunity names the mechanism: a new ranking, moving higher on an existing ranking, or winning clicks from an improved snippet. Never invent conversion rates, dollar revenue, or multiplier formulas. When modeling potential gains, state explicitly: *"Hypothetical scenario based on stated click-share assumption, not a forecast."*
+3. **Date All Checks & State Geography:** A ranking or snippet check without a date and geographic market is meaningless. Record exact observation dates (e.g., `US, Sep 28, 2026`) or state `unknown`. One snapshot is same-day variation, not a trend.
+4. **Separate Tools Reported from Verified Yourself:** State clearly in the report which findings were measured deterministically by analyzers (`[VERIFIED_FACT]`) and which were inferred qualitatively by LLM reasoning (`[HEURISTIC_ESTIMATE]`). When data could not be observed, classify as `UNKNOWN` rather than penalizing the site.
+
+---
+
 ## Required Reference Materials & Tools: Strict Just-In-Time (JIT) Loading
 
 > [!IMPORTANT]
@@ -133,6 +143,29 @@ Structure all action items into actionable tiers accompanied by testable verific
   - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days; social link previews (Telegram/X) display page title instead of root site fallback.
 * **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, social description divergence, unobserved field metrics.
   - *Leading Indicator:* Clean social cards on preview; zero CLS warnings.
+
+#### D. Executive Reporting Protocol: Shortlist -> Decision & "Do this / Why"
+Do not bury the reader in raw crawler output. Structure all strategic feedback around high-impact triage:
+1. **Shortlist Candidates First:** Identify 5–8 candidate issues across crawl blockers, underperforming high-demand pages, and direct answer gaps.
+2. **Select Top 1–3 Next Moves ("Your Next SEO Move"):** Prioritize only the 1–3 highest-leverage actions with a credible path to tangible gain.
+3. **Action Format ("Do this / Why"):**
+   - **Do this:** 2–4 concise bullets starting with active verbs naming the exact page, selector, or attribute to change.
+   - **Why:** 2–4 bullets detailing the observed gap, target searcher intent, plausible benefit, and main uncertainty (*main uncertainty* stays paired with benefit).
+4. **"What Else We Checked" Table:** Move all rejected or deferred candidate issues into a compact table with an honest decision reason (e.g., *"Demand is 1/4 of leader and page already ranks #4; test comparison page first"*).
+
+#### E. Pre-Flight Self-Review Protocol
+Before delivering the final audit report or advice, execute a strict 4-point self-review:
+1. **Check Evidence Grounding:** Does the leading recommendation cite verified raw observations from the Evidence Ledger?
+2. **Review the Rejected Runner-Up:** Does the "What else we checked" table provide a credible, business-grounded reason why the leading recommendation beats the runner-up?
+3. **Enforce Brevity:** Eliminate paragraph-length bullets and consulting jargon. Ensure bullets are 8–20 words with one idea each.
+4. **Check Guardrails:** Are all scenarios labeled as hypothetical? Are all dates and locales explicit? Are there zero fabricated conversion rates or revenue claims?
+
+#### F. Persistent Project Context (`seo-project-context.json`)
+To prevent repetitive discovery and maintain strategic continuity across conversations:
+- The engine automatically checks for `./seo-project-context.json` (or `.seo-context.json`).
+- Dossier fields: `business_overview`, `target_audience`, `key_pages` (with target topics & roles), `competitors`, and `research_log`.
+- **30-Day Research Cache:** If research for a target topic or domain was logged within the last 30 days, reuse the previous findings and state: *"Reusing verified audit baseline from [Date]"* rather than re-running redundant heavy crawls.
+- After significant audits or strategic decisions, update the dossier and append a research log entry: `{ summary: "Audit: example.com", verdict: "Prioritize LCP hero and PAWC front-loading" }`.
 
 ---
 
@@ -238,6 +271,15 @@ Generate high-intent content clusters designed to capture long-tail AI search qu
 2. **Direct Answer Target:** The 1–2 sentence snippet the AI should extract verbatim.
 3. **Required Proof Assets:** Required statistics, benchmark comparison table, and primary citations.
 4. **Schema Blueprint:** Required JSON-LD types.
+
+#### Search Console Striking Distance Workflow (`--gsc-csv`)
+When the user provides an exported Google Search Console CSV (`Queries.csv` or `Pages.csv`):
+```bash
+python -m engine.inspector <target> --gsc-csv path/to/Queries.csv
+```
+The analyzer automatically filters queries in the **Striking Distance Window** (positions 5.0–20.0 with $\ge$ 50 impressions):
+- **Page 2 Near-Misses (Positions 11–20):** High impressions with low clicks. Strategy: Front-load definitions (`GEO-ANSWER-FRONTLOAD-001`), add semantic entity Schema, and strengthen internal linking from relevant hubs.
+- **Page 1 Low-CTR Queries (Positions 5–10, CTR < 2%):** Searchers see your snippet but click competitor results. Strategy: Rewrite `<title>` pixel width (~580px) and `<meta description>` to include active value propositions and concise answers.
 
 ---
 

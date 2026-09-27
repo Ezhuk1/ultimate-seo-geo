@@ -2,6 +2,27 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.3.0] - 2026-09-28
+
+### Added
+- **Epistemic Honesty Guardrails (`SKILL.md`):**
+  - Codified core epistemic principles: "Observations are not causes", honest-sizing (hypothetical potential visits only, zero invented revenue/conversion metrics), explicit date + geographic context on all checks, and strict separation between tools-reported data (`[VERIFIED_FACT]`) and agent heuristics (`[HEURISTIC_ESTIMATE]`).
+  - Added 4-point Pre-Flight Self-Review Protocol ensuring audits do not make speculative causal claims or present estimates as facts.
+- **Shortlist -> Decision Reporting Protocol (`SKILL.md`, `engine/inspector.py`):**
+  - Redesigned executive recommendations into `🚀 Your Next SEO Move (Top Priorities)` formatted with deterministic `Do this:` actionable steps and `Why:` causal rationale (observed gap, category/priority, plausible benefit, and main uncertainty).
+  - Added `📋 What Else We Checked (Deferred Opportunities)` section listing candidate issues that were evaluated but deferred with explicit rationale to keep user focus on highest-leverage actions.
+- **Persistent Project Context (`engine/project_context.py`, `--project-context`):**
+  - Added pure Python standard library `ProjectContext` manager supporting `seo-project-context.json` or `.seo-context.json`.
+  - Maintains persistent dossier: business overview, target audience, key pages with roles, competitors, and 30-day research cache.
+  - Automatically identifies prior audits within 30 days to avoid redundant re-analysis and displays baseline reuse notice in executive scorecard.
+- **Google Search Console (GSC) Striking Distance Analyzer (`engine/analyzers/gsc_analyzer.py`, `--gsc-csv`):**
+  - Pure Python stdlib CSV performance analyzer handling varied export locales and dialects (comma, semicolon, tab; English and Russian header aliases).
+  - Automatically isolates high-leverage "Striking Distance" queries (positions 5.0–20.0 with $\ge$50 impressions) for immediate on-page lift.
+  - Detects Page 1 Snippet Underperformers (positions $\le$10.0 with low CTR < 2.0%) flagging title pixel width and meta description rewrite opportunities.
+  - Generates executive markdown summary table and integrates directly with audit reports and JSON metadata.
+- **Evaluation & Test Harness (`evals/test_engine.py`, `evals/run_evals.py`):**
+  - Added `test_v3_3_0_openseo_integration_suite` expanding engine test suite to 28 deterministic test suites (58/58 total passing across canonical evals, mutations, and engine integration).
+
 ## [3.2.0] - 2026-09-26
 
 ### Added

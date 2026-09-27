@@ -155,7 +155,7 @@ def analyze_target_http(target: str, timeout: float = 10.0, user_agent: str | No
     and computing SHA-256 provenance hash.
     """
     timestamp = datetime.now(timezone.utc).isoformat()
-    ua = user_agent or "Mozilla/5.0 (compatible; UltimateSeoGeoEngine/3.2.0; +https://github.com/Ezhuk1/ultimate-seo-geo)"
+    ua = user_agent or "Mozilla/5.0 (compatible; UltimateSeoGeoEngine/3.3.0; +https://github.com/Ezhuk1/ultimate-seo-geo)"
 
     # Check if target is a local file
     local_path = Path(target)

@@ -3135,6 +3135,52 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({crit_obs}/{crit_tot} criteria) | Empirical completeness of audit scope |")
     md.append("")
 
+    # Baseline notice from Project Context (if present)
+    baseline_info = ledger.metadata.get("project_context_recent_baseline")
+    if baseline_info:
+        md.append("> [!TIP]")
+        md.append(f"> **Project Context:** Reusing verified audit baseline from `{baseline_info.get('timestamp')}` ({baseline_info.get('summary')}).")
+        md.append("")
+
+    # 1. Your Next SEO Move (Top 1-3 Recommendations: Do this / Why)
+    findings = ledger.findings
+    top_findings = findings[:3]
+    deferred_findings = findings[3:]
+
+    if top_findings:
+        md.append("## 🚀 Your Next SEO Move (Top Priorities)")
+        md.append("")
+        for idx, f in enumerate(top_findings, 1):
+            md.append(f"### {idx}. {f.title}")
+            md.append("**Do this:**")
+            for step in f.remediation_steps[:3]:
+                md.append(f"- {step}")
+            md.append("")
+            md.append("**Why:**")
+            md.append(f"- **Observed Gap:** {f.impact_estimate}")
+            md.append(f"- **Evaluation Category:** `{f.category}` (Priority: `[{f.action_priority}]`, Severity: `{f.severity}`)")
+            md.append("- **Plausible Benefit:** Eliminates ranking friction and improves synthetic answer retrieval probability.")
+            md.append("- **Main Uncertainty:** Search engine crawl re-indexation lag (typically 3–14 days).")
+            md.append("")
+
+    if deferred_findings:
+        md.append("### 📋 What Else We Checked (Deferred Opportunities)")
+        md.append("These candidate issues were evaluated but deferred to keep execution focused on the highest-leverage actions:")
+        md.append("")
+        md.append("| Opportunity / Check | Observed Finding | Decision & Rationale |")
+        md.append("| :--- | :--- | :--- |")
+        for df in deferred_findings:
+            rationale = "Deferred: secondary hygiene, prioritize core blockers first" if df.action_priority in ("P2_MEDIUM", "P3_LOW") else "Deferred: test primary recommendations first"
+            clean_impact = df.impact_estimate.replace("|", "/")
+            md.append(f"| `{df.rule_id}`: {df.title} | {clean_impact} | {rationale} |")
+        md.append("")
+
+    # GSC Striking Distance Section (if present)
+    gsc_md = ledger.metadata.get("gsc_markdown")
+    if gsc_md:
+        md.append(gsc_md)
+        md.append("")
+
     # Historical Comparison (if previous audit provided)
     hist = ledger.metadata.get("historical_comparison")
     if hist:
@@ -3248,8 +3294,8 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append("")
 
     md.append("> [!NOTE]")
-    md.append("> **Evidence Ledger Invariant: 'Unknown != Failure'**  ")
-    md.append(f"> Exactly {scores.not_measured_count} unmeasured external signal(s) (e.g., CWV CrUX field data) were detected. In compliance with the Evidence Protocol, unmeasured signals carry 0 penalty and are explicitly segregated from verified defects.")
+    md.append("> **Evidence Ledger Invariant: 'Unknown != Failure' & Observations != Causes**  ")
+    md.append(f"> Exactly {scores.not_measured_count} unmeasured external signal(s) (e.g., CWV CrUX field data) were detected. In compliance with the Evidence Protocol, unmeasured signals carry 0 penalty. Observations describe verified technical state (`[VERIFIED_FACT]`), not algorithmic penalties or speculative revenue claims.")
     md.append("")
 
     cat_cov = ledger.metadata.get("category_coverage", {})
@@ -3316,7 +3362,7 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.2.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.3.0")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
@@ -3338,6 +3384,8 @@ def main():
     parser.add_argument("--experiment", action="store_true", help="Run AI Citation Benchmark Before/After experiment comparison")
     parser.add_argument("--before", help="Path to baseline benchmark JSON file")
     parser.add_argument("--after", help="Path to post-optimization benchmark JSON file")
+    parser.add_argument("--gsc-csv", help="Optional path to Google Search Console performance export CSV for striking distance and CTR underperformance analysis")
+    parser.add_argument("--project-context", help="Optional path to persistent SEO project dossier JSON (auto-detects seo-project-context.json or .seo-context.json if omitted)")
 
     args = parser.parse_args()
 
@@ -3419,6 +3467,14 @@ def main():
         else:
             custom_robots = args.robots
 
+    # Project Context Dossier Handling (Pre-inspection)
+    p_ctx = None
+    try:
+        from .project_context import ProjectContext
+        p_ctx = ProjectContext.load(args.project_context)
+    except Exception as e:
+        sys.stderr.write(f"Warning: Failed to load project context: {e}\n")
+
     try:
         ledger, scores = run_inspection(
             args.target,
@@ -3431,6 +3487,38 @@ def main():
     except Exception as exc:
         sys.stderr.write(f"Error executing inspection: {exc}\n")
         sys.exit(1)
+
+    # Attach Project Context metadata & check 30-day baseline
+    if p_ctx is not None and (p_ctx.project_name or p_ctx.domain or p_ctx.research_log):
+        ledger.metadata["project_context"] = p_ctx.to_dict()
+        recent_baseline = p_ctx.get_recent_research(args.target, max_age_days=30)
+        if recent_baseline:
+            ledger.metadata["project_context_recent_baseline"] = recent_baseline
+
+    # Google Search Console (GSC) Performance Analysis
+    if args.gsc_csv:
+        try:
+            from .analyzers.gsc_analyzer import analyze_gsc_csv, format_gsc_markdown_summary
+            gsc_res = analyze_gsc_csv(args.gsc_csv)
+            ledger.metadata["gsc_analysis"] = gsc_res.to_dict()
+            ledger.metadata["gsc_markdown"] = format_gsc_markdown_summary(gsc_res)
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to analyze GSC CSV: {e}\n")
+
+    # Persist audit results to Project Context if dossier is active
+    if p_ctx is not None and (args.project_context or os.path.exists("seo-project-context.json") or os.path.exists(".seo-context.json")):
+        findings_summary = f"Observable Tech Score: {scores.observable_technical_score}, GEO Score: {scores.geo_readiness_index}, Findings: {len(ledger.findings)}"
+        p_ctx.append_research_log(
+            summary=f"Audit {args.target}: {findings_summary}",
+            verdict=f"Tech: {scores.observable_technical_score}/100, GEO: {scores.geo_readiness_index}/100",
+            mode="audit"
+        )
+        if str(args.target).startswith(("http://", "https://")):
+            p_ctx.add_key_page(args.target, role="audited_page")
+        try:
+            p_ctx.save(args.project_context)
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to save project context: {e}\n")
 
     # Standard-Compliant /llms.txt Generation Mode
     if args.generate_llms_txt:

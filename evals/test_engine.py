@@ -1290,7 +1290,7 @@ def test_week4_geo_eeat_and_production():
         assert len(sarif_doc["runs"]) == 1
         run = sarif_doc["runs"][0]
         assert run["tool"]["driver"]["name"] == "ultimate-seo-geo"
-        assert run["tool"]["driver"]["version"] == "3.2.0"
+        assert run["tool"]["driver"]["version"] == "3.3.0"
         assert len(run["results"]) > 0
 
         # Verify 8-dimension GEO score
@@ -2161,8 +2161,163 @@ Disallow: /
     print("[PASS] test_v3_2_0_performance_geo_pawc_suite")
 
 
+def test_v3_3_0_openseo_integration_suite():
+    """
+    Verifies OpenSEO-derived features (v3.3.0):
+    1. GSC Striking Distance CSV Analyzer (delimiters, locales, filtering, CTR opportunities)
+    2. Persistent Project Context (load, save, key pages, 30-day research cache)
+    3. Executive Reporting ('Your Next SEO Move' Do this / Why, deferred candidates, baseline notice)
+    4. Epistemic Invariant preservation (Unknown != Failure, Observations != Causes)
+    """
+    import tempfile
+    from datetime import datetime, timezone, timedelta
+    from engine.analyzers.gsc_analyzer import analyze_gsc_csv, format_gsc_markdown_summary
+    from engine.project_context import ProjectContext
+    from engine.inspector import run_inspection, format_markdown_report
+
+    # 1. GSC CSV Analyzer Tests (English comma-separated)
+    csv_en = (
+        "Top queries,Clicks,Impressions,CTR,Position\n"
+        "seo audit tool,120,1500,8.0%,2.1\n"
+        "striking distance seo,15,600,2.5%,7.4\n"
+        "geo readiness score,5,420,1.19%,8.9\n"
+        "enterprise schema validator,2,180,1.11%,14.2\n"
+        "low impression test,1,20,5.0%,9.0\n"
+        "deep page 3 query,0,95,0.0%,28.5\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as tf:
+        tf.write(csv_en)
+        tf_name = tf.name
+
+    try:
+        res = analyze_gsc_csv(tf_name)
+        assert res.is_valid, "Expected valid GSC analysis"
+        assert res.total_rows == 6
+        # Striking distance: queries with pos 5.0 - 20.0 and impr >= 50
+        assert res.striking_distance_count == 3
+        q_names = [q.query for q in res.striking_distance]
+        assert "striking distance seo" in q_names
+        assert "geo readiness score" in q_names
+        assert "enterprise schema validator" in q_names
+        assert "seo audit tool" not in q_names
+
+        # CTR opportunities: pos <= 10.0, impr >= 100, CTR < 2.0%
+        assert len(res.ctr_opportunities) >= 1
+        assert any(q.query == "geo readiness score" for q in res.ctr_opportunities)
+
+        # Markdown summary formatting
+        md_summary = format_gsc_markdown_summary(res)
+        assert "## 🎯 Google Search Console: Striking Distance & Opportunity Plan" in md_summary
+        assert "striking distance seo" in md_summary
+        assert "Snippet Underperformers" in md_summary
+    finally:
+        if os.path.exists(tf_name):
+            os.remove(tf_name)
+
+    # 1b. GSC Russian semicolon-separated dialect
+    csv_ru = (
+        "Запрос;Клики;Показы;CTR;Позиция\n"
+        "проверка сео;45;1200;3,75%;3,2\n"
+        "анализ микроразметки;12;550;2,18%;6,8\n"
+        "гео оптимизация;4;310;1,29%;9,4\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as tf:
+        tf.write(csv_ru)
+        tf_name_ru = tf.name
+
+    try:
+        res_ru = analyze_gsc_csv(tf_name_ru)
+        assert res_ru.is_valid
+        assert res_ru.striking_distance_count == 2
+        assert any(q.query == "анализ микроразметки" for q in res_ru.striking_distance)
+        assert any(q.query == "гео оптимизация" for q in res_ru.striking_distance)
+    finally:
+        if os.path.exists(tf_name_ru):
+            os.remove(tf_name_ru)
+
+    # 2. Project Context Dossier Tests
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as tf_ctx:
+        tf_ctx_path = tf_ctx.name
+
+    try:
+        ctx = ProjectContext(
+            project_name="Test Brand",
+            domain="brand.test",
+            business_overview="Enterprise SaaS AI Engine",
+            target_audience="CTOs & Heads of SEO"
+        )
+        ctx.add_key_page("https://brand.test/pricing", target_topic="SaaS Pricing", role="conversion")
+        ctx.add_competitor("competitor-one.test")
+
+        # Add recent research log (fresh)
+        ctx.append_research_log(
+            summary="Audit https://brand.test: Observable Tech Score: 92, GEO Score: 85",
+            verdict="Pass",
+            mode="audit"
+        )
+
+        ctx.save(tf_ctx_path)
+        loaded = ProjectContext.load(tf_ctx_path)
+        assert loaded.project_name == "Test Brand"
+        assert len(loaded.key_pages) == 1
+        assert loaded.key_pages[0]["url"] == "https://brand.test/pricing"
+        assert len(loaded.competitors) == 1
+        assert loaded.competitors[0] == "competitor-one.test"
+
+        # Check 30-day baseline cache
+        fresh_cache = loaded.get_recent_research("https://brand.test", max_age_days=30)
+        assert fresh_cache is not None
+        assert "Observable Tech Score: 92" in fresh_cache["summary"]
+
+        # Expired research check (> 30 days)
+        loaded.research_log[0]["timestamp"] = (datetime.now(timezone.utc) - timedelta(days=35)).isoformat()
+        expired_cache = loaded.get_recent_research("https://brand.test", max_age_days=30)
+        assert expired_cache is None, "Expected research older than 30 days to expire"
+    finally:
+        if os.path.exists(tf_ctx_path):
+            os.remove(tf_ctx_path)
+
+    # 3. Report Generation with Executive Shortlist & Deferred Opportunities
+    dummy_html = (
+        "<!DOCTYPE html><html lang='en'><head><title>Test Doc</title>"
+        "<meta name='description' content='A valid test page description for testing inspection.'>"
+        "</head><body><h1>Main Title</h1><p>Body text here.</p></body></html>"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8") as tf_html:
+        tf_html.write(dummy_html)
+        tf_html_path = tf_html.name
+
+    try:
+        ledger, scores = run_inspection(tf_html_path)
+        # Attach project context baseline and GSC markdown
+        ledger.metadata["project_context_recent_baseline"] = {
+            "timestamp": "2026-09-27T12:00:00Z",
+            "summary": "Tech Score 90, GEO 82"
+        }
+        ledger.metadata["gsc_markdown"] = "## 🎯 Google Search Console: Striking Distance & Opportunity Plan\n- Mock GSC Data"
+
+        md_report = format_markdown_report(ledger, scores)
+
+        # Invariants & Executive Structure verification
+        assert "Unknown != Failure" in md_report
+        assert "Observations != Causes" in md_report
+        assert "> **Project Context:** Reusing verified audit baseline" in md_report
+        assert "## 🎯 Google Search Console: Striking Distance & Opportunity Plan" in md_report
+        if ledger.findings:
+            assert "## 🚀 Your Next SEO Move (Top Priorities)" in md_report
+            assert "**Do this:**" in md_report
+            assert "**Why:**" in md_report
+            if len(ledger.findings) > 3:
+                assert "### 📋 What Else We Checked (Deferred Opportunities)" in md_report
+    finally:
+        if os.path.exists(tf_html_path):
+            os.remove(tf_html_path)
+
+    print("[PASS] test_v3_3_0_openseo_integration_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.2.0 integration suite...")
+    print("Running Engine v3.3.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -2190,5 +2345,6 @@ if __name__ == "__main__":
     test_modern_seo_enhancements()
     test_v3_1_1_remediation_suite()
     test_v3_2_0_performance_geo_pawc_suite()
-    print("All Engine v3.2.0 tests passed successfully (27 deterministic test suites)!")
+    test_v3_3_0_openseo_integration_suite()
+    print("All Engine v3.3.0 tests passed successfully (28 deterministic test suites)!")
 

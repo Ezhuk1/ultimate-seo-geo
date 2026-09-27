@@ -31,7 +31,7 @@ class CrawlConfig:
     max_response_bytes: int = 5_000_000  # 5 MB
     respect_robots: bool = True
     allowed_domains: Optional[List[str]] = None
-    user_agent: str = "UltimateSeoGeoCrawler/3.2.0"
+    user_agent: str = "UltimateSeoGeoCrawler/3.3.0"
 
     def __post_init__(self):
         # Synchronize delay_seconds and rate_limit_delay
@@ -92,7 +92,7 @@ class EngineConfig:
                 timeout=float(c_data.get("timeout", 10.0)),
                 max_response_bytes=int(c_data.get("max_response_bytes", 5_000_000)),
                 respect_robots=bool(c_data.get("respect_robots", True)),
-                user_agent=str(c_data.get("user_agent", "UltimateSeoGeoCrawler/3.2.0"))
+                user_agent=str(c_data.get("user_agent", "UltimateSeoGeoCrawler/3.3.0"))
             )
 
             return cls(
