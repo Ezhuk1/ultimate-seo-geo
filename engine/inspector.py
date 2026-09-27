@@ -3102,12 +3102,98 @@ def run_inspection(
             expected="75th percentile LCP < 2.5s, INP < 200ms, CLS < 0.1",
             message="Real-user field performance is NOT MEASURED. In accordance with Evidence Ledger invariants, this unmeasured hypothesis carries 0 penalty."
         )
+    # TECH-INDEXNOW-KEY-039: IndexNow Protocol Fast-Track Search Engine Indexing
+    has_indexnow = False
+    indexnow_detail = "IndexNow key not detected on single-page fetch"
+    if "indexnow" in str(body_text).lower() or (robots_ast and any("indexnow" in s.lower() for s in getattr(robots_ast, "sitemaps", []))):
+        has_indexnow = True
+        indexnow_detail = "IndexNow directive or meta tag detected"
+    builder.add_evidence(
+        rule_id="TECH-INDEXNOW-KEY-039",
+        category="technical",
+        title="IndexNow Protocol Instant Search Indexing",
+        status=STATUS_PASS if has_indexnow else STATUS_INFO,
+        confidence=CONFIDENCE_VERIFIED,
+        observed=indexnow_detail,
+        expected="Hosted /{apiKey}.txt or IndexNow automated submission hook",
+        message="IndexNow instant indexing configured." if has_indexnow else "Fast-Track Indexing: For new sites, host an IndexNow key at /{apiKey}.txt for instant push indexing to Bing/Yandex/Seznam. For Google, submit via Search Console (Google Indexing API is officially restricted to JobPosting/BroadcastEvent)."
+    )
+
+    # AGENT-MARKDOWN-NEGOTIATION-001: Content Negotiation for AI Agents
+    agentic_data = html_data.get("agentic_readiness", {})
+    md_alt = agentic_data.get("markdown_alternate_url")
+    has_vary_accept = "accept" in headers.get("vary", "").lower()
+    if md_alt or has_vary_accept:
+        builder.add_evidence(
+            rule_id="AGENT-MARKDOWN-NEGOTIATION-001",
+            category="technical",
+            title="Markdown Content Negotiation for Autonomous AI Agents",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"Markdown alternate detected: {md_alt or 'Vary: Accept'}",
+            expected="<link rel='alternate' type='text/markdown'> or Accept: text/markdown negotiation",
+            message="Site provides clean Markdown alternate content for autonomous browsing agents."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="AGENT-MARKDOWN-NEGOTIATION-001",
+            category="technical",
+            title="Markdown Content Negotiation for Autonomous AI Agents",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="No Markdown alternate link or Vary: Accept header detected",
+            expected="<link rel='alternate' type='text/markdown'> or Accept: text/markdown negotiation",
+            message="Consider providing <link rel='alternate' type='text/markdown' href='...'> or /llms.txt for autonomous agent readers."
+        )
+
+    # AGENT-A11Y-INTERACTIVE-002: Lighthouse Agentic Browsing Accessibility
+    unnamed_btn = agentic_data.get("unnamed_buttons_count", 0)
+    unlabelled_inp = agentic_data.get("unlabelled_inputs_count", 0)
+    fake_btn = agentic_data.get("fake_buttons_count", 0)
+    total_a11y_defects = unnamed_btn + unlabelled_inp + fake_btn
+    if total_a11y_defects > 0:
+        builder.add_evidence(
+            rule_id="AGENT-A11Y-INTERACTIVE-002",
+            category="technical",
+            title="Interactive Accessibility for Autonomous Agents (Lighthouse Agentic Browsing)",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_VERIFIED,
+            observed=f"{unnamed_btn} unnamed button(s), {unlabelled_inp} unlabelled input(s), {fake_btn} non-semantic button(s)",
+            expected="All buttons and inputs have accessible names for agent navigation",
+            message=f"Interactive elements lack accessible names ({total_a11y_defects} issue(s)). AI browsing agents rely on accessibility tree labels to click and navigate."
+        )
+        builder.add_finding(
+            rule_id="AGENT-A11Y-INTERACTIVE-002",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Interactive Elements Missing Accessible Names for AI Agents",
+            confidence=CONFIDENCE_VERIFIED,
+            action_priority="P2_MEDIUM",
+            remediation_steps=[
+                "Add aria-label or visible text to empty <button> elements.",
+                "Ensure all form <input> tags have corresponding <label for='...'> or aria-label.",
+                "Replace <div onclick> with <button> or add role='button' and tabindex='0'."
+            ],
+            impact_estimate="Prevents autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="AGENT-A11Y-INTERACTIVE-002",
+            category="technical",
+            title="Interactive Accessibility for Autonomous Agents (Lighthouse Agentic Browsing)",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_VERIFIED,
+            observed="All interactive elements have accessible names and semantic roles",
+            expected="All buttons and inputs have accessible names",
+            message="Clean accessibility tree: autonomous browsing agents can accurately identify and operate interactive controls."
+        )
 
     ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
     if config and config.disabled_rules:
         disabled_set = set(config.disabled_rules)
         ledger.evidence = [e for e in ledger.evidence if e.rule_id not in disabled_set]
 
+    ledger.metadata["agentic_readiness"] = agentic_data
     scores = calculate_scores(ledger)
     return ledger, scores
 
@@ -3179,6 +3265,12 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     gsc_md = ledger.metadata.get("gsc_markdown")
     if gsc_md:
         md.append(gsc_md)
+        md.append("")
+
+    # GA4 AI-Referral Traffic Section (if present)
+    ga4_md = ledger.metadata.get("ga4_markdown")
+    if ga4_md:
+        md.append(ga4_md)
         md.append("")
 
     # Historical Comparison (if previous audit provided)
@@ -3293,6 +3385,43 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append(f"- **Visible-Content Consistency**: `{sch_v.get('visible_content_consistency', 'UNKNOWN')}`")
         md.append("")
 
+    # Autonomous Agent Readiness (Lighthouse Agentic Browsing & WebMCP)
+    agentic = ledger.metadata.get("agentic_readiness")
+    if agentic:
+        md.append("## 🤖 Autonomous Agent Readiness (Lighthouse Agentic Browsing)")
+        md.append("")
+        a11y_score = agentic.get("interactive_accessibility_score", 100.0)
+        tier_str = "Agent-Ready" if a11y_score >= 90 else ("Frictional" if a11y_score >= 70 else "Agent-Hostile")
+        md.append(f"> **Interactive Accessibility Score**: **{a11y_score:.1f} / 100** ({tier_str})")
+        md.append("> *Measures whether autonomous browsing agents (Operator, Claude Computer Use) can perceive controls and navigate.*")
+        md.append("")
+        md.append("| Check | Observed Value | Agent Impact |")
+        md.append("| :--- | :--- | :--- |")
+        btn_total = agentic.get("buttons_count", 0)
+        unnamed_btn = agentic.get("unnamed_buttons_count", 0)
+        btn_status = f"{btn_total - unnamed_btn}/{btn_total} named" if btn_total > 0 else "0 buttons"
+        btn_verdict = "[PASS] All buttons named" if unnamed_btn == 0 else f"[WARN] {unnamed_btn} unnamed button(s)"
+        md.append(f"| **Accessible Buttons** | `{btn_status}` ({btn_verdict}) | Screen reader / LLM accessibility tree label |")
+
+        inp_unlabelled = agentic.get("unlabelled_inputs_count", 0)
+        inp_verdict = "[PASS] All inputs labelled" if inp_unlabelled == 0 else f"[WARN] {inp_unlabelled} unlabelled input(s)"
+        md.append(f"| **Form Input Labels** | {inp_verdict} | Enables form autofill & synthetic interaction |")
+
+        fake_btn = agentic.get("fake_buttons_count", 0)
+        fake_verdict = "[PASS] Semantic controls" if fake_btn == 0 else f"[WARN] {fake_btn} non-semantic <div onclick>"
+        md.append(f"| **Semantic Elements** | {fake_verdict} | Keyboard & synthetic pointer focusability |")
+
+        md_alt = agentic.get("markdown_alternate_url")
+        md_status = f"`{md_alt}`" if md_alt else "None detected"
+        md.append(f"| **Markdown Alternate** | {md_status} | Fast-path context ingest (<link rel='alternate' type='text/markdown'>) |")
+
+        has_pricing = agentic.get("has_pricing_link", False)
+        pricing_status = "[PASS] Transparent pricing / documentation link" if has_pricing else "[INFO] No dedicated /pricing link detected"
+        md.append(f"| **Transparent Pricing** | {pricing_status} | Transparent pricing enables direct procurement recommendations |")
+        md.append("")
+        md.append("> *Protocol Note*: WebMCP (W3C Draft) and `/llms.txt` support enable autonomous agents to query APIs and structured catalogs without DOM scraping overhead.")
+        md.append("")
+
     md.append("> [!NOTE]")
     md.append("> **Evidence Ledger Invariant: 'Unknown != Failure' & Observations != Causes**  ")
     md.append(f"> Exactly {scores.not_measured_count} unmeasured external signal(s) (e.g., CWV CrUX field data) were detected. In compliance with the Evidence Protocol, unmeasured signals carry 0 penalty. Observations describe verified technical state (`[VERIFIED_FACT]`), not algorithmic penalties or speculative revenue claims.")
@@ -3362,7 +3491,7 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.3.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.4.0")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
@@ -3385,6 +3514,7 @@ def main():
     parser.add_argument("--before", help="Path to baseline benchmark JSON file")
     parser.add_argument("--after", help="Path to post-optimization benchmark JSON file")
     parser.add_argument("--gsc-csv", help="Optional path to Google Search Console performance export CSV for striking distance and CTR underperformance analysis")
+    parser.add_argument("--ga4-csv", help="Optional path to GA4 Traffic Acquisition CSV for AI referral engine analysis (ChatGPT, Perplexity, Claude, etc.)")
     parser.add_argument("--project-context", help="Optional path to persistent SEO project dossier JSON (auto-detects seo-project-context.json or .seo-context.json if omitted)")
 
     args = parser.parse_args()
@@ -3504,6 +3634,16 @@ def main():
             ledger.metadata["gsc_markdown"] = format_gsc_markdown_summary(gsc_res)
         except Exception as e:
             sys.stderr.write(f"Warning: Failed to analyze GSC CSV: {e}\n")
+
+    # GA4 AI-Referral Traffic Analysis
+    if args.ga4_csv:
+        try:
+            from .analyzers.ga4_analyzer import analyze_ga4_csv, format_ga4_markdown_summary
+            ga4_res = analyze_ga4_csv(args.ga4_csv)
+            ledger.metadata["ga4_analysis"] = ga4_res.to_dict()
+            ledger.metadata["ga4_markdown"] = format_ga4_markdown_summary(ga4_res)
+        except Exception as e:
+            sys.stderr.write(f"Warning: Failed to analyze GA4 CSV: {e}\n")
 
     # Persist audit results to Project Context if dossier is active
     if p_ctx is not None and (args.project_context or os.path.exists("seo-project-context.json") or os.path.exists(".seo-context.json")):

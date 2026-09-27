@@ -1290,7 +1290,7 @@ def test_week4_geo_eeat_and_production():
         assert len(sarif_doc["runs"]) == 1
         run = sarif_doc["runs"][0]
         assert run["tool"]["driver"]["name"] == "ultimate-seo-geo"
-        assert run["tool"]["driver"]["version"] == "3.3.0"
+        assert run["tool"]["driver"]["version"] == "3.4.0"
         assert len(run["results"]) > 0
 
         # Verify 8-dimension GEO score
@@ -2316,8 +2316,169 @@ def test_v3_3_0_openseo_integration_suite():
     print("[PASS] test_v3_3_0_openseo_integration_suite")
 
 
+def test_v3_4_0_agentic_ga4_suite():
+    """
+    Comprehensive verification for v3.4.0:
+    1. GA4 AI Referral analyzer (sessions, channel categorization, engagement rates, and executive summary)
+    2. GSC Content Decay analyzer (clicks/impressions drop >= 20%, position drops)
+    3. Agentic Readiness & Lighthouse Agentic Browsing (unnamed buttons, unlabelled inputs, fake buttons, markdown alternate links)
+    4. IndexNow fast indexing and transparent pricing signals
+    5. Inspector integration: CLI flags, metadata population, and report rendering
+    """
+    import tempfile
+    from engine.analyzers.ga4_analyzer import analyze_ga4_csv, format_ga4_markdown_summary
+    from engine.analyzers.gsc_analyzer import analyze_gsc_decay, format_gsc_markdown_summary
+    from engine.analyzers.html_analyzer import analyze_target_html
+
+    # --- 1. GA4 AI Referral Analyzer ---
+    ga4_sample_csv = """Session source / medium,Sessions,Engaged sessions,Average engagement time per session
+chatgpt.com / referral,150,110,65.4
+android-app://com.google.android.googlequicksearchbox/https/google.com / referral,80,60,45.2
+perplexity.ai / referral,50,42,88.1
+claude.ai / referral,30,25,92.0
+google / organic,2000,1400,32.5
+direct / (none),500,300,20.0
+"""
+    fd_ga4, path_ga4 = tempfile.mkstemp(suffix=".csv")
+    with open(fd_ga4, "w", encoding="utf-8") as f:
+        f.write(ga4_sample_csv)
+
+    try:
+        ga4_res = analyze_ga4_csv(path_ga4)
+        assert ga4_res.total_sessions == 2810
+        assert ga4_res.total_ai_sessions == 310
+        assert round(ga4_res.ai_traffic_share_pct, 2) == round((310 / 2810) * 100, 2)
+        assert len(ga4_res.ai_sources) >= 4
+
+        # Check channel mapping
+        engine_names = {s.ai_platform for s in ga4_res.ai_sources}
+        assert "ChatGPT" in engine_names
+        assert "Google Gemini / AIO" in engine_names
+        assert "Perplexity AI" in engine_names
+        assert "Claude" in engine_names
+
+        ga4_md = format_ga4_markdown_summary(ga4_res)
+        assert "## 🤖 Google Analytics 4: AI Referral Visibility & Traffic" in ga4_md
+        assert "ChatGPT" in ga4_md
+        assert "Breakdown of Actual AI-Referred Traffic" in ga4_md
+    finally:
+        if os.path.exists(path_ga4):
+            os.remove(path_ga4)
+
+    # --- 2. GSC Content Decay Analyzer ---
+    hist_gsc_csv = """Top queries,Clicks,Impressions,CTR,Position
+generative engine optimization,1200,25000,4.8%,3.2
+technical seo audit,800,15000,5.3%,4.1
+schema generator,300,6000,5.0%,8.0
+"""
+    recent_gsc_csv = """Top queries,Clicks,Impressions,CTR,Position
+generative engine optimization,780,16500,4.7%,7.4
+technical seo audit,820,15500,5.3%,3.9
+schema generator,200,4000,5.0%,11.5
+"""
+    fd_h, path_h = tempfile.mkstemp(suffix=".csv")
+    with open(fd_h, "w", encoding="utf-8") as f:
+        f.write(hist_gsc_csv)
+    fd_r, path_r = tempfile.mkstemp(suffix=".csv")
+    with open(fd_r, "w", encoding="utf-8") as f:
+        f.write(recent_gsc_csv)
+
+    try:
+        decay_items = analyze_gsc_decay(path_h, path_r, min_drop_pct=20.0)
+        assert len(decay_items) == 2  # 'generative engine optimization' (-35%) and 'schema generator' (-33.3%)
+        q_names = [d.query for d in decay_items]
+        assert "generative engine optimization" in q_names
+        assert "schema generator" in q_names
+        assert "technical seo audit" not in q_names
+
+        # Attach to GSC analysis result and test markdown summary
+        from engine.analyzers.gsc_analyzer import analyze_gsc_csv
+        recent_res = analyze_gsc_csv(path_r)
+        recent_res.decay_items = decay_items
+        gsc_md = format_gsc_markdown_summary(recent_res)
+        assert "Content Decay Alerts" in gsc_md
+        assert "generative engine optimization" in gsc_md
+    finally:
+        if os.path.exists(path_h):
+            os.remove(path_h)
+        if os.path.exists(path_r):
+            os.remove(path_r)
+
+    # --- 3. Agentic Readiness HTML Parsing ---
+    defective_html = """<!DOCTYPE html>
+    <html lang="en">
+    <head><title>Defective Interactive Page for Agents</title></head>
+    <body>
+        <main>
+            <p>Welcome to our service.</p>
+            <button></button> <!-- unnamed button -->
+            <button aria-label=""></button> <!-- unnamed button -->
+            <input type="text" name="query"> <!-- unlabelled input -->
+            <div onclick="doCheckout()">Checkout Now</div> <!-- non-semantic fake button -->
+        </main>
+    </body>
+    </html>"""
+    def_meta = analyze_target_html(defective_html)
+    agentic_def = def_meta["agentic_readiness"]
+    assert agentic_def["buttons_count"] == 2
+    assert agentic_def["unnamed_buttons_count"] == 2
+    assert agentic_def["unlabelled_inputs_count"] == 1
+    assert agentic_def["fake_buttons_count"] == 1
+    assert agentic_def["interactive_accessibility_score"] < 70.0
+
+    good_html = """<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <title>Agent-Ready High Accessibility Page</title>
+        <link rel="alternate" type="text/markdown" href="/docs.md">
+    </head>
+    <body>
+        <main>
+            <p>Full accessible interface.</p>
+            <button aria-label="Submit search query">Search</button>
+            <label for="email-in">Email address</label>
+            <input id="email-in" type="email">
+            <a href="/pricing">View Pricing Plans</a>
+        </main>
+    </body>
+    </html>"""
+    good_meta = analyze_target_html(good_html)
+    agentic_good = good_meta["agentic_readiness"]
+    assert agentic_good["buttons_count"] == 1
+    assert agentic_good["unnamed_buttons_count"] == 0
+    assert agentic_good["unlabelled_inputs_count"] == 0
+    assert agentic_good["fake_buttons_count"] == 0
+    assert agentic_good["has_pricing_link"] is True
+    assert agentic_good["markdown_alternate_url"] == "/docs.md"
+    assert agentic_good["interactive_accessibility_score"] == 100.0
+
+    # --- 4. Full Inspector Integration ---
+    fd_def_h, path_def_h = tempfile.mkstemp(suffix=".html")
+    with open(fd_def_h, "w", encoding="utf-8") as f:
+        f.write(defective_html)
+
+    try:
+        ledger, scores = run_inspection(path_def_h)
+        a11y_finding = next((f for f in ledger.findings if f.rule_id == "AGENT-A11Y-INTERACTIVE-002"), None)
+        assert a11y_finding is not None
+        assert a11y_finding.severity == "WARNING"
+
+        # Check report formatting contains Autonomous Agent Readiness section
+        md_report = format_markdown_report(ledger, scores)
+        assert "## 🤖 Autonomous Agent Readiness (Lighthouse Agentic Browsing)" in md_report
+        assert "Interactive Accessibility Score" in md_report
+        assert "Accessible Buttons" in md_report
+        assert "Form Input Labels" in md_report
+        assert "Semantic Elements" in md_report
+    finally:
+        if os.path.exists(path_def_h):
+            os.remove(path_def_h)
+
+    print("[PASS] test_v3_4_0_agentic_ga4_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.3.0 integration suite...")
+    print("Running Engine v3.4.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -2346,5 +2507,6 @@ if __name__ == "__main__":
     test_v3_1_1_remediation_suite()
     test_v3_2_0_performance_geo_pawc_suite()
     test_v3_3_0_openseo_integration_suite()
-    print("All Engine v3.3.0 tests passed successfully (28 deterministic test suites)!")
+    test_v3_4_0_agentic_ga4_suite()
+    print("All Engine v3.4.0 tests passed successfully (29 deterministic test suites)!")
 

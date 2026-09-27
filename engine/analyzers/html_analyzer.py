@@ -90,6 +90,15 @@ class DocumentParser(HTMLParser):
         self.current_a_aria_label = ""
         self.current_a_has_img_alt = False
 
+        # Agentic readiness & accessibility for AI agents
+        self.markdown_alternate_url = None
+        self.has_pricing_link = False
+        self.buttons = []
+        self.in_button = False
+        self.current_button_text = []
+        self.current_button_aria = ""
+        self.fake_buttons = []
+
         self.current_script_type = ""
         self.current_heading_tag = None
         self.current_heading_text = []
@@ -270,9 +279,21 @@ class DocumentParser(HTMLParser):
                     "href": href,
                     "as": attr_dict.get("as", "").lower()
                 })
+            if "alternate" in rel_tokens and attr_dict.get("type", "").lower() in ("text/markdown", "text/x-markdown"):
+                self.markdown_alternate_url = href
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.current_heading_tag = tag
             self.current_heading_text = []
+        elif tag == "button":
+            self.in_button = True
+            self.current_button_text = []
+            self.current_button_aria = attr_dict.get("aria-label", "").strip() or attr_dict.get("title", "").strip()
+        elif tag in ("div", "span"):
+            if "onclick" in attr_dict:
+                role = attr_dict.get("role", "").lower()
+                tabindex = attr_dict.get("tabindex", "").strip()
+                if role != "button" or not tabindex:
+                    self.fake_buttons.append({"tag": tag, "id": attr_dict.get("id", "")})
         elif tag in ("input", "textarea", "select"):
             inp_type = attr_dict.get("type", "").lower()
             if inp_type != "hidden":
@@ -324,6 +345,8 @@ class DocumentParser(HTMLParser):
             self.current_a_text = []
             self.current_a_aria_label = attr_dict.get("aria-label", "").strip() or attr_dict.get("title", "").strip()
             self.current_a_has_img_alt = False
+            if "pricing.md" in self.current_a_href.lower() or "/pricing" in self.current_a_href.lower() or self.current_a_href.strip().lower().endswith("/pricing") or self.current_a_href.strip().lower() == "pricing":
+                self.has_pricing_link = True
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()
@@ -338,6 +361,16 @@ class DocumentParser(HTMLParser):
             self.in_main = False
         elif tag == "svg":
             self.in_svg = False
+        elif tag == "button":
+            self.in_button = False
+            b_text = " ".join("".join(self.current_button_text).split())
+            has_name = bool(b_text or self.current_button_aria)
+            self.buttons.append({
+                "text": b_text,
+                "aria_label": self.current_button_aria,
+                "has_accessible_name": has_name
+            })
+            self.current_button_text = []
         elif tag == "a":
             self.in_a = False
             anchor_text = " ".join("".join(self.current_a_text).split())
@@ -389,6 +422,8 @@ class DocumentParser(HTMLParser):
         elif not self.in_style:
             if self.in_a:
                 self.current_a_text.append(data)
+            if self.in_button:
+                self.current_button_text.append(data)
             if self.current_heading_tag:
                 self.current_heading_text.append(data)
             cleaned = data.strip()
@@ -464,6 +499,10 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         has_for = bool(inp["id"] and inp["id"] in parser.label_for_ids)
         if not (has_aria or has_for):
             unlabelled_inputs_count += 1
+
+    unnamed_buttons_count = sum(1 for b in parser.buttons if not b["has_accessible_name"])
+    fake_buttons_count = len(parser.fake_buttons)
+    agentic_a11y_score = max(0, 100 - (unnamed_buttons_count * 15 + unlabelled_inputs_count * 10 + fake_buttons_count * 15))
 
     full_text_chunks = []
     for part in parser.visible_text_parts:
@@ -622,5 +661,14 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             "mount_elements": parser.csr_mount_elements,
             "has_client_bundle": parser.has_client_bundle,
             "visible_word_count": len(full_text.split())
+        },
+        "agentic_readiness": {
+            "markdown_alternate_url": parser.markdown_alternate_url,
+            "has_pricing_link": parser.has_pricing_link,
+            "buttons_count": len(parser.buttons),
+            "unnamed_buttons_count": unnamed_buttons_count,
+            "unlabelled_inputs_count": unlabelled_inputs_count,
+            "fake_buttons_count": fake_buttons_count,
+            "interactive_accessibility_score": agentic_a11y_score
         }
     }

@@ -2,6 +2,32 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.4.0] - 2026-09-28
+
+### Added
+- **Autonomous Agent Readiness & Lighthouse Agentic Browsing (`engine/analyzers/html_analyzer.py`, `rules/technical_rules.json`):**
+  - Added interactive accessibility analysis (`AGENT-A11Y-INTERACTIVE-002`, Tier A, W3C WAI-ARIA) verifying accessible names for buttons and form inputs, and detecting non-semantic `<div onclick>` fake buttons that disrupt autonomous browsing agents (Operator, Claude Computer Use).
+  - Added Markdown content negotiation (`AGENT-MARKDOWN-NEGOTIATION-001`, Tier E) detecting `<link rel="alternate" type="text/markdown">` and `Accept: text/markdown` headers.
+  - Added Fast-Track Indexing Protocol (`TECH-INDEXNOW-KEY-039`, Tier B) recommending IndexNow key hosting (`/{apiKey}.txt`) for instant push indexation to Bing, Yandex, and Seznam, with clear documentation distinguishing Google Search Console sitemap submission from the restricted Google Indexing API.
+  - Added transparent pricing signal check (`has_pricing_link`) identifying accessible `/pricing` and `/pricing.md` endpoints for procurement agents.
+  - Added `🤖 Autonomous Agent Readiness (Lighthouse Agentic Browsing)` executive section to markdown inspection reports.
+- **Google Analytics 4 (GA4) AI-Referral Analyzer (`engine/analyzers/ga4_analyzer.py`, `--ga4-csv`):**
+  - Pure Python stdlib analyzer for GA4 Traffic Acquisition CSVs (handling multi-locale headers and numeric formats).
+  - Identifies and quantifies actual inbound referral traffic from ChatGPT, Perplexity AI, Claude, Google Gemini / AI Overviews (`googlequicksearchbox`), Microsoft Copilot, Meta AI, and You.com.
+  - Calculates AI referral traffic share percentage, engaged sessions, engagement rate, and average session duration.
+  - Integrates executive summary into CLI audit reports with explicit non-guarantee disclosures.
+- **Google Search Console Content Decay Analysis (`engine/analyzers/gsc_analyzer.py`):**
+  - Added `analyze_gsc_decay` detecting queries losing $\ge$ 20% clicks or impressions comparing historical baseline data against recent periods.
+  - Generates Content Decay Alert tables highlighting URLs and queries requiring content refreshes and temporal updates.
+- **Advanced GEO & Citation Testing Methodology (`SKILL.md`):**
+  - Added Scientific Citation Testing Protocol: repeating prompts 3–5 times in clean unauthenticated sessions across models, evaluating citation stability and sentiment (Endorsed vs Neutral vs Negative).
+  - Added "Citation $\ne$ Recommendation" guardrail: separating mere mentions from true recommendations.
+  - Added honest guardrail for `/llms.txt`: clarifying that structured catalogs facilitate LLM context ingest but do not guarantee search rankings or citations.
+  - Added The "Don't-Do" Anti-Pattern list (never block CSS/JS in robots.txt, never inject hidden text, never fabricate social proof or fake expert quotes, never cloak for user agents).
+  - Added Brand Off-Page Footprint audit across primary AI training & retrieval sources (Reddit, Wikipedia, YouTube, LinkedIn, Quora, GitHub).
+- **Evaluation & Test Harness (`evals/test_engine.py`, `evals/run_evals.py`):**
+  - Added `test_v3_4_0_agentic_ga4_suite` expanding engine test suite to 29 deterministic test suites (59/59 total passing across canonical evals, mutations, and engine integration).
+
 ## [3.3.0] - 2026-09-28
 
 ### Added

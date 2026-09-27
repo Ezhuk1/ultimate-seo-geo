@@ -1,5 +1,5 @@
 """
-Configuration management for ultimate-seo-geo v3.1.1.
+Configuration management for ultimate-seo-geo v3.4.0.
 
 Loads optional configuration from ultimate-seo-geo.json or custom path.
 Provides sensible production defaults without requiring external dependencies.
@@ -31,7 +31,7 @@ class CrawlConfig:
     max_response_bytes: int = 5_000_000  # 5 MB
     respect_robots: bool = True
     allowed_domains: Optional[List[str]] = None
-    user_agent: str = "UltimateSeoGeoCrawler/3.3.0"
+    user_agent: str = "UltimateSeoGeoCrawler/3.4.0"
 
     def __post_init__(self):
         # Synchronize delay_seconds and rate_limit_delay

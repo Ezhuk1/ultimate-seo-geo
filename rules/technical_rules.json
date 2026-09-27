@@ -737,6 +737,54 @@
       "description": "Publication and modification dates declared in Schema.org JSON-LD must be visibly displayed to human readers in HTML.",
       "remediation": "Add visible date bylines (e.g. 'Last updated: [Date]') matching Schema datePublished/dateModified.",
       "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
+    },
+    {
+      "id": "TECH-INDEXNOW-KEY-039",
+      "name": "IndexNow Protocol Instant Search Indexing",
+      "category": "technical",
+      "severity": "INFO",
+      "impact": "P2",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier B (Search Engine Protocol Specification)",
+      "selector": "/[apiKey].txt, <meta name='indexnow'>",
+      "description": "Validates IndexNow protocol key declaration enabling instant push indexing across Bing, Yandex, Seznam, and Naver.",
+      "remediation": "Generate an IndexNow key and host it at /{apiKey}.txt or configure an automated IndexNow submission hook.",
+      "source_id": "SRC-INDEXNOW"
+    },
+    {
+      "id": "AGENT-MARKDOWN-NEGOTIATION-001",
+      "name": "Markdown Content Negotiation for Autonomous AI Agents",
+      "category": "technical",
+      "severity": "INFO",
+      "impact": "P2",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier E (Agent Browsing Heuristic)",
+      "selector": "link[rel='alternate'][type='text/markdown'], Vary: Accept",
+      "description": "Checks if the server supports Markdown content negotiation or provides a direct .md alternate link for browsing AI agents.",
+      "remediation": "Provide <link rel='alternate' type='text/markdown' href='...'> or support Accept: text/markdown header negotiation.",
+      "source_id": "SRC-W3C-WEBMCP"
+    },
+    {
+      "id": "AGENT-A11Y-INTERACTIVE-002",
+      "name": "Interactive Accessibility for Autonomous Agents (Lighthouse Agentic Browsing)",
+      "category": "technical",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (W3C WAI-ARIA Standard)",
+      "selector": "button, input, select, textarea",
+      "description": "Interactive buttons and form inputs must have accessible names (aria-label, text, or matching label) to be operable by AI browsing agents.",
+      "remediation": "Add descriptive text or aria-label to all buttons and associate <label for='...'> with form inputs.",
+      "source_id": "SRC-W3C-WAI-ARIA"
     }
   ]
 }

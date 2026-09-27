@@ -58,6 +58,7 @@ class RobotsData:
     sitemaps: List[str] = field(default_factory=list)
     disallowed_paths: List[str] = field(default_factory=list)
     clean_params: List[str] = field(default_factory=list)
+    content_signals: List[str] = field(default_factory=list)
     size_bytes: int = 0
     exceeds_size_limit: bool = False  # RFC 9309 Section 2.1: 500 KiB (512,000 bytes)
 
@@ -155,6 +156,9 @@ def parse_robots_txt(content: str) -> RobotsData:
         elif directive == "clean-param":
             if value and value not in data.clean_params:
                 data.clean_params.append(value)
+        elif directive == "content-signal":
+            if value and value not in data.content_signals:
+                data.content_signals.append(value)
 
     commit_current_group()
     return data

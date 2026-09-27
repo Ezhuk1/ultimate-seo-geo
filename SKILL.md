@@ -48,6 +48,12 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 * If the user prompts to invent fake credentials, fake case study numbers, or fabricated expert quotes, **refuse immediately** and explain the risk.
 * Use verified facts, disclose real metrics, or structure templates with explicit `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders.
 
+### The "Don't-Do" Anti-Pattern List
+* **Never Block CSS/JS Assets in `robots.txt`:** Modern search crawlers (Googlebot, Bingbot) render complete DOM snapshots. Blocking stylesheets or client bundles causes rendering failures and misclassifies pages as broken.
+* **Never Use Hidden Text or CSS Offscreen Cloaking:** Text hidden with `display:none`, `text-indent: -9999px`, or color matching background triggers Google spam penalties and LLM safety filters.
+* **Never Fabricate Social Proof or Reviews:** Fake Schema `Review` / `AggregateRating` markup without real human submissions risks manual actions in Google Search Console.
+* **Never Implement User-Agent Sniffing / Cloaking:** Serving different HTML content to AI bots vs human visitors directly violates RFC standards and search engine guidelines.
+
 ---
 
 ## Epistemic Guardrails of Honesty
@@ -57,6 +63,8 @@ A report with twenty undifferentiated findings has failed. Every audit, recommen
 2. **Honest Sizing (No Invented Revenue or Conversion Rates):** Sizing an opportunity names the mechanism: a new ranking, moving higher on an existing ranking, or winning clicks from an improved snippet. Never invent conversion rates, dollar revenue, or multiplier formulas. When modeling potential gains, state explicitly: *"Hypothetical scenario based on stated click-share assumption, not a forecast."*
 3. **Date All Checks & State Geography:** A ranking or snippet check without a date and geographic market is meaningless. Record exact observation dates (e.g., `US, Sep 28, 2026`) or state `unknown`. One snapshot is same-day variation, not a trend.
 4. **Separate Tools Reported from Verified Yourself:** State clearly in the report which findings were measured deterministically by analyzers (`[VERIFIED_FACT]`) and which were inferred qualitatively by LLM reasoning (`[HEURISTIC_ESTIMATE]`). When data could not be observed, classify as `UNKNOWN` rather than penalizing the site.
+5. **Honest Guardrail for `/llms.txt`:** `/llms.txt` is a curated documentation catalog designed to facilitate clean context ingestion for autonomous agents and LLM readers. It is an emerging community proposal (Tier E / Heuristic) and **does not guarantee citation, ranking advantages, or generative engine inclusion**.
+6. **Citation Is Not Recommendation:** Being cited in an AI search overview does not equal brand endorsement. Generative search engines cite sources for comparisons, warnings, or historical context. Always evaluate sentiment and positioning: measure whether the brand is cited as a problem, a generic example, or an endorsed solution.
 
 ---
 
@@ -134,6 +142,11 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
 5. **Deterministic Indexability Matrix v2 [STANDARD]:**
    - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`, `CONFLICTED`) across HTTP status, Canonical URL, Meta Robots, X-Robots-Tag, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
    - Flags explicit conflicts (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex).
+6. **Autonomous Agent Readiness & Lighthouse Agentic Browsing [STANDARD / W3C WAI-ARIA]:**
+   - **Interactive Accessibility (`AGENT-A11Y-INTERACTIVE-002`):** Verifies that all buttons (`<button>`) and form inputs (`<input>`, `<textarea>`) expose accessible names via text content, `aria-label`, or `<label for="...">`. Eliminates non-semantic `<div onclick>` controls that prevent autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows.
+   - **Markdown Content Negotiation (`AGENT-MARKDOWN-NEGOTIATION-001`):** Verifies `<link rel="alternate" type="text/markdown" href="...">` or `Accept: text/markdown` HTTP negotiation, providing LLM agents with clean markdown without DOM scraping noise.
+   - **Fast-Track Indexing Protocol (`TECH-INDEXNOW-KEY-039`):** Recommends hosting an IndexNow key (`/{apiKey}.txt`) for instant push indexation to Bing, Yandex, and Seznam. (Note: Google Indexing API is officially restricted to `JobPosting` and `BroadcastEvent`; Google submission relies on Search Console).
+   - **WebMCP Scaffolding (W3C Draft):** Support for Model Context Protocol endpoints enabling AI agents to query structured actions and catalogs directly.
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
 Structure all action items into actionable tiers accompanied by testable verification criteria:
@@ -280,6 +293,40 @@ python -m engine.inspector <target> --gsc-csv path/to/Queries.csv
 The analyzer automatically filters queries in the **Striking Distance Window** (positions 5.0–20.0 with $\ge$ 50 impressions):
 - **Page 2 Near-Misses (Positions 11–20):** High impressions with low clicks. Strategy: Front-load definitions (`GEO-ANSWER-FRONTLOAD-001`), add semantic entity Schema, and strengthen internal linking from relevant hubs.
 - **Page 1 Low-CTR Queries (Positions 5–10, CTR < 2%):** Searchers see your snippet but click competitor results. Strategy: Rewrite `<title>` pixel width (~580px) and `<meta description>` to include active value propositions and concise answers.
+
+#### Google Analytics 4 AI-Referral Traffic Acquisition (`--ga4-csv`)
+Measure real user visits driven by generative search engines and assistants:
+```bash
+python -m engine.inspector <target> --ga4-csv path/to/TrafficAcquisition.csv
+```
+- Quantifies actual inbound referral sessions from ChatGPT, Perplexity AI, Claude, Google Gemini / AI Overviews (`googlequicksearchbox`), and Microsoft Copilot.
+- Evaluates engagement rate and average engagement time to measure audience quality and post-click intent.
+
+#### Content Decay Analysis (Historical vs Recent GSC)
+Identify decaying content assets losing $\ge$ 20% search traffic over time:
+- Compare 16-month historical baseline against recent 3-month performance.
+- Prioritize decaying URLs for temporal date refreshes (`dateModified`), entity expansions, and technical asset optimization.
+
+#### Brand Off-Page Footprint Audit
+Generative models do not learn domain authority in isolation; they synthesize off-page presence from authoritative external platforms:
+- **Reddit:** Unfiltered community sentiment and real-world recommendations in niche subreddits.
+- **Wikipedia & Wikidata:** Stable entity nodes, disambiguation, and knowledge graph grounding.
+- **YouTube Transcripts:** Video transcripts indexed in multimodal vector embeddings.
+- **LinkedIn & GitHub:** Verified organizational provenance and technical source code repositories.
+
+#### Scientific Citation Testing Protocol
+Empirical testing of generative search visibility requires statistical discipline:
+1. **Clean Sessions:** Execute queries in incognito, unauthenticated sessions to eliminate personalization bias.
+2. **Replication (3–5x):** Repeat the target conversational prompt 3 to 5 times per model (ChatGPT, Perplexity, Claude, Gemini) to account for generation temperature and stochastic variability.
+3. **Sentiment & Endorsement Scoring:** Classify citations into three tiers:
+   - *Tier 1 (Endorsed Solution):* Model explicitly recommends the brand as the primary choice.
+   - *Tier 2 (Neutral Inclusion):* Brand is listed among multiple competitive options.
+   - *Tier 3 (Negative / Caveat):* Brand is cited with warnings, limitations, or customer dissatisfaction.
+
+#### Transparent Pricing Architecture (`/pricing.md`)
+Autonomous AI agents operating procurement workflows (e.g. Operator, Claude Computer Use) discard solutions with gated or opaque pricing:
+- Provide transparent, machine-readable pricing tables at `/pricing`.
+- Optionally expose `/pricing.md` or link markdown pricing in `<head>` for instant LLM evaluation.
 
 ---
 

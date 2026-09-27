@@ -40,6 +40,28 @@ class GscQueryItem:
 
 
 @dataclass
+class GscDecayItem:
+    query: str
+    prior_clicks: int
+    recent_clicks: int
+    clicks_drop_pct: float
+    prior_impressions: int
+    recent_impressions: int
+    impressions_drop_pct: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query,
+            "prior_clicks": self.prior_clicks,
+            "recent_clicks": self.recent_clicks,
+            "clicks_drop_pct": round(self.clicks_drop_pct, 1),
+            "prior_impressions": self.prior_impressions,
+            "recent_impressions": self.recent_impressions,
+            "impressions_drop_pct": round(self.impressions_drop_pct, 1)
+        }
+
+
+@dataclass
 class GscAnalysisResult:
     is_valid: bool = False
     file_path: str = ""
@@ -52,6 +74,7 @@ class GscAnalysisResult:
     striking_distance: List[GscQueryItem] = field(default_factory=list)
     quick_wins: List[GscQueryItem] = field(default_factory=list)
     ctr_opportunities: List[GscQueryItem] = field(default_factory=list)
+    decay_items: List[GscDecayItem] = field(default_factory=list)
     error_message: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -67,6 +90,7 @@ class GscAnalysisResult:
             "striking_distance": [q.to_dict() for q in self.striking_distance[:50]],
             "quick_wins": [q.to_dict() for q in self.quick_wins[:20]],
             "ctr_opportunities": [q.to_dict() for q in self.ctr_opportunities[:20]],
+            "decay_items": [d.to_dict() for d in self.decay_items[:30]],
             "error_message": self.error_message
         }
 
@@ -284,8 +308,89 @@ def format_gsc_markdown_summary(res: GscAnalysisResult) -> str:
         md.append("")
         md.append("| Query | Position | Impressions | Current CTR | Recommended Snippet Fix |")
         md.append("|---|:---:|:---:|:---:|---|")
-        for q in res.ctr_opportunities[:10]:
-            md.append(f"| `{q.query}` | #{q.position:.1f} | {q.impressions:,} | {q.ctr:.2f}% | Add direct differentiator and active verb |")
+    if res.decay_items:
+        md.append("")
+        md.append("### 📉 Content Decay Alerts (Queries Losing $\\ge$20% Traffic)")
+        md.append("These queries experienced significant traffic drops. Prioritize content refresh, temporal updates, and entity expansion:")
+        md.append("")
+        md.append("| Query | Prior Clicks | Recent Clicks | Clicks Drop | Prior Impressions | Recent Impressions |")
+        md.append("|---|:---:|:---:|:---:|:---:|:---:|")
+        for d in res.decay_items[:15]:
+            md.append(f"| `{d.query}` | {d.prior_clicks:,} | {d.recent_clicks:,} | -{d.clicks_drop_pct:.1f}% | {d.prior_impressions:,} | {d.recent_impressions:,} |")
 
     md.append("")
     return "\n".join(md)
+
+
+def analyze_gsc_decay(
+    historical_csv_or_content: str,
+    recent_csv_or_content: str,
+    min_drop_pct: float = 20.0,
+    min_prior_clicks: int = 10
+) -> List[GscDecayItem]:
+    """
+    Compares two GSC CSV snapshots (e.g. 16-month vs 3-month, or previous period)
+    to identify queries suffering significant Content Decay (>= 20% traffic loss).
+    """
+    def _extract_query_map(content_or_path: str) -> Dict[str, tuple[int, int]]:
+        text = ""
+        if os.path.exists(content_or_path):
+            with open(content_or_path, "r", encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        else:
+            text = content_or_path
+        if not text.strip():
+            return {}
+        sample = text[:2048]
+        delim = "\t" if "\t" in sample and sample.count("\t") > sample.count(",") else (";" if ";" in sample and sample.count(";") > sample.count(",") else ",")
+        reader = csv.reader(io.StringIO(text.lstrip("\ufeff")), delimiter=delim)
+        header = next(reader, None)
+        if not header:
+            return {}
+        q_idx, c_idx, i_idx = -1, -1, -1
+        for idx, col in enumerate(header):
+            c_low = col.strip().lower()
+            if c_low in QUERY_ALIASES:
+                q_idx = idx
+            elif c_low in CLICKS_ALIASES:
+                c_idx = idx
+            elif c_low in IMPRESSIONS_ALIASES:
+                i_idx = idx
+        if q_idx == -1 or c_idx == -1:
+            return {}
+        q_map = {}
+        for row in reader:
+            if not row or len(row) <= max(q_idx, c_idx):
+                continue
+            q_text = row[q_idx].strip()
+            if not q_text or q_text.lower().startswith(("total", "всего", "итог")):
+                continue
+            c_val = _parse_int(row[c_idx])
+            i_val = _parse_int(row[i_idx]) if i_idx != -1 and len(row) > i_idx else 0
+            q_map[q_text] = (c_val, i_val)
+        return q_map
+
+    hist_map = _extract_query_map(historical_csv_or_content)
+    rec_map = _extract_query_map(recent_csv_or_content)
+
+    decay_items = []
+    for q_text, (prior_c, prior_i) in hist_map.items():
+        if prior_c < min_prior_clicks:
+            continue
+        recent_c, recent_i = rec_map.get(q_text, (0, 0))
+        if prior_c > recent_c:
+            drop_pct = (prior_c - recent_c) / prior_c * 100.0
+            if drop_pct >= min_drop_pct:
+                impr_drop = ((prior_i - recent_i) / prior_i * 100.0) if prior_i > recent_i and prior_i > 0 else 0.0
+                decay_items.append(GscDecayItem(
+                    query=q_text,
+                    prior_clicks=prior_c,
+                    recent_clicks=recent_c,
+                    clicks_drop_pct=drop_pct,
+                    prior_impressions=prior_i,
+                    recent_impressions=recent_i,
+                    impressions_drop_pct=impr_drop
+                ))
+
+    return sorted(decay_items, key=lambda x: (x.prior_clicks - x.recent_clicks), reverse=True)
+

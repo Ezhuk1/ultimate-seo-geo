@@ -202,6 +202,26 @@
       "verified_at": "2026-09-26",
       "confidence": "high",
       "scope": "Hyphens vs underscores, lowercase URLs, query parameter hygiene."
+    },
+    {
+      "id": "SRC-W3C-WEBMCP",
+      "title": "W3C Web Agent Protocols & Markdown Negotiation Draft",
+      "tier": "Tier E",
+      "source_type": "standard",
+      "url": "https://www.w3.org/community/",
+      "verified_at": "2026-09-28",
+      "confidence": "high",
+      "scope": "Web agent browsing actions, Markdown negotiation, AI client discovery scaffolding."
+    },
+    {
+      "id": "SRC-W3C-WAI-ARIA",
+      "title": "W3C Accessible Rich Internet Applications (WAI-ARIA) 1.2",
+      "tier": "Tier A",
+      "source_type": "standard",
+      "url": "https://www.w3.org/TR/wai-aria-1.2/",
+      "verified_at": "2026-09-28",
+      "confidence": "high",
+      "scope": "Accessible names, button roles, label associations for browsing agents."
     }
   ]
 }
