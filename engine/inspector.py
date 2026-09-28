@@ -3725,8 +3725,9 @@ def main():
 
     # Output Formatting
     if args.format == "json":
+        from dataclasses import asdict, is_dataclass
         res_dict = ledger.to_dict()
-        res_dict["scores"] = scores.__dict__
+        res_dict["scores"] = asdict(scores) if is_dataclass(scores) else scores.__dict__
         import json
         output_str = json.dumps(res_dict, indent=2, default=str)
     elif args.format == "sarif":
