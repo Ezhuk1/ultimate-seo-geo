@@ -1290,7 +1290,8 @@ def test_week4_geo_eeat_and_production():
         assert len(sarif_doc["runs"]) == 1
         run = sarif_doc["runs"][0]
         assert run["tool"]["driver"]["name"] == "ultimate-seo-geo"
-        assert run["tool"]["driver"]["version"] == "3.4.0"
+        from engine import __version__ as engine_version
+        assert run["tool"]["driver"]["version"] == engine_version
         assert len(run["results"]) > 0
 
         # Verify 8-dimension GEO score
