@@ -20,7 +20,7 @@ from .analyzers.html_analyzer import analyze_target_html
 from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
-from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult
+from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult, merge_sitemap_results
 from .analyzers.eeat_analyzer import analyze_eeat
 from .analyzers.freshness_analyzer import analyze_freshness
 from .analyzers.performance_analyzer import analyze_performance
@@ -268,7 +268,7 @@ def run_inspection(
                     status_code=c_res["status_code"]
                 )
                 child_results.append(c_parsed)
-            sitemap_res = merge_sitemap_results(sitemap_res, child_results)
+        sitemap_res = merge_sitemap_results(sitemap_res, child_results)
 
     # 6. E-E-A-T and Freshness Analysis
     eeat_data = analyze_eeat(

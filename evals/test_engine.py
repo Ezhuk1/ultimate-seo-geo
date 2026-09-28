@@ -2477,6 +2477,98 @@ schema generator,200,4000,5.0%,11.5
     print("[PASS] test_v3_4_0_agentic_ga4_suite")
 
 
+def test_v3_5_1_sitemap_index_inspector_wiring():
+    """Regression: inspector must import merge_sitemap_results before expanding
+    remote sitemap indexes. A missing import crashed every audit whose robots.txt
+    declared a <sitemapindex> (e.g. Shopify stores, pypi.org) with
+    'NameError: merge_sitemap_results is not defined'. The branch is skipped for
+    local-file targets, so file-based tests never caught it; this test patches
+    analyze_target_http to serve a canned remote sitemap index offline."""
+    import engine.inspector as inspector_module
+
+    assert hasattr(inspector_module, "merge_sitemap_results"), (
+        "inspector.py must import merge_sitemap_results from sitemap_analyzer"
+    )
+
+    from engine.analyzers.sitemap_analyzer import SitemapAnalysisResult
+
+    index_res = SitemapAnalysisResult(
+        present=True, status_code=200, url="https://fake.test/sitemap.xml",
+        is_valid_xml=True, is_sitemap_index=True, target_in_sitemap=False,
+    )
+    index_res.nested_sitemaps = ["https://fake.test/sitemap_products.xml"]
+    child_res = SitemapAnalysisResult(
+        present=True, status_code=200, url="https://fake.test/sitemap_products.xml",
+        is_valid_xml=True, is_sitemap_index=False, target_in_sitemap=True,
+    )
+
+    page_html = (
+        "<html><head><title>Fake Shop</title>"
+        '<link rel="canonical" href="https://fake.test/">'
+        '<meta name="description" content="A deterministic fixture shop page for the sitemap index wiring regression test.">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        "</head><body><main><h1>Fake Shop</h1>"
+        "<p>Fake Shop is a fixture store designed to verify sitemap index expansion. It contains a definition sentence, "
+        "a statistic of 73 percent, and a citation according to RFC 9309 for retrieval testing.</p></main></body></html>"
+    )
+
+    def fake_analyze_target_http(target, timeout=10.0, user_agent=None):
+        return {
+            "target": target,
+            "final_url": target,
+            "is_local": False,
+            "status_code": 200,
+            "headers": {"content-type": "text/html; charset=utf-8"},
+            "x_robots_tag": None,
+            "x_robots_raw": [],
+            "x_robots_directives": [],
+            "x_robots_bot_directives": {},
+            "redirect_chain": [],
+            "response_time_ms": 1.0,
+            "tls_valid": True,
+            "content_sha256": "0" * 64,
+            "raw_content": page_html if target == "https://fake.test/" else (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                "<sitemap><loc>https://fake.test/sitemap_products.xml</loc></sitemap></sitemapindex>"
+                if target.endswith("/sitemap.xml")
+                else '<?xml version="1.0" encoding="UTF-8"?>'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                "<url><loc>https://fake.test/</loc></url></urlset>"
+            ),
+            "detected_charset": "utf-8",
+            "header_canonical": None,
+            "content_encoding": None,
+            "body_bytes_len": 1024,
+            "is_challenge_page": False,
+            "cache_control": None,
+            "expires": None,
+            "hsts": None,
+            "content_language": None,
+            "last_modified": None,
+            "etag": None,
+            "is_soft_404": False,
+            "has_redirect_loop": False,
+            "timestamp": "2026-09-28T00:00:00+00:00",
+            "error": None,
+        }
+
+    original = inspector_module.analyze_target_http
+    inspector_module.analyze_target_http = fake_analyze_target_http
+    try:
+        ledger, scores = inspector_module.run_inspection("https://fake.test/")
+    finally:
+        inspector_module.analyze_target_http = original
+
+    assert scores.indexability_matrix is not None
+    matrix = scores.indexability_matrix
+    matrix = matrix.to_dict() if hasattr(matrix, "to_dict") else matrix
+    vectors = matrix["vectors"]
+    assert vectors["sitemap"]["status"] == "included", (
+        f"expected target URL to be found via sitemap index expansion, got: {vectors['sitemap']['detail']}"
+    )
+
+
 def test_v3_5_0_audit_remediation_suite():
     """Verifies all v3.5.0 external audit remediations: SSRF tuple unpack, security score neutrality, orphan logic, canonical query preservation, markdown code fences, and bot coverage."""
     # 1. SSRF Unpacking & Guard
@@ -2608,5 +2700,6 @@ if __name__ == "__main__":
     test_v3_3_0_openseo_integration_suite()
     test_v3_4_0_agentic_ga4_suite()
     test_v3_5_0_audit_remediation_suite()
-    print("All Engine v3.5.0 tests passed successfully (30 deterministic test suites)!")
+    test_v3_5_1_sitemap_index_inspector_wiring()
+    print("All Engine v3.5.0 tests passed successfully (31 deterministic test suites)!")
 
