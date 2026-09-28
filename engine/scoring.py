@@ -152,7 +152,8 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
 
     tech_score = max(0, min(100, tech_score))
 
-    # 2. GEO Readiness Index (8-Component Weighted Model per Princeton KDD 2024 / GEO Framework)
+    # 2. GEO Readiness Index (8-Component Empirical Heuristic Checklist per Princeton KDD 2024 / GEO Framework)
+    # Tier E Heuristic: Evaluates extractability and structure for LLMs; does not predict black-box LLM ranking.
     content_signal = ledger.signals.get("content_total_words")
     status_signal = ledger.signals.get("http_status_code")
     has_error = bool(status_signal and status_signal.value and status_signal.value >= 400)
@@ -294,11 +295,13 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             else:
                 dim_crawl = 5
 
-        # Content Depth Guard: True content stubs (<25 words) cannot claim answerability or coreference independence
+        # Content Depth Guard: True content stubs (<25 words) cannot claim substantive GEO content scores
         if content_signal and content_signal.value is not None and content_signal.value < 25:
             dim_ans = 0
             dim_ent = 0
-            dim_chunk = min(dim_chunk, 5)
+            dim_ev = 0
+            dim_src = 0
+            dim_chunk = 0
 
         geo_score = min(100, max(0, dim_ans + dim_ev + dim_ent + dim_chunk + dim_src + dim_schema + dim_fresh + dim_crawl))
 
@@ -340,31 +343,47 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         geo_tier = "STAGE_1_RAW_WEB"
 
     # 3. Security Hygiene Score (Separate 0..100 dimension, not penalized in technical score)
+    # Strictly observes Unknown != Failure: unmeasured targets receive NOT_MEASURED, never free points.
     https_sig = ledger.signals.get("target_is_https")
     hsts_sig = ledger.signals.get("http_hsts_present")
     insecure_res_sig = ledger.signals.get("html_insecure_resources_count")
     sec_hdrs_sig = ledger.signals.get("http_security_headers_count")
 
-    is_https = bool(https_sig.value) if https_sig and https_sig.is_measured else True
-    has_hsts = bool(hsts_sig.value) if hsts_sig and hsts_sig.is_measured else False
-    insecure_count = insecure_res_sig.value if insecure_res_sig and insecure_res_sig.is_measured else 0
-    no_mixed = (insecure_count == 0)
-    sec_hdrs_count = sec_hdrs_sig.value if sec_hdrs_sig and sec_hdrs_sig.is_measured else 0
+    measured_sec_sigs = [s for s in (https_sig, hsts_sig, insecure_res_sig, sec_hdrs_sig) if s and s.is_measured]
 
-    https_pts = 25 if is_https else 0
-    hsts_pts = 25 if has_hsts else 0
-    mixed_pts = 25 if no_mixed else 0
-    hdrs_pts = min(25, round(25 * (min(4, sec_hdrs_count) / 4)))
-
-    sec_score = https_pts + hsts_pts + mixed_pts + hdrs_pts
-    if sec_score >= 90:
-        sec_tier = "EXCELLENT"
-    elif sec_score >= 70:
-        sec_tier = "GOOD"
-    elif sec_score >= 50:
-        sec_tier = "MODERATE_RISK"
+    if not measured_sec_sigs:
+        sec_score = 0
+        sec_tier = "NOT_MEASURED"
+        https_pts = 0
+        hsts_pts = 0
+        mixed_pts = 0
+        hdrs_pts = 0
+        is_https = False
+        has_hsts = False
+        insecure_count = 0
+        sec_hdrs_count = 0
     else:
-        sec_tier = "VULNERABLE"
+        is_https = bool(https_sig.value) if (https_sig and https_sig.is_measured) else False
+        has_hsts = bool(hsts_sig.value) if (hsts_sig and hsts_sig.is_measured) else False
+        insecure_count = insecure_res_sig.value if (insecure_res_sig and insecure_res_sig.is_measured) else 0
+        no_mixed = (insecure_count == 0) if (insecure_res_sig and insecure_res_sig.is_measured) else False
+        sec_hdrs_count = sec_hdrs_sig.value if (sec_hdrs_sig and sec_hdrs_sig.is_measured) else 0
+
+        https_pts = 25 if is_https else 0
+        hsts_pts = 25 if has_hsts else 0
+        mixed_pts = 25 if no_mixed else 0
+        hdrs_pts = min(25, round(25 * (min(4, sec_hdrs_count) / 4))) if (sec_hdrs_sig and sec_hdrs_sig.is_measured) else 0
+
+        max_possible = len(measured_sec_sigs) * 25
+        sec_score = round((https_pts + hsts_pts + mixed_pts + hdrs_pts) * 100 / max_possible) if max_possible > 0 else 0
+        if sec_score >= 90:
+            sec_tier = "EXCELLENT"
+        elif sec_score >= 70:
+            sec_tier = "GOOD"
+        elif sec_score >= 50:
+            sec_tier = "MODERATE_RISK"
+        else:
+            sec_tier = "VULNERABLE"
 
     sec_hygiene = SecurityHygieneScore(
         score=sec_score,

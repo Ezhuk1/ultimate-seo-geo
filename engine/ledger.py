@@ -29,7 +29,7 @@ STATUS_CRITICAL = "CRITICAL"
 STATUS_INFO = "INFO"
 STATUS_UNKNOWN = "UNKNOWN"
 STATUS_NOT_APPLICABLE = "NOT_APPLICABLE"
-STATUS_NOT_MEASURED = "UNKNOWN"
+STATUS_NOT_MEASURED = "NOT_MEASURED"
 
 
 @dataclass
@@ -238,7 +238,7 @@ class LedgerBuilder:
             elif ev.status == STATUS_INFO:
                 criteria_observed += 1
                 cat_stats[cat]["observed"] += 1
-            elif ev.status in (STATUS_UNKNOWN, "NOT_MEASURED"):
+            elif ev.status in (STATUS_UNKNOWN, STATUS_NOT_MEASURED):
                 criteria_unknown += 1
                 cat_stats[cat]["unknown"] += 1
             elif ev.status == STATUS_NOT_APPLICABLE:

@@ -43,14 +43,15 @@ def check_llms_txt(target_url: str, timeout: float = 5.0) -> LlmsTxtResult:
     origin_llms_url = urlunsplit((parts.scheme, parts.netloc, "/llms.txt", "", ""))
     res.url = origin_llms_url
 
-    if not is_safe_target_url(origin_llms_url):
-        res.validation_errors.append("Blocked unsafe target URL (SSRF protection).")
+    is_safe, ssrf_reason = is_safe_target_url(origin_llms_url)
+    if not is_safe:
+        res.validation_errors.append(f"Blocked unsafe target URL (SSRF protection): {ssrf_reason}")
         return res
 
     try:
         req = urllib.request.Request(
             origin_llms_url,
-            headers={"User-Agent": "UltimateSeoGeoEngine/3.4.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
+            headers={"User-Agent": "UltimateSeoGeoEngine/3.5.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res.status_code = resp.getcode()

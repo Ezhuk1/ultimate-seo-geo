@@ -76,6 +76,10 @@ class IndexabilityMatrix:
             "blockers": blockers,
             "conflicting_signals": self.conflicting_signals,
             "reasons": self.reasons,
+            "bot_breakdown": {
+                "googlebot": "AMBIGUOUS (Rendering Queue Delay)" if self.rendered_content_status == "csr_shell" else ("BLOCKED" if self.verdict == VERDICT_BLOCKED else self.verdict),
+                "ai_crawlers": "BLOCKED (No JS Execution)" if self.rendered_content_status in ("missing", "csr_shell") else ("BLOCKED" if self.verdict == VERDICT_BLOCKED else self.verdict)
+            },
             "vectors": {
                 "http_status": {"status": self.http_status_label, "detail": f"Status code {self.http_status_code}"},
                 "canonical": {"status": self.canonical_status, "detail": self.canonical_url or "None"},
@@ -93,7 +97,8 @@ def _normalize_for_url_compare(url: str) -> str:
     parsed = urlsplit(url.strip())
     netloc = parsed.netloc.lower().split(":")[0]
     path = parsed.path.rstrip("/") if parsed.path not in ("", "/") else "/"
-    return f"{parsed.scheme.lower()}://{netloc}{path}"
+    query = f"?{parsed.query}" if parsed.query else ""
+    return f"{parsed.scheme.lower()}://{netloc}{path}{query}"
 
 
 def evaluate_indexability_matrix(
@@ -192,16 +197,25 @@ def evaluate_indexability_matrix(
     else:
         sitemap_status = "missing"
 
-    # 7. Internal Links
+    # 7. Internal Links (Inbound vs Outbound connectivity)
     links_info = html_data.get("links", {})
     internal_count = links_info.get("internal_count", 0)
-    if internal_count > 0:
-        internal_links_status = "linked"
-    else:
-        internal_links_status = "orphan candidate"
-        if not http_res.get("is_local", False):
+    inbound_count = html_data.get("inbound_internal_links_count")
+
+    if inbound_count is not None:
+        if inbound_count > 0:
+            internal_links_status = "linked"
+        else:
+            internal_links_status = "orphan candidate"
             is_ambiguous = True
-            reasons.append("No internal outbound links detected; candidate orphan page.")
+            reasons.append("Zero inbound internal links detected across site crawl graph (orphan page).")
+    else:
+        # Single-page inspection mode: we only observe outbound links from this page
+        if internal_count > 0:
+            internal_links_status = "linked"
+        else:
+            internal_links_status = "terminal (0 outbound)"
+            # Having 0 outbound links on a single page does not make it an orphan (e.g. contact/checkout/landing page)
 
     # 8. Rendered Content Presence
     csr_info = html_data.get("csr_detection", {})
@@ -214,7 +228,7 @@ def evaluate_indexability_matrix(
     elif csr_info.get("is_csr_shell") and not is_challenge:
         rendered_content_status = "missing"
         is_blocked = True
-        reasons.append("Initial HTML payload is an empty CSR shell without rendered text.")
+        reasons.append("Initial HTML payload is an empty CSR shell without rendered text (blocks non-rendering AI search crawlers; causes critical rendering delays for Googlebot).")
     elif words == 0 and not is_challenge:
         rendered_content_status = "missing"
         is_ambiguous = True
@@ -229,7 +243,7 @@ def evaluate_indexability_matrix(
     # Conflict Vector 1: Sitemap says "index me" but Robots.txt says "do not crawl"
     if sitemap_status == "included" and robots_txt_status == "blocked":
         is_conflicted = True
-        conflict_msg = "Sitemap Inclusion vs Robots.txt Block: URL is submitted in sitemap.xml but disallowed in robots.txt."
+        conflict_msg = "Sitemap Inclusion vs Robots.txt Block: URL is submitted in sitemap.xml but disallowed in robots.txt (Search Console coverage defect)."
         conflicts.append(conflict_msg)
         reasons.append(conflict_msg)
 

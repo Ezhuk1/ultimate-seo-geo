@@ -95,14 +95,23 @@ class SecurityAnalyzer:
                             is_hidden=True
                         ))
 
-        # 3. Check general text / markup for direct injections
-        # Exclude code, pre, kbd, samp, and blockquote blocks from visible attack detection
+        # Exclude code, pre, kbd, samp, blockquote blocks and markdown code fences from visible attack detection
         # (Legitimate technical documentation and cybersecurity research cite injection payloads)
         content_for_visible_scan = re.sub(
             r'<(code|pre|kbd|samp|blockquote)[^>]*>.*?</\1>',
             ' [CODE_EXEMPT] ',
             html_content,
             flags=re.DOTALL | re.IGNORECASE
+        )
+        content_for_visible_scan = re.sub(
+            r'```[\s\S]*?```',
+            ' [CODE_EXEMPT] ',
+            content_for_visible_scan
+        )
+        content_for_visible_scan = re.sub(
+            r'`[^`\n]+`',
+            ' [CODE_EXEMPT] ',
+            content_for_visible_scan
         )
 
         for pattern, p_type in DIRECT_INJECTION_PATTERNS:

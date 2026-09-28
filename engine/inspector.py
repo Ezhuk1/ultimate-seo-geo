@@ -630,6 +630,7 @@ def run_inspection(
     # TECH-TITLE-003
     t_len = html_data["title"]["length"]
     title_text = html_data["title"]["value"]
+    t_px = html_data["title"].get("pixel_width", 0)
     if t_len == 0:
         builder.add_evidence(
             rule_id="TECH-TITLE-003",
@@ -638,7 +639,7 @@ def run_inspection(
             status=STATUS_CRITICAL,
             confidence=CONFIDENCE_VERIFIED,
             observed=0,
-            expected="30-65 characters",
+            expected="<= 580px (approx 30-65 chars)",
             message="Page has no <title> tag."
         )
         builder.add_finding(
@@ -648,19 +649,20 @@ def run_inspection(
             title="Missing Title Tag",
             confidence=CONFIDENCE_VERIFIED,
             action_priority="P0_BLOCKER",
-            remediation_steps=["Add a concise descriptive `<title>` (50-60 chars) with primary entity and brand."],
+            remediation_steps=["Add a concise descriptive `<title>` (50-60 chars, <= 580px) with primary entity and brand."],
             impact_estimate="Direct loss of search engine snippet generation and LLM query matching."
         )
-    elif t_len < 30 or t_len > 65:
+    elif t_px > 580 or t_len > 70 or (t_len < 20 and t_px < 150):
+        trunc_msg = f"Title pixel width ({t_px}px, {t_len} chars) exceeds 580px desktop SERP limit." if t_px > 580 else f"Title length ({t_len} chars, {t_px}px) is too short to establish strong entity relevance."
         builder.add_evidence(
             rule_id="TECH-TITLE-003",
             category="technical",
             title="HTML Title Tag Length",
             status=STATUS_WARNING,
             confidence=CONFIDENCE_HEURISTIC,
-            observed=f"{t_len} chars ('{title_text}')",
-            expected="30-65 characters",
-            message=f"Title length ({t_len} chars) is outside optimal 30-65 character display window."
+            observed=f"{t_len} chars, {t_px}px ('{title_text}')",
+            expected="<= 580px (approx 30-65 chars)",
+            message=trunc_msg
         )
         builder.add_finding(
             rule_id="TECH-TITLE-003",
@@ -669,8 +671,8 @@ def run_inspection(
             title="Suboptimal Title Length",
             confidence=CONFIDENCE_HEURISTIC,
             action_priority="P2_MEDIUM",
-            remediation_steps=[f"Adjust title from {t_len} characters to 50-60 characters."],
-            impact_estimate="Risk of SERP pixel truncation or weak entity grounding."
+            remediation_steps=[f"Adjust title from {t_len} characters ({t_px}px) to fit within 580px desktop SERP width (approx 50-60 chars)."],
+            impact_estimate="Risk of SERP pixel truncation with ellipses (...) or weak entity grounding."
         )
     else:
         builder.add_evidence(
@@ -679,9 +681,9 @@ def run_inspection(
             title="HTML Title Tag Length",
             status=STATUS_PASS,
             confidence=CONFIDENCE_VERIFIED,
-            observed=f"{t_len} chars ('{title_text}')",
-            expected="30-65 characters",
-            message="Title length is within ideal limits (30-65 chars)."
+            observed=f"{t_len} chars, {t_px}px ('{title_text}')",
+            expected="<= 580px (approx 30-65 chars)",
+            message=f"Title pixel width ({t_px}px, {t_len} chars) fits within Google desktop display limit (<= 580px)."
         )
 
     # TECH-META-DESC-004
@@ -694,7 +696,7 @@ def run_inspection(
             status=STATUS_WARNING,
             confidence=CONFIDENCE_VERIFIED,
             observed=0,
-            expected="100-165 characters",
+            expected="70-165 characters",
             message="Missing meta description tag."
         )
         builder.add_finding(
@@ -707,7 +709,7 @@ def run_inspection(
             remediation_steps=["Add a `<meta name=\"description\" content=\"...\">` summarizing core value proposition (120-160 chars)."],
             impact_estimate="Search engines will auto-generate snippets from arbitrary on-page text."
         )
-    elif d_len < 100 or d_len > 165:
+    elif d_len < 70 or d_len > 165:
         builder.add_evidence(
             rule_id="TECH-META-DESC-004",
             category="technical",
@@ -715,8 +717,8 @@ def run_inspection(
             status=STATUS_WARNING,
             confidence=CONFIDENCE_HEURISTIC,
             observed=f"{d_len} chars",
-            expected="100-165 characters",
-            message=f"Meta description length ({d_len} chars) is outside optimal 100-165 window."
+            expected="70-165 characters",
+            message=f"Meta description length ({d_len} chars) is outside optimal 70-165 window."
         )
     else:
         builder.add_evidence(
@@ -726,8 +728,8 @@ def run_inspection(
             status=STATUS_PASS,
             confidence=CONFIDENCE_VERIFIED,
             observed=f"{d_len} chars",
-            expected="100-165 characters",
-            message="Meta description length is optimal (100-165 chars)."
+            expected="70-165 characters",
+            message="Meta description length is optimal (70-165 chars)."
         )
 
     # TECH-H1-OUTLINE-005
@@ -1421,27 +1423,29 @@ def run_inspection(
                 impact_estimate="Search engines will ignore invalid hreflang annotations and fail to serve localized versions in regional search."
             )
         elif hreflang_warnings:
+            is_only_x_default = all("x-default" in w for w in hreflang_warnings)
+            hreflang_status = STATUS_INFO if is_only_x_default else STATUS_WARNING
             builder.add_evidence(
                 rule_id="TECH-HREFLANG-033",
                 category="technical",
                 title="International Hreflang & Regional Annotations",
-                status=STATUS_WARNING,
+                status=hreflang_status,
                 confidence=CONFIDENCE_VERIFIED,
                 observed="; ".join(hreflang_warnings[:3]),
-                expected="Complete self-referencing and x-default annotations",
-                message=f"Hreflang warnings: {'; '.join(hreflang_warnings[:3])}"
+                expected="Valid ISO codes and absolute HTTPS URLs (x-default recommended)",
+                message=f"Hreflang advisory: {'; '.join(hreflang_warnings[:3])}" if is_only_x_default else f"Hreflang warnings: {'; '.join(hreflang_warnings[:3])}"
             )
             builder.add_finding(
                 rule_id="TECH-HREFLANG-033",
                 category="technical",
-                severity=STATUS_WARNING,
-                title="Suboptimal Hreflang Configuration",
+                severity=hreflang_status,
+                title="Hreflang Configuration Advisory" if is_only_x_default else "Suboptimal Hreflang Configuration",
                 confidence=CONFIDENCE_VERIFIED,
-                action_priority="P2_MEDIUM",
+                action_priority="P3_LOW" if is_only_x_default else "P2_MEDIUM",
                 remediation_steps=[
-                    "Add self-referencing hreflang tag and 'x-default' fallback tag to complete bi-directional hreflang matrix."
+                    "Consider adding an 'x-default' fallback tag for unmatched regional users." if is_only_x_default else "Add self-referencing hreflang tag and 'x-default' fallback tag to complete bi-directional hreflang matrix."
                 ],
-                impact_estimate="Missing self-referencing or x-default hreflang tags can lead to unpredictable regional targeting."
+                impact_estimate="Unmatched regional users may receive arbitrary language version rather than default landing page." if is_only_x_default else "Missing self-referencing hreflang tags can lead to unpredictable regional targeting."
             )
         else:
             builder.add_evidence(

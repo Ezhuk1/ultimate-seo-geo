@@ -11,7 +11,7 @@ Implements:
 from __future__ import annotations
 import re
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 
 
 KNOWN_AI_CRAWLERS = [
@@ -22,6 +22,10 @@ KNOWN_AI_CRAWLERS = [
     ("Claude-User", "Anthropic User-Triggered Web Browser"),
     ("ClaudeBot", "Anthropic Model Training & Corpus Crawler"),
     ("PerplexityBot", "Perplexity AI Search Crawler"),
+    ("Perplexity-User", "Perplexity User-Triggered Search Browser"),
+    ("meta-externalagent", "Meta AI Web & Llama Assistant Crawler"),
+    ("cohere-ai", "Cohere AI Training & Embeddings Crawler"),
+    ("MistralAI-User", "Mistral AI Assistant Web Browser"),
     ("Googlebot", "Google Web Search Crawler"),
     ("Google-Extended", "Google Gemini / Vertex AI Training"),
     ("Bingbot", "Microsoft Bing & Copilot Crawler"),

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ultimate-seo-geo"
-version = "3.0.0"
+version = "3.5.0"
 description = "Empirical SEO & Generative Engine Optimization (GEO) Autonomous Inspection Engine"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,4 +49,7 @@ ultimate-seo-geo = "engine.inspector:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["engine*"]
+include = ["engine*", "rules*", "references*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.md"]

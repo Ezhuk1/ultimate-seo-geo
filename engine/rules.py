@@ -6,6 +6,7 @@ Enforces epistemic tier integrity: heuristics cannot pose as protocol standards.
 """
 
 from __future__ import annotations
+import sys
 import json
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -78,7 +79,12 @@ def get_rule_registry(force_reload: bool = False) -> Dict[str, RuleDefinition]:
     if _REGISTRY_CACHE is not None and not force_reload:
         return _REGISTRY_CACHE
 
-    rules_dir = Path(__file__).resolve().parent.parent / "rules"
+    candidates = [
+        Path(__file__).resolve().parent.parent / "rules",
+        Path(__file__).resolve().parent / "rules",
+        Path(sys.prefix) / "rules" if "sys" in globals() else Path("/nonexistent"),
+    ]
+    rules_dir = next((c for c in candidates if c.exists()), candidates[0])
     registry: Dict[str, RuleDefinition] = {}
 
     rule_files = ["technical_rules.json", "schema_rules.json", "geo_rules.json"]

@@ -179,8 +179,14 @@ class DocumentParser(HTMLParser):
 
         tag_id = attr_dict.get("id", "").lower()
         tag_cls = attr_dict.get("class", "").lower()
-        if tag_id in ("root", "app", "__next", "__nuxt"):
-            self.csr_mount_elements.append(f"{tag}#{tag_id}")
+        tag_lower = tag.lower()
+        if (
+            tag_id in ("root", "app", "__next", "__nuxt", "svelte-announcer")
+            or tag_lower in ("app-root", "astro-island")
+            or tag_lower.startswith(("svelte-", "astro-"))
+            or (tag == "div" and ("app" in tag_cls.split() or "root" in tag_cls.split()))
+        ):
+            self.csr_mount_elements.append(f"{tag}#{tag_id or tag_cls or tag_lower}")
 
         if any(marker in tag_id or marker in tag_cls for marker in ("tldr", "key-takeaway", "summary-box", "takeaways", "quick-answer")):
             self.tldr_blocks_count += 1

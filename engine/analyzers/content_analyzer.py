@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional
 
 
 DEFINITION_PATTERNS = [
-    re.compile(r"\b(is|are|refers to|is defined as|means|consists of|гэта|это|является|з['’]?яўляецца|уяўляе сабой|представляет собой)\b", re.IGNORECASE),
+    re.compile(r"\b(?:is\s+(?:a|an|the|defined\s+as|known\s+as|classified\s+as)|are\s+(?:the|a|structured|defined)|refers\s+to|means|consists\s+of|гэта|это|является|з['’]?яўляецца|уяўляе\s+сабой|представляет\s+собой)\b", re.IGNORECASE),
     re.compile(r"^[A-Za-zА-Яа-яЁёІіЎўЇїЄє][^—–\-:]+[—–\-:]\s+[A-Za-zА-Яа-яЁёІіЎўЇїЄє]", re.MULTILINE),
 ]
 
@@ -264,8 +264,8 @@ def analyze_content(
         if w_count == 0:
             continue
 
-        first_sentence = re.split(r"[.!?]", sec)[0].strip()
-        pronoun_lead = bool(PRONOUN_LEAD_PATTERN.match(first_sentence))
+        sentences = [s.strip() for s in re.split(r"[.!?]", sec) if s.strip()]
+        pronoun_lead = any(bool(PRONOUN_LEAD_PATTERN.match(s)) for s in sentences[:2])
         if pronoun_lead:
             result.pronoun_lead_count += 1
 

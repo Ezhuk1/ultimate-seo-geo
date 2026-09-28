@@ -542,8 +542,8 @@
       "unknown_policy": "exclude",
       "tier": "Tier A (W3C HTML & RFC 8288)",
       "selector": "link[rel='alternate'][hreflang]",
-      "description": "Multilingual pages must specify valid ISO 639-1 language and optional ISO 3166-1 country codes, absolute canonical URLs, self-referencing hreflang tag, and x-default fallback for multi-regional targeting.",
-      "remediation": "Declare bidirectional <link rel='alternate' hreflang='...' href='https://...'> tags with valid ISO codes and include x-default fallback.",
+      "description": "Multilingual pages must specify valid ISO 639-1 language and optional ISO 3166-1 country codes, absolute canonical URLs, self-referencing hreflang tag, and recommended x-default fallback for multi-regional targeting.",
+      "remediation": "Declare bidirectional <link rel='alternate' hreflang='...' href='https://...'> tags with valid ISO codes. Adding an x-default fallback is recommended for general audience landing pages.",
       "source_id": "SRC-RFC-8288"
     },
     {

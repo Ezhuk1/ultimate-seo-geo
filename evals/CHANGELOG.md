@@ -2,6 +2,45 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.5.0] - 2026-09-28
+
+### Fixed
+- **SSRF Guard Tuple Unpacking (`engine/analyzers/llms_analyzer.py`):**
+  - Resolved critical vulnerability where `if not is_safe_target_url(...)` evaluated truthy for `(False, reason)` tuples, allowing internal and loopback IP addresses to bypass SSRF validation. Unpacks `is_safe, ssrf_reason = is_safe_target_url(...)`.
+- **Distribution Package Data & Rules Inclusion (`pyproject.toml`, `engine/rules.py`):**
+  - Updated `pyproject.toml` to package `rules/*.json` and `references/*.json` via `setuptools.package-data`. Resolved defect where standalone wheel installs had 0 rules in registry. Added multi-path fallback discovery in `engine/rules.py`.
+- **Inverted Orphan Page Detection (`engine/indexability.py`):**
+  - Fixed inverted logic in Vector 7 (Internal Links) where pages with zero *outbound* internal links were flagged as orphan candidates. Single-page inspection now classifies 0 outbound links as `terminal (0 outbound)` without false `AMBIGUOUS` penalties; true orphan candidate checks require crawl graph inbound link data (`inbound_internal_links_count == 0`).
+- **Security Hygiene Score Neutrality (`engine/scoring.py`):**
+  - Fixed invariant breach where unmeasured targets received 50 free points (25 for HTTPS + 25 for mixed content). Security score now strictly adheres to "Unknown ≠ Failure" and pro-rates over measured components, assigning 0 / `NOT_MEASURED` when no security signals are observed.
+- **Canonical Normalization Preserves Query String (`engine/indexability.py`):**
+  - `_normalize_for_url_compare` now preserves query parameters instead of dropping them, preventing URLs with query strings from falsely registering as self-canonicals when pointing to parameterless canonicals.
+- **Status Constant Collision (`engine/ledger.py`):**
+  - Disambiguated `STATUS_NOT_MEASURED = "NOT_MEASURED"` (previously duplicated `STATUS_UNKNOWN = "UNKNOWN"`), restoring granular criteria breakdown in inspection reports.
+- **Crawler Indexability Directive Parity (`engine/crawler.py`):**
+  - `is_indexable` now evaluates both `<meta name="robots" content="noindex">` and `X-Robots-Tag: noindex` headers.
+- **Prompt Injection Markdown Code Fence Exemption (`engine/analyzers/security_analyzer.py`):**
+  - Sanitizes and exempts markdown code fences (```` ```...``` ````) and inline backticks from visible prompt injection detection, preventing false positive `P0_BLOCKER` findings on technical documentation and security advisories.
+
+### Changed
+- **Title SERP Pixel Width & Meta Description Thresholds (`engine/inspector.py`, `rules/technical_rules.json`):**
+  - `TECH-TITLE-003` now directly evaluates desktop SERP pixel width (`estimate_title_pixel_width() > 580px`) alongside character count.
+  - Softened meta description warning threshold from 100–165 to 70–165 characters to avoid penalizing concise, CTA-driven descriptions.
+  - Softened `TECH-HREFLANG-033` missing `x-default` from a 5-point score penalty to a `STATUS_INFO` optimization advisory, aligned with Google Search Central specifications.
+- **CSR Shell Detection & Bot-Specific Decoupling (`engine/analyzers/html_analyzer.py`, `engine/indexability.py`):**
+  - Expanded mount element detection to include Angular (`<app-root>`), Astro (`<astro-island>`), Svelte, and Vue mount containers.
+  - Differentiated indexation verdicts in `IndexabilityMatrix.to_dict()`: `bot_breakdown` distinguishes between Googlebot (rendering queue risk / delay) and non-rendering AI search bots (BLOCKED).
+- **AI Crawlers Synchronization (`engine/analyzers/robots_simulator.py`):**
+  - Added missing `Any` import to typing imports.
+  - Added `meta-externalagent`, `Perplexity-User`, `cohere-ai`, and `MistralAI-User` to `KNOWN_AI_CRAWLERS`, harmonizing simulator with README robots blueprint.
+- **GEO Readiness Index Framing & Content Depth Guard (`engine/scoring.py`):**
+  - Applied Content Depth Guard to zero out all text dimensions (`dim_ans`, `dim_ent`, `dim_ev`, `dim_src`, `dim_chunk`) when substantive content is < 25 words, eliminating unearned high scores on stub pages.
+  - Documented Tier E (Heuristic) status emphasizing that GEO index is a structural extractability checklist, not a guaranteed LLM citation prediction.
+
+### Added
+- **v3.5.0 Audit Remediation Test Suite (`evals/test_engine.py`, `evals/run_evals.py`):**
+  - Added `test_v3_5_0_audit_remediation_suite` expanding engine test suite to 30 deterministic test suites (60/60 total passing across canonical evals, mutations, and engine integration).
+
 ## [3.4.0] - 2026-09-28
 
 ### Added

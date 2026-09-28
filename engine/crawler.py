@@ -253,6 +253,9 @@ def crawl_site(
         meta_desc = html_data["meta_description"]["value"] or ""
         canon_val = html_data["canonical"]["value"]
         is_noindex = html_data["meta_robots"].get("is_noindex", False)
+        x_dirs = http_res.get("x_robots_directives", [])
+        x_bot_dirs = http_res.get("x_robots_bot_directives", {})
+        has_x_noindex = "noindex" in x_dirs or "none" in x_dirs or any("noindex" in d for d in x_bot_dirs.values())
         word_count = html_data.get("word_count", 0)
         content_sample = html_data.get("visible_text", "")
 
@@ -265,7 +268,7 @@ def crawl_site(
             meta_description=meta_desc,
             canonical=canon_val,
             word_count=word_count,
-            is_indexable=(code == 200 and not is_noindex),
+            is_indexable=(code == 200 and not is_noindex and not has_x_noindex),
             response_time_ms=http_res.get("response_time_ms", 0.0),
             content_text=content_sample
         )
