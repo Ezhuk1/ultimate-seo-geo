@@ -252,5 +252,11 @@ def format_ga4_markdown_summary(res: Ga4AnalysisResult) -> str:
         time_str = f"{mins}m {secs}s" if mins > 0 else f"{secs}s"
         md.append(f"| **{s.ai_platform}** | `{s.source_name}` | **{s.sessions:,}** | {s.engaged_sessions:,} | {s.engagement_rate:.1f}% | {time_str} |")
 
+    has_gqsb = any("googlequicksearchbox" in s.source_name.lower() for s in res.ai_sources)
+    if has_gqsb:
+        md.append("")
+        md.append("> [!NOTE]")
+        md.append("> **Attribution Caution (`googlequicksearchbox`):** Referrals from `googlequicksearchbox` originate from the Google Android Search App / Widget. While this includes AI Overviews presented in the mobile app, it also includes standard Android organic search clicks. Isolating AI Overviews specifically requires Search Console Search Appearance telemetry.")
+
     md.append("")
     return "\n".join(md)

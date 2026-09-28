@@ -8,6 +8,7 @@ and automated code quality pipelines.
 from __future__ import annotations
 import json
 from typing import Dict, Any, List
+from . import __version__ as ENGINE_VERSION
 from .ledger import EvidenceLedger, STATUS_CRITICAL, STATUS_WARNING, STATUS_INFO
 
 
@@ -78,7 +79,7 @@ def generate_sarif_report(ledger: EvidenceLedger) -> Dict[str, Any]:
                 "tool": {
                     "driver": {
                         "name": "ultimate-seo-geo",
-                        "version": "3.5.0",
+                        "version": ENGINE_VERSION,
                         "informationUri": "https://github.com/Ezhuk1/ultimate-seo-geo",
                         "rules": list(rules_dict.values())
                     }

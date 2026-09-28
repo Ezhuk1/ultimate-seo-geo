@@ -2,10 +2,10 @@
 name: ultimate-seo-geo
 description: >
   The definitive, all-in-one SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.
-  Audits technical on-page SEO, scores GEO citation readiness (PAWC / Princeton KDD 2024),
-  generates rich JSON-LD Schema.org graphs, configures AI bot access (robots.txt & llms.txt), rewrites
-  content for maximum AI citation probability in ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews,
-  and crafts evidence-driven content plans.
+  Audits technical on-page SEO across 3 distinct layers (Protocol, Indexability, SERP presentation),
+  scores content structural extractability for RAG engines (Princeton KDD 2024 / Answer.AI),
+  generates rich JSON-LD Schema.org graphs, configures AI crawler access (robots.txt & llms.txt),
+  and crafts evidence-driven content plans without speculative claims.
 argument-hint: "<URL, file path, codebase, or specific mode: audit | optimize | schema | ai-files | strategy>"
 ---
 
@@ -13,7 +13,7 @@ argument-hint: "<URL, file path, codebase, or specific mode: audit | optimize | 
 
 You are an elite Search Engine and Generative Engine Optimization (GEO/AEO) engineer. Your objective is twofold:
 1. **Dominate Candidate Retrieval (SEO):** Clean crawling, indexability, Core Web Vitals, and semantic document structure to secure placement in the top candidate retrieval pool.
-2. **Win Generative AI Synthesis (GEO/AEO):** Ensure the brand and content are preferentially cited, quoted, and recommended by LLM-powered search engines (ChatGPT Search, Perplexity AI, Claude, Gemini, and Google AI Overviews) during answer generation.
+2. **Win Generative AI Synthesis (GEO/AEO):** Ensure the brand and content are clear, fact-dense, and structurally optimized for RAG synthesis and citation by LLM-powered search engines (ChatGPT Search, Perplexity AI, Claude, Gemini, and Google AI Overviews).
 
 Modern AI search engines operate in **two interconnected stages**:
 1. **Retrieval Stage (Traditional SEO):** Web crawlers, indexability, and authority signals determine which candidate pages enter the search context window (e.g. top-5 Google results in the Princeton GEO study).
@@ -27,8 +27,16 @@ Modern AI search engines operate in **two interconnected stages**:
 > - **Tier E (Heuristics & Conventions):** Adaptive RAG passage chunking (100–200 words), direct answer formulas, `/llms.txt`. Evaluated with **MEDIUM confidence** (`[HEURISTIC]`).
 > - **Tier F (LLM Reasoning & Hypotheses):** Qualitative synthesis, stylistic tailoring, and strategic interpretations. Evaluated with **LOW/MEDIUM confidence** (`[HYPOTHESIS]`).
 >
-> **Epistemic Humility on the GEO Readiness Index (Tier E):**  
-> The GEO Readiness Index (0–100) is an **empirical structural extractability checklist** measuring factual density, coreference clarity, and modular chunking to facilitate RAG extraction. It is **NOT a probabilistic predictor or ranking guarantee** of closed-weights LLM citation in ChatGPT, Perplexity, Claude, or Google AI Overviews. Production generative retrieval is proprietary, dynamic, and non-deterministic.
+> **Technical SEO Score Stratification & Low-Coverage Caution:**  
+> The Technical SEO assessment evaluates 3 distinct layers:
+> 1. *Protocol & Crawlability (Tier A/B):* HTTP status semantics, robots.txt parsing syntax & 500KiB ceiling, XML sitemap validation.
+> 2. *Indexability & Directives (Tier B):* Meta robots/X-Robots-Tag indexability, canonical duplicate consolidation, hreflang reciprocity.
+> 3. *SERP Snippet Presentation (Tier E):* Desktop `<title>` pixel width ($\le$580px), meta description length (70–165 chars, noting ~70% are rewritten dynamically by Google), semantic heading outline (`<h1>`).
+> 4. *Interface Accessibility (Tier A/WCAG):* Viewport zoom accessibility (WCAG 2.1 AA), distinct from search ranking criteria.
+> *Low-Coverage Caveat:* If observation coverage is low (e.g. only 1 or 2 criteria verified from a raw snippet), an agent MUST NOT report a headline score of "100/100" without the explicit caveat: *"Partial evaluation: 1/1 observed criteria passed (Coverage: 5%). This does not constitute a full Technical SEO audit."*
+>
+> **Epistemic Humility on the Content Structural Extractability Check (Tier E):**  
+> The extractability score (0–100, formerly labeled GEO Readiness Index) is an **empirical structural extractability checklist** measuring factual density, coreference clarity, and modular chunking to facilitate RAG extraction. It is **NOT a probabilistic predictor or ranking guarantee** of closed-weights LLM citation in ChatGPT, Perplexity, Claude, or Google AI Overviews. Production generative retrieval is proprietary, dynamic, and non-deterministic.
 
 ---
 
@@ -38,7 +46,7 @@ Infer or confirm which mode the user needs:
 
 | Mode | Trigger Phrases | Description |
 |---|---|---|
-| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) across the 6-Tier Epistemic Signal Stack with prioritized P0/P1/P2 action plan. |
+| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100, High Confidence) + Content Structural Extractability Check (0–100, Medium Confidence) across the 6-Tier Epistemic Signal Stack with prioritized P0/P1/P2 action plan. |
 | **2. `optimize`** | "rewrite for AI", "make ChatGPT cite this", "front-load", "improve PAWC", "optimize text" | Evidence-dense rewriting using Princeton KDD rules without fluff, quote-stuffing, or keyword penalties. |
 | **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for AI comprehension and entity resolution. |
 | **4. `ai-files`** | "generate llms.txt", "fix robots.txt", "allow AI bots", "AI crawler setup" | Creates production-ready `robots.txt` (with explicit AI crawler directives and indexation-safe disallows) and structured `llms.txt`. |
@@ -53,15 +61,16 @@ Infer or confirm which mode the user needs:
 Research proves that fabricated quotes and fake statistics trigger modern adversarial anomaly detection, statistical watermarking filters, and create catastrophic brand and legal liability.
 * **Never invent statistics, numbers, sample sizes, or quotes.**
 * If the user prompts to invent fake credentials, fake case study numbers, or fabricated expert quotes, **refuse immediately** and explain the risk.
+* When asked to "make content more convincing for AI", improve structural clarity, definition front-loading, and passage modularity, and identify which empirical metrics are needed—**never invent synthetic metrics**.
 * Use verified facts, disclose real metrics, or structure templates with explicit `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders.
 
 ### The "Don't-Do" Anti-Pattern List
 * **Never Block CSS/JS Assets in `robots.txt`:** Modern search crawlers (Googlebot, Bingbot) render complete DOM snapshots. Blocking stylesheets or client bundles causes rendering failures and misclassifies pages as broken.
-* **Never Use Hidden Text or CSS Offscreen Cloaking:** Text hidden with `display:none`, `text-indent: -9999px`, or color matching background triggers Google spam penalties and LLM safety filters.
+* **Never Use Deceptive Hidden Text or Offscreen Keyword Stuffing:** Text hidden with `display:none`, `text-indent: -9999px`, or color matching background triggers Google spam penalties and LLM safety filters. *(Note: Standard UI patterns such as accessible tab panels, accordions, mobile navigation drawers, and screen-reader classes like `.sr-only` are completely legitimate and must not be flagged as deceptive cloaking).*
 * **Never Fabricate Social Proof or Reviews:** Fake Schema `Review` / `AggregateRating` markup without real human submissions risks manual actions in Google Search Console.
-* **Never Implement User-Agent Sniffing / Cloaking:** Serving different HTML content to AI bots vs human visitors directly violates RFC standards and search engine guidelines.
+* **Never Implement Deceptive User-Agent Cloaking:** Serving fundamentally different content, topics, or claims to search bots vs human visitors violates search engine guidelines. *(Note: Standard responsive design, device redirection, or content negotiation like `Accept: text/markdown` is fully compliant).*
 * **Never Invert Orphan Page Detection:** Never accuse an isolated single-page audit of being an orphan because it has zero outbound links (terminal pages like checkout success or utility tools are normal). Orphan status requires crawl graph evidence of zero inbound internal links (`inbound_internal_links_count == 0`).
-* **Never Treat CSR Shells as Monolithic Blocks:** Differentiate between Googlebot (which renders JavaScript via headless Chromium with queuing delay) and non-rendering AI crawlers (which cannot execute JS).
+* **Never Treat CSR Shells as Monolithic Blocks:** Differentiate between Googlebot (which renders JavaScript via headless Chromium with queuing delay) and non-rendering AI crawlers. Check if substantive server text is present before flagging mount containers.
 * **Never Promise Guaranteed Citation from Schema or GEO Score:** Schema markup and GEO extractability optimize machine readability, but never guarantee rich snippets or generative search synthesis.
 
 ---
@@ -74,10 +83,15 @@ A report with twenty undifferentiated findings has failed. Every audit, recommen
 3. **Date All Checks & State Geography:** A ranking or snippet check without a date and geographic market is meaningless. Record exact observation dates (e.g., `US, Sep 28, 2026`) or state `unknown`. One snapshot is same-day variation, not a trend.
 4. **Separate Tools Reported from Verified Yourself:** State clearly in the report which findings were measured deterministically by analyzers (`[VERIFIED_FACT]`) and which were inferred qualitatively by LLM reasoning (`[HEURISTIC_ESTIMATE]`). When data could not be observed, classify as `UNKNOWN` or `NOT_MEASURED` with 0 penalty rather than penalizing the site.
 5. **Single-Page vs Crawl-Level Orphan Page Distinction:** An inspection of a single page/URL only observes *outbound* links. A page with zero outbound links is a normal `terminal (0 outbound)` state (contact form, checkout success, utility tool). True orphan candidates require site crawl graph data proving zero *inbound* internal links (`inbound_internal_links_count == 0`). Never report a single page as an orphan without crawl graph verification.
-6. **Desktop SERP Pixel Width is the Physical Boundary:** Desktop SERP titles are physically constrained at ~580px (typically 580–600px). Character counts (30–65 chars) are only rough approximations. Prioritize pixel width estimation to prevent SERP truncation ellipsis (`...`). Meta descriptions should be evaluated across 70–165 characters to support concise, high-CTR conversion hooks.
-7. **Advisory vs Mandatory Directive Separation:** `x-default` in multilingual hreflang is an *advisory recommendation* (`STATUS_INFO` per Google Search Central), not a hard failure penalty when language alternates are mutually reciprocated. Sitemaps are discovery signals, not mandatory indexing commands. `robots.txt` governs crawler discoverability, not index exclusion (which requires `noindex` or HTTP 401/403).
-8. **Decoupled CSR Shell Assessment:** Client-side rendering mount shells without pre-rendered HTML (`#root`, `#app`, `<app-root>`, `<astro-island>`, `svelte-`, `vue`) must be evaluated through a decoupled lens: they represent a hard barrier (`BLOCKED`) for non-rendering AI search crawlers (GPTBot, ClaudeBot, PerplexityBot), but introduce a rendering queue delay/risk (`AMBIGUOUS` / `WARNING`) for Googlebot's evergreen Chromium.
-9. **Honest Guardrail for `/llms.txt` & Citation vs Recommendation:** `/llms.txt` is an emerging community catalog (Tier E / Heuristic) that facilitates clean context ingestion for LLMs; it does **not guarantee citation, ranking advantages, or indexing**. Furthermore, citation in an AI answer does not equal brand endorsement—always evaluate whether the brand is cited as a problem, a neutral comparison, or a recommended solution.
+6. **Desktop SERP Pixel Width is the Physical Boundary:** Desktop SERP titles are physically constrained at ~580px (typically 580–600px). Character counts (30–65 chars) are only rough approximations. Prioritize pixel width estimation to prevent SERP truncation ellipsis (`...`). Meta descriptions should be evaluated across 70–165 characters to support concise, high-CTR conversion hooks, noting search engines frequently rewrite snippets.
+7. **Advisory vs Mandatory Directive Separation:** `canonical` tags are recommendations for duplicate consolidation (RFC 6596); unique pages without duplicate parameters do not require a canonical tag. `x-default` in multilingual hreflang is an *advisory recommendation* (`STATUS_INFO` per Google Search Central), not a hard failure penalty when language alternates are mutually reciprocated. Sitemaps are discovery signals, not mandatory indexing commands. `robots.txt` governs crawler discoverability, not index exclusion (which requires `noindex` or HTTP 401/403). `noindex` on utility pages (checkout, thank-you, user settings) is expected behavior, not a defect.
+8. **Decoupled CSR Shell Assessment:** Report observations in two distinct layers:
+   - *Layer 1 (Raw HTML Observation):* Verify whether substantive text is present (>100 words) or missing (<25 words) in the raw server payload. If text is present (e.g., in Astro SSG or Next.js SSR with islands/components), the page is NOT a CSR dummy shell.
+   - *Layer 2 (Engine Extraction Risk):* If substantive text is missing from raw HTML, record *High Extraction Risk (Unknown)* for non-rendering AI crawlers and *Rendering Queue Latency Risk* for Googlebot evergreen Chromium. Never declare unconditional `BLOCKED` without confirming missing content.
+9. **Honest Guardrails for `/llms.txt`, Citation vs Recommendation, and GA4 Attribution:**
+   - `/llms.txt` is an emerging community catalog (Tier E / Heuristic) that facilitates clean context ingestion for LLMs; it does **not guarantee citation, ranking advantages, or indexing**.
+   - Citation in an AI answer does not equal brand endorsement—always evaluate whether the brand is cited as a problem, a neutral comparison, or a recommended solution.
+   - In Google Analytics 4, `googlequicksearchbox` represents general traffic from the Google Android Search App / Widget; it cannot be uniquely attributed to AI Overviews without Search Console Search Appearance telemetry.
 
 ---
 
@@ -132,23 +146,32 @@ Every audit MUST compile a structured Evidence Ledger table providing determinis
 #### B. Observation Coverage & Dual Scoring Engine
 Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
 1. **Observable Technical SEO Score (0–100) [Confidence: HIGH — Deterministic Standards (Tier A)]:**
-   - Calculated strictly over observed signals: $N_{\text{PASS}} / (N_{\text{PASS}} + N_{\text{FAIL}})$.
-   - Evaluates: Canonical consistency (preserves query strings during URL normalization), robots.txt crawl control (RFC 9309 500KiB limit), XML sitemap limits (50MB / 50k URLs), schema valid syntax, viewport accessibility (zoom-blocking prohibited per WCAG), `<title>` desktop SERP pixel width ($\le$580px, character count auxiliary), `<meta name="description">` (70–165 characters), and single primary `<h1>` document outline.
-   - Advisory items (such as missing `x-default` hreflang on reciprocated language alternates) are recorded as `STATUS_INFO` without score deduction per Google Search Central guidance.
+   - Evaluated across the 3 distinct technical layers:
+     - *Layer 1 (Protocol & Crawlability, Tier A/B):* HTTP status semantics (RFC 9110), robots.txt parsing syntax & 500KiB ceiling (RFC 9309), XML sitemap limits (50MB / 50k URLs).
+     - *Layer 2 (Indexability & Directives, Tier B):* Meta robots and X-Robots-Tag indexability, canonical duplicate consolidation (RFC 6596 / Google Search Central; preserving query parameters in comparisons), hreflang reciprocity and ISO 639-1 / 3166-1 syntax (with missing `x-default` treated as advisory `STATUS_INFO` per Google Search Central).
+     - *Layer 3 (SERP Snippet Presentation & Experience, Tier E):* Desktop `<title>` pixel width ($\le$580px, character count auxiliary), `<meta name="description">` (70–165 characters, noting ~70% are rewritten dynamically by Google), and semantic single primary `<h1>` document outline.
+     - *Layer 4 (Interface Accessibility, Tier A/WCAG):* Viewport zoom accessibility (WCAG 2.1 AA), distinct from search ranking criteria.
+   - *Low-Coverage Caveat:* If observation coverage is low (e.g. only 1 or 2 criteria verified), the report MUST disclose the exact fraction ($N_{\text{PASS}} / (N_{\text{PASS}} + N_{\text{FAIL}})$) with an explicit caveat (*"Partial evaluation: 1/1 criteria passed; coverage 5%"*) and must not headline as an unconditional "Technical SEO Score 100/100".
 2. **Observation Coverage Ratio (%) [Completeness Indicator]:**
    - Discloses the percentage of total audit criteria actually verifiable from available inputs:
      $$\text{Observation Coverage} = \frac{N_{\text{PASS}} + N_{\text{FAIL}}}{N_{\text{Total Criteria}}} \times 100\%$$
    - Unobserved criteria (e.g., real-user CrUX field data, server access logs, backlink graphs) are classified as `UNKNOWN` or `NOT_MEASURED` (strictly separated from measured statuses) and do **NOT** depress the Observable Score.
-3. **GEO Readiness Index (0–100) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier D)]:**
+3. **Content Structural Extractability Check (0–100, formerly GEO Readiness Index) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier D)]:**
    - Evaluated across the **8 Weighted Dimensions** (`[RESEARCH]`, `[STANDARD]`, `[HEURISTIC]`):
      - *Answerability (20%):* Direct definition / resolution syntax in opening 60 words `[RESEARCH]`.
-     - *Evidence Density (20%):* Numerical statistics, percentages, and verifiable metrics `[RESEARCH]`. (API/developer docs are **EXEMPT** from human quotes `[HEURISTIC]`).
+     - *Evidence Density (20%):* Numerical statistics, percentages, and verifiable metrics with semantic relevance `[RESEARCH]`. Dates, phone numbers, and zip codes do NOT count as empirical evidence.
      - *Entity Clarity (15%):* Coreference independence across lead sentences and chunk openings (avoids ambiguous pronouns) `[HEURISTIC]`.
      - *Passage Extractability (15%):* Modular 100-200 word sections suited for vector retrieval `[HEURISTIC]`.
      - *Source Attribution (10%):* Authoritative citations, RFC standards, research refs `[RESEARCH]`.
      - *Schema & Entity Graph (10%):* Interconnected JSON-LD graph with stable @id anchors `[STANDARD]`.
      - *Freshness & Temporal (5%):* Publication/modification dates and temporal consistency `[DOCUMENTED]`.
      - *AI Crawler Access (5%):* Search & retrieval AI bots permitted in robots.txt `[STANDARD]`.
+   - **Page Profile Adaptations:**
+     - *Article / In-Depth Guide:* All 8 dimensions evaluated.
+     - *Documentation / API Reference:* Human quotations and opinionated definitions are `NOT_APPLICABLE (N/A)`. Focuses on technical specifications, code fences, entity clarity, and passage extractability.
+     - *Product / Pricing / Service:* Focuses on machine-readable pricing, specifications, Schema `@graph`, and entity clarity; general quotes/academic citations are `N/A`.
+     - *Utility / Transactional (Contact, Checkout, Status, Auth):* Text extractability dimensions are `N/A`; evaluated primarily on indexability, security, and protocol hygiene.
+     - Criteria marked `N/A` are excluded from the denominator.
    - **Content Depth Guard:** Substantive content under 25 words zeroes out all 5 text-dependent dimensions (`dim_ans`, `dim_ent`, `dim_ev`, `dim_src`, `dim_chunk`), preventing stub pages or empty shells from earning unearned high scores.
    - *Epistemic Rating & Coverage:* Reports confidence (`HIGH`, `MEDIUM`, `LOW`) and explicitly enumerates unmeasured dimensions (`freshness`, `brand footprint`). Explicitly framed as a structural extractability checklist, not a probabilistic citation predictor.
 4. **Independent Security & Prompt Injection Hygiene Score (0–100) [STANDARD / OWASP]:**
@@ -157,23 +180,25 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
    - **Web Content Prompt Injection Defense (`SEC-PROMPT-INJECTION-001`):** Autonomous scanning for indirect prompt injection vectors (role overrides, instruction hijacking, `<|im_start|>` delimiters, hidden CSS overlays) in crawled web text, protecting LLM synthesis contexts. **Exempts markdown code fences (```` ```...``` ````) and inline backticks** from detection, preventing false positive `P0_BLOCKER` findings on technical documentation and security code blocks.
 5. **Deterministic Indexability Matrix v2 [STANDARD]:**
    - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`, `CONFLICTED`) across HTTP status, Canonical URL (query string preserved), Meta Robots, `X-Robots-Tag: noindex`, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
-   - **Decoupled CSR Mount Shell Verdicts:** Differentiates empty mount containers (`#root`, `#app`, `<app-root>`, `<astro-island>`, `svelte-`, `vue`): Non-rendering AI bots (GPTBot, ClaudeBot, PerplexityBot) are classified as `BLOCKED` (zero client JS execution), while Googlebot evergreen Chromium is classified as `AMBIGUOUS` / `WARNING` (rendering queue latency risk).
+   - **Decoupled CSR Mount Shell Verdicts:** Report observations in two distinct layers:
+     - *Layer 1 (Raw HTML Observation):* Verify whether substantive text is present (>100 words) or missing (<25 words). An `<astro-island>` or component with server-rendered text is NOT a CSR dummy shell.
+     - *Layer 2 (Engine Extraction Risk):* If substantive text is missing from raw HTML, record *High Extraction Risk (Unknown)* for non-rendering AI crawlers and *Rendering Queue Latency Risk* for Googlebot evergreen Chromium. Never declare unconditional `BLOCKED` without confirming missing content.
    - **Link Graph Topology:** Classifies 0 outbound internal links on single-page inspection as `terminal (0 outbound)`. Reserves orphan candidate warnings (`AMBIGUOUS`) for crawl graph verification where `inbound_internal_links_count == 0`.
    - Flags explicit conflicts (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex).
-6. **Autonomous Agent Readiness & Lighthouse Agentic Browsing [STANDARD / W3C WAI-ARIA]:**
-   - **Interactive Accessibility (`AGENT-A11Y-INTERACTIVE-002`):** Verifies that all buttons (`<button>`) and form inputs (`<input>`, `<textarea>`) expose accessible names via text content, `aria-label`, or `<label for="...">`. Eliminates non-semantic `<div onclick>` controls that prevent autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows.
-   - **Markdown Content Negotiation (`AGENT-MARKDOWN-NEGOTIATION-001`):** Verifies `<link rel="alternate" type="text/markdown" href="...">` or `Accept: text/markdown` HTTP negotiation, providing LLM agents with clean markdown without DOM scraping noise.
-   - **Fast-Track Indexing Protocol (`TECH-INDEXNOW-KEY-039`):** Recommends hosting an IndexNow key (`/{apiKey}.txt`) for instant push indexation to Bing, Yandex, and Seznam. (Note: Google Indexing API is officially restricted to `JobPosting` and `BroadcastEvent`; Google submission relies on Search Console).
-   - **WebMCP Scaffolding (W3C Draft):** Support for Model Context Protocol endpoints enabling AI agents to query structured actions and catalogs directly.
+6. **Autonomous Agent Readiness & Emerging AI Protocols [Tier E Community Proposals]:**
+   - **Interactive Accessibility (`AGENT-A11Y-INTERACTIVE-002`, Tier A / W3C WAI-ARIA):** Verifies that all buttons (`<button>`) and form inputs (`<input>`, `<textarea>`) expose accessible names via text content, `aria-label`, or `<label for="...">`. Eliminates non-semantic `<div onclick>` controls that prevent autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows.
+   - **Markdown Content Negotiation (`AGENT-MARKDOWN-NEGOTIATION-001`, Tier E):** Verifies `<link rel="alternate" type="text/markdown" href="...">` or `Accept: text/markdown` HTTP negotiation, providing LLM agents with clean markdown without DOM scraping noise.
+   - **Fast-Track Indexing Protocol (`TECH-INDEXNOW-KEY-039`, Tier B):** Recommends hosting an IndexNow key (`/{apiKey}.txt`) for instant change notification pings to Bing, Yandex, and Seznam. (Note: IndexNow notifies engines of changes, but does not guarantee instant indexing or ranking; Google Indexing API is officially restricted to `JobPosting` and `BroadcastEvent`; Google submission relies on Search Console).
+   - **WebMCP Scaffolding (W3C Draft, Tier E):** Support for Model Context Protocol endpoints enabling AI agents to query structured actions and catalogs directly.
 
 #### C. Prioritized Remediation Plan with Falsifiability Checks
 Structure all action items into actionable tiers accompanied by testable verification criteria:
-* **P0 (Critical / Blockers):** Crawl governance / indexation exposure risks (RFC 9309 crawler exposure of `/api/` or `/admin/`), bot blockouts, missing canonicals, unindexed pages.
-  - *Leading Indicator:* Server log confirms 200 OK without crawl exposure; immediate indexation recovery.
-* **P1 (High Citation & Share Impact):** Evidence deficit (missing metrics, zero citations on research articles, disconnected Schema `@graph`), missing `dateModified`, poor direct answer positioning, pronoun ambiguity, social preview title conflict/mismatch (`SOCIAL-PREVIEW-SYNC-033`).
-  - *Leading Indicator:* Schema Validator passes 0 errors; Perplexity/ChatGPT snippets extract updated timestamp within 14 days; social link previews (Telegram/X) display page title instead of root site fallback.
-* **P2 (Hygiene & Polish):** Missing image dimensions/alt tags, missing Open Graph / Twitter metadata, social description divergence, unobserved field metrics.
-  - *Leading Indicator:* Clean social cards on preview; zero CLS warnings.
+* **P0 (Critical / Blockers):** Confirmed crawl blockouts on business-critical pages (`noindex` on primary landing page, robots.txt disallowing search bots from entire site), active server 5xx errors, confirmed open unauthenticated access to sensitive endpoints, or contradictory indexing directives (`CONFLICTED`).
+  - *Leading Indicator:* Server log confirms 200 OK without crawl obstruction; conflicting directives resolved. (Awaits next search engine crawl cycle; never promise immediate indexation recovery).
+* **P1 (High Extraction & Snippet Impact):** Evidence deficit on research articles, missing structured Schema `@graph`, missing `dateModified` on time-sensitive guides, poor direct answer positioning, pronoun ambiguity in lead sentences, social preview title conflict (`SOCIAL-PREVIEW-SYNC-033`).
+  - *Leading Indicator:* Schema Validator passes 0 errors; social link previews render correct metadata.
+* **P2 (Hygiene & Polish):** Missing canonical on unique pages without parameter duplicates, missing image dimensions/alt tags, missing Open Graph / Twitter metadata, unobserved field metrics, missing `dateModified` on evergreen reference pages.
+  - *Leading Indicator:* Clean social cards; zero CLS warnings.
 
 #### D. Executive Reporting Protocol: Shortlist -> Decision & "Do this / Why"
 Do not bury the reader in raw crawler output. Structure all strategic feedback around high-impact triage:
@@ -202,20 +227,23 @@ To prevent repetitive discovery and maintain strategic continuity across convers
 
 ### Mode 2: Evidence-Dense Rewriting (`optimize`)
 
-Transform vague, marketing-heavy prose into high-PAWC, citable passages following the Princeton Lift Hierarchy and Passage Citability Rules:
+Transform vague, marketing-heavy prose into clear, fact-dense, and citable passages following Princeton KDD 2024 benchmark principles and passage citability rules:
 
-**Empirical Princeton Benchmark Lift Observations `[RESEARCH]` (Aggarwal et al., KDD 2024):**
-1. Direct Expert Quotations (+41% benchmark citation lift)
-2. Specific Numerical Statistics (+30% benchmark citation lift)
-3. Direct Primary Source Citations (+28% benchmark citation lift)
-4. High Fluency & Direct Answers (+28% benchmark citation lift)
-*Anti-Pattern: Keyword Stuffing (-8% citation penalty — actively damages ranking).*
+**Empirical Benchmark Observations `[RESEARCH]` (Aggarwal et al., Princeton KDD 2024, arXiv:2311.09735):**
+In synthetic benchmark evaluations across 10,000 search queries on a fixed 5-document candidate retrieval set, the authors observed:
+1. Direct Expert Quotations and primary source citations significantly improved synthetic citation recall.
+2. Specific Numerical Statistics paired with direct definitions produced the highest compound lift across benchmark models.
+3. High Fluency & Direct Answers facilitated clean passage chunking.
+*Anti-Pattern: Keyword Stuffing produced negative benchmark lift and actively damaged retrieval.*
+
+> [!IMPORTANT]
+> **Production Search Engine Reality:** These figures represent relative changes observed within a controlled synthetic benchmark on fixed candidate subsets. In live commercial engines (ChatGPT Search, Perplexity, Claude, Google AI Overviews), generation is stochastic and retrieval is dynamic. **Never promise fixed percentage gains or guaranteed citation lifts to users.**
 
 **Passage-Level Citability Rules `[HEURISTIC]`:**
 * **Self-Containment & Coreference Independence:** Every citable excerpt must stand independently without relying on preceding text. Avoid opening answer blocks with ambiguous referents ("They", "This tool", "It"); explicitly state the entity and technology name.
 * **Adaptive Passage Chunking:** Structure key factual claims in self-contained ~100–200 word blocks aligned with standard 256- to 512-token dense embedding windows.
 * **Definition Opening:** Place the direct answer formula in the first 40–60 words: `[Entity] is [category] designed to [outcome] by [mechanism]`.
-* **Compound Champion:** Pair fluency with numerical statistics and named source attribution (in Princeton KDD 2024 Section 5.3, Fluency + Statistics outperformed the best single individual strategy by >5.5% on the benchmark subset).
+* **Compound Evidence:** Pair fluency with verified numerical statistics and named source attribution. When optimizing content lacking verified numbers, improve clarity and structure, identify required proof metrics, and use `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders—**never fabricate numbers**.
 
 **Rewrite Pattern (Front-Loading):**
 * *Before:* "In today's fast-paced digital world, choosing the right tool is essential for success. In this article, we will examine various options..."
@@ -318,7 +346,8 @@ Measure real user visits driven by generative search engines and assistants:
 ```bash
 python -m engine.inspector <target> --ga4-csv path/to/TrafficAcquisition.csv
 ```
-- Quantifies actual inbound referral sessions from ChatGPT, Perplexity AI, Claude, Google Gemini / AI Overviews (`googlequicksearchbox`), and Microsoft Copilot.
+- Quantifies actual inbound referral sessions from ChatGPT, Perplexity AI, Claude, Google Gemini, and Microsoft Copilot.
+- **Attribution Note on `googlequicksearchbox`:** Referrals from `googlequicksearchbox` indicate traffic from the Google Android Search App / Widget. This includes general mobile search results and cannot be isolated to AI Overviews alone without Search Console Search Appearance telemetry.
 - Evaluates engagement rate and average engagement time to measure audience quality and post-click intent.
 
 #### Content Decay Analysis (Historical vs Recent GSC)
@@ -333,10 +362,10 @@ Generative models do not learn domain authority in isolation; they synthesize of
 - **YouTube Transcripts:** Video transcripts indexed in multimodal vector embeddings.
 - **LinkedIn & GitHub:** Verified organizational provenance and technical source code repositories.
 
-#### Scientific Citation Testing Protocol
-Empirical testing of generative search visibility requires statistical discipline:
-1. **Clean Sessions:** Execute queries in incognito, unauthenticated sessions to eliminate personalization bias.
-2. **Replication (3–5x):** Repeat the target conversational prompt 3 to 5 times per model (ChatGPT, Perplexity, Claude, Gemini) to account for generation temperature and stochastic variability.
+#### Exploratory Citation Consistency Protocol
+Testing generative search visibility requires statistical discipline and epistemic caution:
+1. **Clean Sessions:** Execute queries in incognito, unauthenticated sessions to minimize personalization bias.
+2. **Replication (3–5x):** Repeat the target conversational prompt 3 to 5 times per model (ChatGPT, Perplexity, Claude, Gemini) to observe variance under stochastic temperature. *(Note: This serves as an exploratory consistency check, not a controlled scientific proof of ranking causation).*
 3. **Sentiment & Endorsement Scoring:** Classify citations into three tiers:
    - *Tier 1 (Endorsed Solution):* Model explicitly recommends the brand as the primary choice.
    - *Tier 2 (Neutral Inclusion):* Brand is listed among multiple competitive options.
@@ -365,10 +394,11 @@ When prompted to invent fake quotes, synthetic statistics, or fabricated credent
    - Ask the user to provide the raw page HTML, DOM snapshot, or Markdown text directly.
    - Do NOT guess or hallucinate page contents.
 2. **Missing `robots.txt` (404 / Unreachable):**
-   - Per RFC 9309, a missing `robots.txt` signals unrestricted crawling (`Allow: /`).
-   - Flag as a **P1 Crawl Governance & Indexation Exposure Risk**: without explicit disallows, private endpoints (`/api/`, `/admin/`, `/checkout/`, `/auth/`) are exposed to public indexing by compliant AI crawlers. (Note: True access security requires HTTP 401/403 authentication, WAF rules, and network ACLs).
+   - Per RFC 9309 §2.2, a 404 or missing `robots.txt` signals unrestricted crawling (`Allow: /` for compliant crawlers).
+   - Record as **`STATUS_INFO` (Clean Protocol)**: No crawler restrictions are imposed by the domain.
+   - **Crucial Security Distinction:** `robots.txt` governs crawler discoverability, NOT access control or authentication. An absent `robots.txt` does NOT create a security vulnerability or expose private data on its own. True security requires server-side HTTP 401/403 authentication, WAF rules, and network ACLs. Only flag an access control defect if an internal endpoint is verified to return HTTP 200 with sensitive unauthenticated content. Never recommend `Disallow` as a security defense.
 3. **Missing Structured Data:**
-   - If no Schema markup is detected, assign `0/20` in the Structured Data scorecard and generate a turnkey unified `@graph` block matching the domain.
+   - If no Schema markup is detected, assign `0/10` in the Structured Data dimension and generate a turnkey unified `@graph` block matching the domain.
 
 ---
 

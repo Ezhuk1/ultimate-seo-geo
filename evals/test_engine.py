@@ -2669,8 +2669,103 @@ def test_v3_5_0_audit_remediation_suite():
     print("[PASS] test_v3_5_0_audit_remediation_suite")
 
 
+def test_v3_5_1_epistemic_audit_remediation_suite():
+    """Verifies epistemic audit remediations:
+    1. Astro-island with server-rendered text is NOT a CSR shell
+    2. Schema external URI @id not flagged as broken ref
+    3. GA4 attribution caution footnote for googlequicksearchbox
+    4. Low observation coverage ratio calculation (<20%)
+    """
+    # 1. Astro-island with server-rendered text
+    from engine.analyzers.html_analyzer import analyze_target_html
+    astro_html = """<!DOCTYPE html>
+    <html lang="en">
+    <head><title>Astro Blog Post with Islands</title></head>
+    <body>
+        <h1>Optimizing Content for Generative Search</h1>
+        <p>This is a fully server-rendered article built with Astro static site generation.
+        The content is fully present in the initial HTML wire payload for all search engines and AI assistants to read without executing client-side scripts.</p>
+        <p>Key findings demonstrate that structural clarity and direct definitions improve passage extractability in vector embedding pipelines.</p>
+        <astro-island component-url="/ShareButton.js" component-export="default">
+            <button>Share on Telegram</button>
+        </astro-island>
+    </body>
+    </html>"""
+    parsed_astro = analyze_target_html(astro_html)
+    assert parsed_astro["csr_detection"]["is_csr_shell"] is False, "Astro page with server-rendered text must NOT be classified as CSR shell"
+
+    # 2. Schema external @id URI reference
+    from engine.analyzers.schema_analyzer import validate_schema_snippet
+    schema_external = {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "@id": "https://example.com/#site",
+                "name": "Example Corp",
+                "url": "https://example.com"
+            },
+            {
+                "@type": "WebPage",
+                "@id": "https://example.com/#page",
+                "name": "Example Page",
+                "isPartOf": {"@id": "https://example.com/#site"},
+                "about": {"@id": "https://www.wikidata.org/wiki/Q11029"},
+                "datePublished": "2026-05-15T08:00:00Z"
+            }
+        ]
+    }
+    is_valid_ext, errors_ext, _ = validate_schema_snippet(schema_external)
+    assert is_valid_ext is True, f"Schema with external URI @id must be valid, got errors: {errors_ext}"
+    assert not any("SCHEMA-BROKEN-REF-005" in e for e in errors_ext), "External @id URI must not be flagged as broken ref"
+
+    # 3. GA4 Attribution Footnote for googlequicksearchbox
+    from engine.analyzers.ga4_analyzer import Ga4AnalysisResult, AiReferralSource, format_ga4_markdown_summary
+    ga4_res = Ga4AnalysisResult(
+        is_valid=True,
+        total_sessions=1000,
+        total_ai_sessions=100,
+        ai_traffic_share_pct=10.0,
+        top_ai_platform="Google Gemini / AIO",
+        ai_sources=[
+            AiReferralSource(
+                source_name="android-app://com.google.android.googlequicksearchbox/https/google.com",
+                ai_platform="Google Gemini / AIO",
+                sessions=100,
+                engaged_sessions=80,
+                engagement_rate=80.0,
+                avg_engagement_time_sec=45.0
+            )
+        ]
+    )
+    ga4_md = format_ga4_markdown_summary(ga4_res)
+    assert "Attribution Caution" in ga4_md
+    assert "googlequicksearchbox" in ga4_md
+
+    # 4. Low Observation Coverage Transparency
+    from engine.ledger import LedgerBuilder, STATUS_PASS
+    from engine.scoring import calculate_scores
+    builder_low_cov = LedgerBuilder("https://example.com")
+    builder_low_cov.add_evidence(
+        rule_id="TECH-HTTPS-001",
+        category="security",
+        title="HTTPS Protocol Wire Encryption",
+        status=STATUS_PASS,
+        confidence="VERIFIED_FACT",
+        observed="https://",
+        expected="https://",
+        message="Document is served over TLS/HTTPS."
+    )
+    lb_low_cov = builder_low_cov.build(expected_baseline=20)
+    scores_low_cov = calculate_scores(lb_low_cov)
+    assert scores_low_cov.observation_coverage_pct < 20.0, f"Expected low coverage (<20%), got {scores_low_cov.observation_coverage_pct}%"
+    assert scores_low_cov.observable_technical_score == 100, "100/100 score on unobserved signals must preserve invariant"
+
+    print("[PASS] test_v3_5_1_epistemic_audit_remediation_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.5.0 integration suite...")
+    print("Running Engine v3.5.1 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -2702,5 +2797,6 @@ if __name__ == "__main__":
     test_v3_4_0_agentic_ga4_suite()
     test_v3_5_0_audit_remediation_suite()
     test_v3_5_1_sitemap_index_inspector_wiring()
-    print("All Engine v3.5.0 tests passed successfully (31 deterministic test suites)!")
+    test_v3_5_1_epistemic_audit_remediation_suite()
+    print("All Engine v3.5.1 tests passed successfully (32 deterministic test suites)!")
 
