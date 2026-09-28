@@ -19,9 +19,16 @@ Modern AI search engines operate in **two interconnected stages**:
 1. **Retrieval Stage (Traditional SEO):** Web crawlers, indexability, and authority signals determine which candidate pages enter the search context window (e.g. top-5 Google results in the Princeton GEO study).
 2. **Synthesis Stage (GEO):** Generative models extract facts, definitions, and citations from retrieved candidates. GEO maximizes factual extractability, evidence density, and structural clarity so the LLM cites your content in its synthesized response.
 
-> **Methodology Notice:** Dual scoring reflects differing certainty levels:
-> - **Technical SEO Score:** Evaluated with **HIGH confidence** against deterministic web standards and protocols (`[STANDARD]`).
-> - **GEO Score:** Evaluated with **MEDIUM confidence** as an opinionated qualitative heuristic rubric derived from Princeton KDD 2024 experimental observations and RAG chunking practices (`[RESEARCH]` & `[HEURISTIC]`).
+> **Methodology Notice:** Dual scoring reflects differing certainty levels across the **6 Epistemic Tiers (Tier A–F)**:
+> - **Tier A (Standards & Protocols):** RFC 9309, RFC 9110, RFC 6596, RFC 8288, W3C HTML5/WAI-ARIA, Schema.org. Evaluated with **HIGH confidence** against deterministic specifications (`[STANDARD]`).
+> - **Tier B (Search Engine Specifications):** Google Search Central, Bing Webmaster, IndexNow, AI bot crawler documentation. Evaluated with **HIGH/MEDIUM confidence** (`[OFFICIAL]`).
+> - **Tier C (Deterministic Field Telemetry):** Google Search Console, Google Analytics 4, CrUX field data. Evaluated with **HIGH confidence** when observed; recorded as `UNKNOWN` or `NOT_MEASURED` (zero penalty) when unavailable (`[FIELD_DATA]`).
+> - **Tier D (Peer-Reviewed Empirical Research):** Princeton KDD 2024 (Aggarwal et al., arXiv:2311.09735). Evaluated with **MEDIUM confidence** as benchmark observations on candidate retrieval subsets (`[RESEARCH]`).
+> - **Tier E (Heuristics & Conventions):** Adaptive RAG passage chunking (100–200 words), direct answer formulas, `/llms.txt`. Evaluated with **MEDIUM confidence** (`[HEURISTIC]`).
+> - **Tier F (LLM Reasoning & Hypotheses):** Qualitative synthesis, stylistic tailoring, and strategic interpretations. Evaluated with **LOW/MEDIUM confidence** (`[HYPOTHESIS]`).
+>
+> **Epistemic Humility on the GEO Readiness Index (Tier E):**  
+> The GEO Readiness Index (0–100) is an **empirical structural extractability checklist** measuring factual density, coreference clarity, and modular chunking to facilitate RAG extraction. It is **NOT a probabilistic predictor or ranking guarantee** of closed-weights LLM citation in ChatGPT, Perplexity, Claude, or Google AI Overviews. Production generative retrieval is proprietary, dynamic, and non-deterministic.
 
 ---
 
@@ -31,7 +38,7 @@ Infer or confirm which mode the user needs:
 
 | Mode | Trigger Phrases | Description |
 |---|---|---|
-| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) across the 3-Tier Signal Stack with prioritized P0/P1/P2 action plan. |
+| **1. `audit`** | "audit site", "check SEO", "GEO score", "why did traffic drop", "evaluate page" | Full dual audit: Technical SEO Score (0–100, High Confidence) + GEO Score (0–100, Medium Confidence) across the 6-Tier Epistemic Signal Stack with prioritized P0/P1/P2 action plan. |
 | **2. `optimize`** | "rewrite for AI", "make ChatGPT cite this", "front-load", "improve PAWC", "optimize text" | Evidence-dense rewriting using Princeton KDD rules without fluff, quote-stuffing, or keyword penalties. |
 | **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for AI comprehension and entity resolution. |
 | **4. `ai-files`** | "generate llms.txt", "fix robots.txt", "allow AI bots", "AI crawler setup" | Creates production-ready `robots.txt` (with explicit AI crawler directives and indexation-safe disallows) and structured `llms.txt`. |
@@ -53,18 +60,24 @@ Research proves that fabricated quotes and fake statistics trigger modern advers
 * **Never Use Hidden Text or CSS Offscreen Cloaking:** Text hidden with `display:none`, `text-indent: -9999px`, or color matching background triggers Google spam penalties and LLM safety filters.
 * **Never Fabricate Social Proof or Reviews:** Fake Schema `Review` / `AggregateRating` markup without real human submissions risks manual actions in Google Search Console.
 * **Never Implement User-Agent Sniffing / Cloaking:** Serving different HTML content to AI bots vs human visitors directly violates RFC standards and search engine guidelines.
+* **Never Invert Orphan Page Detection:** Never accuse an isolated single-page audit of being an orphan because it has zero outbound links (terminal pages like checkout success or utility tools are normal). Orphan status requires crawl graph evidence of zero inbound internal links (`inbound_internal_links_count == 0`).
+* **Never Treat CSR Shells as Monolithic Blocks:** Differentiate between Googlebot (which renders JavaScript via headless Chromium with queuing delay) and non-rendering AI crawlers (which cannot execute JS).
+* **Never Promise Guaranteed Citation from Schema or GEO Score:** Schema markup and GEO extractability optimize machine readability, but never guarantee rich snippets or generative search synthesis.
 
 ---
 
 ## Epistemic Guardrails of Honesty
 
-A report with twenty undifferentiated findings has failed. Every audit, recommendation, and rewrite must uphold four non-negotiable guardrails:
+A report with twenty undifferentiated findings has failed. Every audit, recommendation, and rewrite must uphold nine non-negotiable guardrails:
 1. **Observations Are Not Causes:** A crawler warning, uneven rankings between sibling pages, or missing metadata never proves an algorithmic penalty, an indexing exclusion, or the sole reason a page ranks where it does. Label technical defects as observed friction, not fabricated causes.
 2. **Honest Sizing (No Invented Revenue or Conversion Rates):** Sizing an opportunity names the mechanism: a new ranking, moving higher on an existing ranking, or winning clicks from an improved snippet. Never invent conversion rates, dollar revenue, or multiplier formulas. When modeling potential gains, state explicitly: *"Hypothetical scenario based on stated click-share assumption, not a forecast."*
 3. **Date All Checks & State Geography:** A ranking or snippet check without a date and geographic market is meaningless. Record exact observation dates (e.g., `US, Sep 28, 2026`) or state `unknown`. One snapshot is same-day variation, not a trend.
-4. **Separate Tools Reported from Verified Yourself:** State clearly in the report which findings were measured deterministically by analyzers (`[VERIFIED_FACT]`) and which were inferred qualitatively by LLM reasoning (`[HEURISTIC_ESTIMATE]`). When data could not be observed, classify as `UNKNOWN` rather than penalizing the site.
-5. **Honest Guardrail for `/llms.txt`:** `/llms.txt` is a curated documentation catalog designed to facilitate clean context ingestion for autonomous agents and LLM readers. It is an emerging community proposal (Tier E / Heuristic) and **does not guarantee citation, ranking advantages, or generative engine inclusion**.
-6. **Citation Is Not Recommendation:** Being cited in an AI search overview does not equal brand endorsement. Generative search engines cite sources for comparisons, warnings, or historical context. Always evaluate sentiment and positioning: measure whether the brand is cited as a problem, a generic example, or an endorsed solution.
+4. **Separate Tools Reported from Verified Yourself:** State clearly in the report which findings were measured deterministically by analyzers (`[VERIFIED_FACT]`) and which were inferred qualitatively by LLM reasoning (`[HEURISTIC_ESTIMATE]`). When data could not be observed, classify as `UNKNOWN` or `NOT_MEASURED` with 0 penalty rather than penalizing the site.
+5. **Single-Page vs Crawl-Level Orphan Page Distinction:** An inspection of a single page/URL only observes *outbound* links. A page with zero outbound links is a normal `terminal (0 outbound)` state (contact form, checkout success, utility tool). True orphan candidates require site crawl graph data proving zero *inbound* internal links (`inbound_internal_links_count == 0`). Never report a single page as an orphan without crawl graph verification.
+6. **Desktop SERP Pixel Width is the Physical Boundary:** Desktop SERP titles are physically constrained at ~580px (typically 580–600px). Character counts (30–65 chars) are only rough approximations. Prioritize pixel width estimation to prevent SERP truncation ellipsis (`...`). Meta descriptions should be evaluated across 70–165 characters to support concise, high-CTR conversion hooks.
+7. **Advisory vs Mandatory Directive Separation:** `x-default` in multilingual hreflang is an *advisory recommendation* (`STATUS_INFO` per Google Search Central), not a hard failure penalty when language alternates are mutually reciprocated. Sitemaps are discovery signals, not mandatory indexing commands. `robots.txt` governs crawler discoverability, not index exclusion (which requires `noindex` or HTTP 401/403).
+8. **Decoupled CSR Shell Assessment:** Client-side rendering mount shells without pre-rendered HTML (`#root`, `#app`, `<app-root>`, `<astro-island>`, `svelte-`, `vue`) must be evaluated through a decoupled lens: they represent a hard barrier (`BLOCKED`) for non-rendering AI search crawlers (GPTBot, ClaudeBot, PerplexityBot), but introduce a rendering queue delay/risk (`AMBIGUOUS` / `WARNING`) for Googlebot's evergreen Chromium.
+9. **Honest Guardrail for `/llms.txt` & Citation vs Recommendation:** `/llms.txt` is an emerging community catalog (Tier E / Heuristic) that facilitates clean context ingestion for LLMs; it does **not guarantee citation, ranking advantages, or indexing**. Furthermore, citation in an AI answer does not equal brand endorsement—always evaluate whether the brand is cited as a problem, a neutral comparison, or a recommended solution.
 
 ---
 
@@ -120,27 +133,32 @@ Every audit MUST compile a structured Evidence Ledger table providing determinis
 Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
 1. **Observable Technical SEO Score (0–100) [Confidence: HIGH — Deterministic Standards (Tier A)]:**
    - Calculated strictly over observed signals: $N_{\text{PASS}} / (N_{\text{PASS}} + N_{\text{FAIL}})$.
-   - Evaluates: Canonical consistency, robots.txt crawl control, XML sitemap, schema valid syntax, viewport, `<title>`, `<meta name="description">`, single primary `<h1>` document outline.
+   - Evaluates: Canonical consistency (preserves query strings during URL normalization), robots.txt crawl control (RFC 9309 500KiB limit), XML sitemap limits (50MB / 50k URLs), schema valid syntax, viewport accessibility (zoom-blocking prohibited per WCAG), `<title>` desktop SERP pixel width ($\le$580px, character count auxiliary), `<meta name="description">` (70–165 characters), and single primary `<h1>` document outline.
+   - Advisory items (such as missing `x-default` hreflang on reciprocated language alternates) are recorded as `STATUS_INFO` without score deduction per Google Search Central guidance.
 2. **Observation Coverage Ratio (%) [Completeness Indicator]:**
    - Discloses the percentage of total audit criteria actually verifiable from available inputs:
      $$\text{Observation Coverage} = \frac{N_{\text{PASS}} + N_{\text{FAIL}}}{N_{\text{Total Criteria}}} \times 100\%$$
-   - Unobserved criteria (e.g., real-user CrUX field data, server access logs, backlink graphs) are classified as `UNKNOWN` and do **NOT** depress the Observable Score.
-3. **GEO Readiness Index (0–100) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier B)]:**
+   - Unobserved criteria (e.g., real-user CrUX field data, server access logs, backlink graphs) are classified as `UNKNOWN` or `NOT_MEASURED` (strictly separated from measured statuses) and do **NOT** depress the Observable Score.
+3. **GEO Readiness Index (0–100) [Confidence: MEDIUM — Qualitative Heuristics (Tier E) & Benchmarks (Tier D)]:**
    - Evaluated across the **8 Weighted Dimensions** (`[RESEARCH]`, `[STANDARD]`, `[HEURISTIC]`):
      - *Answerability (20%):* Direct definition / resolution syntax in opening 60 words `[RESEARCH]`.
      - *Evidence Density (20%):* Numerical statistics, percentages, and verifiable metrics `[RESEARCH]`. (API/developer docs are **EXEMPT** from human quotes `[HEURISTIC]`).
-     - *Entity Clarity (15%):* Coreference independence (avoids ambiguous pronouns) `[HEURISTIC]`.
+     - *Entity Clarity (15%):* Coreference independence across lead sentences and chunk openings (avoids ambiguous pronouns) `[HEURISTIC]`.
      - *Passage Extractability (15%):* Modular 100-200 word sections suited for vector retrieval `[HEURISTIC]`.
      - *Source Attribution (10%):* Authoritative citations, RFC standards, research refs `[RESEARCH]`.
      - *Schema & Entity Graph (10%):* Interconnected JSON-LD graph with stable @id anchors `[STANDARD]`.
      - *Freshness & Temporal (5%):* Publication/modification dates and temporal consistency `[DOCUMENTED]`.
      - *AI Crawler Access (5%):* Search & retrieval AI bots permitted in robots.txt `[STANDARD]`.
-   - *Epistemic Rating & Coverage:* Reports confidence (`HIGH`, `MEDIUM`, `LOW`) and explicitly enumerates unmeasured dimensions (`freshness`, `brand footprint`).
+   - **Content Depth Guard:** Substantive content under 25 words zeroes out all 5 text-dependent dimensions (`dim_ans`, `dim_ent`, `dim_ev`, `dim_src`, `dim_chunk`), preventing stub pages or empty shells from earning unearned high scores.
+   - *Epistemic Rating & Coverage:* Reports confidence (`HIGH`, `MEDIUM`, `LOW`) and explicitly enumerates unmeasured dimensions (`freshness`, `brand footprint`). Explicitly framed as a structural extractability checklist, not a probabilistic citation predictor.
 4. **Independent Security & Prompt Injection Hygiene Score (0–100) [STANDARD / OWASP]:**
    - Strictly segregated dimension (HTTPS 25%, HSTS 25%, Mixed Content 25%, Security Headers 25%).
-   - **Web Content Prompt Injection Defense (`SEC-PROMPT-INJECTION-001`):** Autonomous scanning for indirect prompt injection vectors (role overrides, instruction hijacking, `<|im_start|>` delimiters, hidden CSS overlays) in crawled web text, protecting LLM synthesis contexts.
+   - Adheres strictly to "Unknown $\ne$ Failure": if no security signals are observed or target is unmeasured, the score is 0 / `NOT_MEASURED` (zero free points; never awards free points for unmeasured targets).
+   - **Web Content Prompt Injection Defense (`SEC-PROMPT-INJECTION-001`):** Autonomous scanning for indirect prompt injection vectors (role overrides, instruction hijacking, `<|im_start|>` delimiters, hidden CSS overlays) in crawled web text, protecting LLM synthesis contexts. **Exempts markdown code fences (```` ```...``` ````) and inline backticks** from detection, preventing false positive `P0_BLOCKER` findings on technical documentation and security code blocks.
 5. **Deterministic Indexability Matrix v2 [STANDARD]:**
-   - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`, `CONFLICTED`) across HTTP status, Canonical URL, Meta Robots, X-Robots-Tag, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
+   - Multi-vector verdict (`INDEXABLE`, `BLOCKED`, `AMBIGUOUS`, `CONFLICTED`) across HTTP status, Canonical URL (query string preserved), Meta Robots, `X-Robots-Tag: noindex`, Robots.txt, Sitemap, Internal Links, and Rendered Payload.
+   - **Decoupled CSR Mount Shell Verdicts:** Differentiates empty mount containers (`#root`, `#app`, `<app-root>`, `<astro-island>`, `svelte-`, `vue`): Non-rendering AI bots (GPTBot, ClaudeBot, PerplexityBot) are classified as `BLOCKED` (zero client JS execution), while Googlebot evergreen Chromium is classified as `AMBIGUOUS` / `WARNING` (rendering queue latency risk).
+   - **Link Graph Topology:** Classifies 0 outbound internal links on single-page inspection as `terminal (0 outbound)`. Reserves orphan candidate warnings (`AMBIGUOUS`) for crawl graph verification where `inbound_internal_links_count == 0`.
    - Flags explicit conflicts (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex).
 6. **Autonomous Agent Readiness & Lighthouse Agentic Browsing [STANDARD / W3C WAI-ARIA]:**
    - **Interactive Accessibility (`AGENT-A11Y-INTERACTIVE-002`):** Verifies that all buttons (`<button>`) and form inputs (`<input>`, `<textarea>`) expose accessible names via text content, `aria-label`, or `<label for="...">`. Eliminates non-semantic `<div onclick>` controls that prevent autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows.
@@ -254,6 +272,7 @@ User-agent: Perplexity-User
 User-agent: meta-externalagent
 User-agent: meta-externalfetcher
 User-agent: cohere-ai
+User-agent: MistralAI-User
 # Note: Google-Extended and Applebot-Extended are opt-out control tokens for model training, NOT HTTP fetchers.
 # They do NOT affect indexing or citation in Google AI Overviews or Siri/Spotlight.
 # Add "User-agent: Google-Extended" or "User-agent: Applebot-Extended" + "Disallow: /" only if opting out of AI model training.
