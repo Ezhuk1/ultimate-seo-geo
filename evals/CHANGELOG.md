@@ -2,6 +2,36 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.6.0] - 2026-09-29
+
+### Added
+- **Keyword Cannibalization Detection (`engine/analyzers/gsc_analyzer.py`):**
+  - New `GscCannibalizationItem` and detection pass over GSC exports containing both query and page dimensions: groups rows by query, and when a query is served by multiple URLs (with total impressions above threshold), flags split authority with per-page impressions, best position, and top-page impression share.
+  - Healthy pattern (one dominant URL holding $\\ge$60% of impressions already ranking top-3) is never flagged.
+  - Contextual consolidation recommendations: canonicalize/301 secondary pages into a top-3 primary; pick a canonical target and repoint internal anchors when no URL owns the query.
+  - Epistemic parity: exports carrying only one of the two dimensions record a `NOT MEASURED` note in the result and markdown summary instead of silently skipping the check (Unknown ≠ Failure).
+- **Position-Aware CTR Underperformance Model (`engine/analyzers/gsc_analyzer.py`):**
+  - New `EXPECTED_CTR_CURVE` anchor table + `expected_organic_ctr(position)` piecewise-linear interpolation (aggregate industry CTR benchmarks, tunable per niche).
+  - Snippet underperformance now flags queries whose CTR is below 50% of the position-typical benchmark in addition to the existing static <2.0% floor — e.g. position 1 with 5% CTR is now caught. `GscQueryItem` gains `expected_ctr`; serialized items include `expected_ctr` and `ctr_deficit_pct`.
+- **Engine Test Suite `test_v3_6_0_gsc_cannibalization_suite` (`evals/test_engine.py`):** 33rd deterministic suite covering curve interpolation, split-authority detection, healthy-dominance skip, position-aware CTR flagging, NOT MEASURED note, markdown rendering, and v3.3.0 backward compatibility.
+
+### Fixed
+- **Empty Snippet Underperformers Table in Markdown Summary (`engine/analyzers/gsc_analyzer.py`):**
+  - `format_gsc_markdown_summary` emitted the "Snippet Underperformers" table header without ever rendering data rows. Rows now render with position, impressions, current vs expected CTR, and a recommended snippet fix, plus an expected-CTR heuristic footnote.
+
+### Changed
+- Version strings synchronized to 3.6.0 across `engine/__init__.py`, `engine/ledger.py`, `pyproject.toml`, `ultimate-seo-geo.json`, analyzer User-Agents, `evals/evals.json`, `evals/run_evals.py`, and README badges.
+
+## [3.5.1] - 2026-09-28
+
+### Fixed
+- **Epistemic audit remediations (`engine/analyzers/html_analyzer.py`, `engine/analyzers/schema_analyzer.py`, `engine/analyzers/ga4_analyzer.py`, `engine/scoring.py`):**
+  - Astro-island components with server-rendered text are no longer misclassified as CSR shells.
+  - Schema `@id` references pointing to external URIs (e.g. Wikidata) are not flagged as broken refs.
+  - GA4 summary adds an attribution caution footnote for `googlequicksearchbox` referrals.
+  - Low observation coverage ratio computed correctly (<20% guard).
+  - Covered by `test_v3_5_1_epistemic_audit_remediation_suite`.
+
 ## [3.5.0] - 2026-09-28
 
 ### Fixed

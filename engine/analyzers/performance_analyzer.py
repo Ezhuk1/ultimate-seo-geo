@@ -69,7 +69,7 @@ def query_pagespeed_insights(url: str, api_key: str, timeout: float = 10.0) -> C
     )
 
     try:
-        req = urllib.request.Request(endpoint, headers={"User-Agent": "UltimateSeoGeoEngine/3.5.0"})
+        req = urllib.request.Request(endpoint, headers={"User-Agent": "UltimateSeoGeoEngine/3.6.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
 
