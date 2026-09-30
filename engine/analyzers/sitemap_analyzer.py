@@ -6,7 +6,7 @@ lastmod validity, and canonical page presence.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Set, Dict, Any
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
@@ -173,7 +173,7 @@ def parse_sitemap_xml(
                 iso_candidate = clean_lm.replace("Z", "+00:00") if clean_lm.endswith("Z") else clean_lm
                 parsed_dt = datetime.fromisoformat(iso_candidate)
             except ValueError:
-                for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+                for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m", "%Y"):
                     try:
                         parsed_dt = datetime.strptime(clean_lm, fmt)
                         break
@@ -181,7 +181,9 @@ def parse_sitemap_xml(
                         continue
 
             if parsed_dt is not None:
-                if parsed_dt.year > current_year + 1:
+                # lastmod may be tz-aware (ISO +Z); compare in naive UTC
+                _dt_cmp = parsed_dt.astimezone(timezone.utc).replace(tzinfo=None) if parsed_dt.tzinfo else parsed_dt
+                if _dt_cmp > datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1):
                     res.warnings.append(f"Future lastmod date '{lastmod_val}' for '{loc_val}'.")
             else:
                 res.warnings.append(f"Unparseable lastmod date format '{lastmod_val}' for '{loc_val}'.")

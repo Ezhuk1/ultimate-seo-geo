@@ -185,8 +185,11 @@ def analyze_freshness(
             score -= 15
 
     # C. Check future dates
-    latest_dt = max(d for d in (dt_pub, dt_mod, dt_http, dt_sitemap) if d is not None)
-    if (latest_dt - now).days > 1:
+    # Guard: all four dates may be unparseable (e.g. invalid datePublished) —
+    # max() over an empty sequence used to crash the whole inspection (exit code 1).
+    _valid_dates = [d for d in (dt_pub, dt_mod, dt_http, dt_sitemap) if d is not None]
+    latest_dt = max(_valid_dates) if _valid_dates else None
+    if latest_dt is not None and (latest_dt - now).days > 1:
         result.has_discrepancy = True
         msg = f"Detected future date in metadata: {latest_dt.isoformat()}."
         result.discrepancy_details.append(msg)
@@ -198,7 +201,7 @@ def analyze_freshness(
         score -= 30
 
     # D. Check stale content (> 730 days / 2 years without update)
-    if (now - latest_dt).days > 730:
+    if latest_dt is not None and (now - latest_dt).days > 730:
         result.is_stale = True
         result.findings.append(FreshnessFinding(
             rule_id="FRESH-STALE-CONTENT-003",
@@ -212,7 +215,9 @@ def analyze_freshness(
         result.findings.append(FreshnessFinding(
             rule_id="FRESH-CONSISTENCY-PASS",
             severity="PASS",
-            message=f"Publication & modification dates are consistent (Latest: {latest_dt.strftime('%Y-%m-%d')})."
+            message=(f"Publication & modification dates are consistent (Latest: {latest_dt.strftime('%Y-%m-%d')})."
+                     if latest_dt is not None else
+                     "No parseable publication/modification dates found.")
         ))
 
     result.freshness_score = max(0, min(100, score))

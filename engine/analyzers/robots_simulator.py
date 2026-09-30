@@ -11,7 +11,8 @@ Implements:
 from __future__ import annotations
 import re
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Optional
+from urllib.parse import unquote
 
 
 KNOWN_AI_CRAWLERS = [
@@ -47,6 +48,8 @@ class Rule:
     pattern: str
     regex: re.Pattern
     length: int
+    parts: Optional[List[str]] = None  # glob segments split on '*' (linear matcher)
+    end_anchor: bool = False           # pattern terminated with '$'
 
 
 @dataclass
@@ -93,6 +96,9 @@ def _pattern_to_regex(pattern: str) -> re.Pattern:
 
 def parse_robots_txt(content: str) -> RobotsData:
     """Parses robots.txt content into structured AST."""
+    # A UTF-8 BOM used to corrupt the first directive line ("\ufeffUser-agent")
+    # and silently void the entire file.
+    content = content.lstrip("\ufeff").lstrip()
     raw_bytes_len = len(content.encode("utf-8"))
     data = RobotsData(
         raw_content=content,
@@ -127,7 +133,7 @@ def parse_robots_txt(content: str) -> RobotsData:
             continue
 
         directive, _, value = line.partition(":")
-        directive = directive.strip().lower()
+        directive = directive.strip().lower().replace(" ", "-")
         value = value.strip()
 
         if directive == "user-agent":
@@ -141,15 +147,23 @@ def parse_robots_txt(content: str) -> RobotsData:
                 continue
             is_allow = (directive == "allow")
             if not value and directive == "disallow":
-                # 'Disallow: ' means everything is allowed
-                is_allow = True
-                value = "/"
-            
+                # RFC 9309 / Google: an empty Disallow value means "allow everything".
+                # It must not create a rule: materializing it as Allow("/") gave it
+                # equal length to a real Disallow: / and the Allow-wins tie-break
+                # neutralized the block.
+                continue
+
+            # Percent-encoding normalization: /%7Euser and /~user are the same path.
+            match_value = unquote(value)
+            end_anchor = match_value.endswith("$")
+            pattern_clean = match_value[:-1] if end_anchor else match_value
             rule = Rule(
                 allow=is_allow,
                 pattern=value,
                 regex=_pattern_to_regex(value),
-                length=len(value)
+                length=len(match_value.rstrip("$")),
+                parts=pattern_clean.split("*"),
+                end_anchor=end_anchor,
             )
             current_rules.append(rule)
             if not is_allow and value and value != "/":
@@ -168,6 +182,43 @@ def parse_robots_txt(content: str) -> RobotsData:
     return data
 
 
+def _rule_matches(rule: "Rule", path: str) -> bool:
+    """Linear glob match over '*'-split segments.
+
+    Replaces backtracking regex matching: patterns with many wildcards
+    (untrusted robots.txt input) caused catastrophic regex backtracking.
+    """
+    if rule.parts is None:
+        return bool(rule.regex.match(path))
+    parts = [p for p in rule.parts if p != ""]
+    if not parts:
+        return True  # empty pattern or bare '*' matches everything
+    n = len(parts)
+    start_anchored = not rule.pattern.startswith("*")
+    pos = 0
+    for i, part in enumerate(parts):
+        first = (i == 0)
+        last = (i == n - 1)
+        if first and start_anchored and not (last and rule.end_anchor):
+            # Must match as a prefix
+            if not path.startswith(part):
+                return False
+            pos = len(part)
+        elif last and rule.end_anchor:
+            # Must match as a suffix ($)
+            if not path.endswith(part):
+                return False
+            if len(path) - len(part) < pos:
+                return False
+            pos = len(path)
+        else:
+            idx = path.find(part, pos)
+            if idx == -1:
+                return False
+            pos = idx + len(part)
+    return True
+
+
 def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[bool, Optional[Rule], str]:
     """
     Evaluates RFC 9309 access rule for a specific user-agent and path.
@@ -177,6 +228,7 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     ua_clean = user_agent.strip().lower()
     if not path.startswith("/"):
         path = "/" + path
+    path = unquote(path)
     
     # Extract product tokens from User-Agent string (RFC 9309 Section 2.2.1)
     ua_tokens = set(re.findall(r'[a-zA-Z0-9_\-]+', ua_clean))
@@ -214,7 +266,7 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     best_length = -1
 
     for rule in matching_rules:
-        if rule.regex.match(path):
+        if _rule_matches(rule, path):
             if rule.length > best_length:
                 best_length = rule.length
                 best_rule = rule
@@ -252,6 +304,10 @@ CRAWLER_POLICIES = {
     "Amazonbot": POLICY_MODEL_TRAINING,
     "ChatGPT-User": POLICY_USER_FETCH,
     "Claude-User": POLICY_USER_FETCH,
+    "Perplexity-User": POLICY_USER_FETCH,
+    "MistralAI-User": POLICY_USER_FETCH,
+    "meta-externalagent": POLICY_MODEL_TRAINING,
+    "cohere-ai": POLICY_MODEL_TRAINING,
 }
 
 
