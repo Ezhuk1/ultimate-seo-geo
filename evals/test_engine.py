@@ -2764,8 +2764,108 @@ def test_v3_5_1_epistemic_audit_remediation_suite():
     print("[PASS] test_v3_5_1_epistemic_audit_remediation_suite")
 
 
+def test_v3_6_0_gsc_cannibalization_suite():
+    """Verifies v3.6.0 GSC analytics expansion:
+    1. Keyword cannibalization detection (query+page export, split authority)
+    2. Healthy single-URL dominance NOT flagged
+    3. Position-aware CTR underperformance (top rank, low CTR vs benchmark)
+    4. Queries-only export -> NOT MEASURED note (Unknown != Failure)
+    5. Markdown summary renders CTR rows and cannibalization table
+    """
+    import tempfile
+    from engine.analyzers.gsc_analyzer import (
+        analyze_gsc_csv, format_gsc_markdown_summary, expected_organic_ctr
+    )
+
+    # 0. Expected CTR curve interpolation
+    assert expected_organic_ctr(1.0) == 28.0
+    assert abs(expected_organic_ctr(2.5) - 12.5) < 0.01
+    assert expected_organic_ctr(15.0) is None, "Beyond curve must return None, not extrapolate"
+    assert expected_organic_ctr(0.0) is None
+
+    # 1. Query+page export: split authority detected, healthy dominance skipped
+    csv_qp = (
+        "Top queries,Top pages,Clicks,Impressions,CTR,Position\n"
+        "seo audit,/a,10,120,8.3%,1.2\n"
+        "seo audit,/b,3,90,3.3%,6.0\n"
+        "seo audit,/c,2,70,2.9%,9.0\n"
+        "healthy query,/winner,100,900,12.0%,2.0\n"
+        "healthy query,/loser,1,15,6.7%,11.0\n"
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, encoding="utf-8") as tf:
+        tf.write(csv_qp)
+        tf_qp = tf.name
+
+    try:
+        res = analyze_gsc_csv(tf_qp)
+        assert res.is_valid
+        assert res.cannibalization_count == 1, f"Expected 1 cannibalized query, got {res.cannibalization_count}"
+        cann = res.cannibalization[0]
+        assert cann.query == "seo audit"
+        assert len(cann.pages) == 3 and cann.top_page == "/a"
+        assert cann.top_page_impression_share_pct < 60.0
+        assert cann.best_position == 1.2
+        assert "canonicalize" in cann.recommendation.lower()
+
+        # 3. Position-aware CTR: pos 1.2 expected ~25.4%, actual 8.3% -> flagged
+        # despite CTR > static 2.0% floor; healthy pos-2 query (12%) must NOT be flagged.
+        assert any(q.query == "seo audit" and q.expected_ctr for q in res.ctr_opportunities), \
+            "Top-rank CTR below position benchmark must be flagged with expected_ctr"
+        assert not any(q.query == "healthy query" for q in res.ctr_opportunities), \
+            "Healthy CTR at position benchmark must not be flagged"
+        low = next(q for q in res.ctr_opportunities if q.query == "seo audit")
+        d = low.to_dict()
+        assert "expected_ctr" in d and "ctr_deficit_pct" in d
+
+        # 5. Markdown rendering: CTR rows + cannibalization table + primary mapping
+        md = format_gsc_markdown_summary(res)
+        assert "Snippet Underperformers" in md
+        ctr_section = md.split("Snippet Underperformers")[1].split("Keyword Cannibalization")[0]
+        assert "seo audit" in ctr_section, "CTR underperformers table must contain rendered rows"
+        assert "Expected CTR" in ctr_section
+        assert "Keyword Cannibalization (Split Authority)" in md
+        assert "Primary URL mapping" in md
+        assert "/a" in md and "/winner" not in md
+    finally:
+        if os.path.exists(tf_qp):
+            os.remove(tf_qp)
+
+    # 2. Healthy pattern: dominant top-3 URL is NOT cannibalization
+    csv_healthy = (
+        "Top queries,Top pages,Clicks,Impressions,CTR,Position\n"
+        "dominant query,/only,50,500,10.0%,2.0\n"
+        "dominant query,/tiny,1,10,10.0%,12.0\n"
+    )
+    res_h = analyze_gsc_csv(csv_healthy)
+    assert res_h.cannibalization_count == 0, "Dominant top-3 URL must not be flagged as cannibalization"
+
+    # 4. Queries-only export: cannibalization is NOT MEASURED, not silently skipped
+    csv_q = "Top queries,Clicks,Impressions,CTR,Position\nq1,5,200,2.5%,6.0\n"
+    res_q = analyze_gsc_csv(csv_q)
+    assert res_q.is_valid and res_q.cannibalization_count == 0
+    assert "NOT MEASURED" in res_q.cannibalization_note
+    md_q = format_gsc_markdown_summary(res_q)
+    assert "Cannibalization" in md_q, "NOT MEASURED note must be visible in markdown summary"
+
+    # Backward compat: v3.3.0 fixtures still classify identically; CTR rows render
+    csv_legacy = (
+        "Top queries,Clicks,Impressions,CTR,Position\n"
+        "seo audit tool,120,1500,8.0%,2.1\n"
+        "striking distance seo,15,600,2.5%,7.4\n"
+        "geo readiness score,5,420,1.19%,8.9\n"
+    )
+    res_l = analyze_gsc_csv(csv_legacy)
+    assert res_l.striking_distance_count == 2
+    assert any(q.query == "geo readiness score" for q in res_l.ctr_opportunities)
+    md_l = format_gsc_markdown_summary(res_l)
+    assert "geo readiness score" in md_l.split("Snippet Underperformers")[1], \
+        "CTR underperformers table must render data rows (regression guard for empty-table bug)"
+
+    print("[PASS] test_v3_6_0_gsc_cannibalization_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.5.1 integration suite...")
+    print("Running Engine v3.6.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -2798,5 +2898,6 @@ if __name__ == "__main__":
     test_v3_5_0_audit_remediation_suite()
     test_v3_5_1_sitemap_index_inspector_wiring()
     test_v3_5_1_epistemic_audit_remediation_suite()
-    print("All Engine v3.5.1 tests passed successfully (32 deterministic test suites)!")
+    test_v3_6_0_gsc_cannibalization_suite()
+    print("All Engine v3.6.0 tests passed successfully (33 deterministic test suites)!")
 

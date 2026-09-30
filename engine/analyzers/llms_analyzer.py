@@ -51,7 +51,7 @@ def check_llms_txt(target_url: str, timeout: float = 5.0) -> LlmsTxtResult:
     try:
         req = urllib.request.Request(
             origin_llms_url,
-            headers={"User-Agent": "UltimateSeoGeoEngine/3.5.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
+            headers={"User-Agent": "UltimateSeoGeoEngine/3.6.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res.status_code = resp.getcode()

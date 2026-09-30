@@ -1,6 +1,6 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Версия: 3.5.0](https://img.shields.io/badge/Версия-3.5.0-blue.svg)](evals/CHANGELOG.md)
+[![Версия: 3.6.0](https://img.shields.io/badge/Версия-3.6.0-blue.svg)](evals/CHANGELOG.md)
 [![Лицензия: MIT](https://img.shields.io/badge/Лицензия-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Стандарт: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
@@ -121,6 +121,7 @@ python -m engine.inspector https://example.com --robots path/to/custom-robots.tx
 - **Симулятор доступа по RFC 9309:** Полный AST-парсер с поддержкой группировок User-agent, подстановок `*` и `$`, правила максимального совпадения (longest-match) и приоритета Allow для `GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`.
 - **4-уровневый протокол Evidence Ledger:** Конвейер `RAW` $\to$ `SIGNAL` $\to$ `EVIDENCE` $\to$ `FINDING` с фиксацией хэша прослеживаемости SHA-256.
 - **Анализатор контента и готовности к GEO:** Детекция прямого ответа в первом блоке, выявление «воды», анализ длины чанков и независимости местоимений (coreference).
+- **Аналитика Search Console (Striking Distance, позиционный CTR, каннибализация):** Разбор CSV-экспортов GSC: запросы в «зоне поражения» топ-3, сниппеты с CTR ниже позиционного бенчмарка и каннибализация запросов (один запрос на несколько URL с разделенным impression-весом) с рекомендациями по консолидации.
 
 ---
 
@@ -257,17 +258,17 @@ python evals/run_evals.py
 ==================================================
  ultimate-seo-geo Test Runner & Assertion Harness
 ==================================================
-Suite: ultimate-seo-geo-evals (v3.5.0) - 10 test cases
+Suite: ultimate-seo-geo-evals (v3.6.0) - 10 test cases
 
 [OK] Schema & reference file integrity: PASS
 --- 1. Canonical Fixture Evaluation ---
   [PASS] 10/10 canonical evals passed
 --- 2. Negative Mutation & Anti-Regression Suite ---
   [PASS] 20/20 negative mutation guards passed
---- 3. Autonomous Inspection Engine (v3.5.0) Integration Suite ---
+--- 3. Autonomous Inspection Engine (v3.6.0) Integration Suite ---
   [PASS] 30/30 engine integration tests passed (включая test_v3_5_0_audit_remediation_suite)
 
-[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.5.0 tests are healthy.
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.6.0 tests are healthy.
 ```
 
 ---

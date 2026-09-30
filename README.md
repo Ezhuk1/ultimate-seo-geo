@@ -1,6 +1,6 @@
 # 🚀 Ultimate SEO & GEO All-In-One (`ultimate-seo-geo`)
 
-[![Version: 3.5.0](https://img.shields.io/badge/Version-3.5.0-blue.svg)](evals/CHANGELOG.md)
+[![Version: 3.6.0](https://img.shields.io/badge/Version-3.6.0-blue.svg)](evals/CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B%20%7C%20Zero--Dep-success.svg)](engine/)
 [![Skill Standard: AgentSkills](https://img.shields.io/badge/AgentSkills-1.0-emerald.svg)](SKILL.md)
@@ -134,6 +134,7 @@ python -m engine.inspector https://example.com --format json --output audit.json
 - **OASIS SARIF v2.1.0 Exporter:** Turnkey integration with GitHub Code Scanning, GitLab CI, and automated security/quality dashboards.
 - **Segregated Security Hygiene Score:** Independent 0..100 dimension for HTTPS wire, HSTS headers, mixed content, and security headers.
 - **Historical Monitoring & Delta Comparison:** Automatically computes score deltas, resolved issues, and introduced defects against previous audit files.
+- **GSC Query Analytics (Striking Distance, Position-Aware CTR, Cannibalization):** Parses Search Console CSV exports to surface striking-distance queries, snippet underperformers benchmarked against a position-typical CTR curve, and keyword cannibalization (one query served by multiple URLs with split impression share) with consolidation recommendations.
 
 ---
 
@@ -271,17 +272,17 @@ Expected output:
 ==================================================
  ultimate-seo-geo Test Runner & Assertion Harness
 ==================================================
-Suite: ultimate-seo-geo-evals (v3.5.0) - 10 test cases
+Suite: ultimate-seo-geo-evals (v3.6.0) - 10 test cases
 
 [OK] Schema & reference file integrity: PASS
 --- 1. Canonical Fixture Evaluation ---
   [PASS] 10/10 canonical evals passed
 --- 2. Negative Mutation & Anti-Regression Suite ---
   [PASS] 20/20 negative mutation guards passed
---- 3. Autonomous Inspection Engine (v3.5.0) Integration Suite ---
+--- 3. Autonomous Inspection Engine (v3.6.0) Integration Suite ---
   [PASS] 30/30 engine integration tests passed (including test_v3_5_0_audit_remediation_suite)
 
-[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.5.0 tests are healthy.
+[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.6.0 tests are healthy.
 ```
 
 ---

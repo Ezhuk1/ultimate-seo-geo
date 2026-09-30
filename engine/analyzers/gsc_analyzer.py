@@ -3,7 +3,8 @@ Deterministic Google Search Console (GSC) CSV Analyzer for ultimate-seo-geo.
 
 Analyzes performance export CSVs (Queries.csv, Pages.csv) to discover
 high-leverage 'Striking Distance' queries (positions 5.0 - 20.0 with >= 50 impressions),
-CTR optimization opportunities, and quick-win page mappings.
+position-aware CTR underperformers, quick-win page mappings, and keyword
+cannibalization (same query served by multiple URLs with split impression share).
 Pure Python standard library with zero external dependencies.
 """
 
@@ -26,9 +27,10 @@ class GscQueryItem:
     position: float
     page: Optional[str] = None
     opportunity_type: str = "striking_distance"  # striking_distance, quick_win, low_ctr
+    expected_ctr: Optional[float] = None  # position-model expectation, when computed
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "query": self.query,
             "clicks": self.clicks,
             "impressions": self.impressions,
@@ -36,6 +38,37 @@ class GscQueryItem:
             "position": round(self.position, 1),
             "page": self.page,
             "opportunity_type": self.opportunity_type
+        }
+        if self.expected_ctr is not None:
+            d["expected_ctr"] = round(self.expected_ctr, 1)
+            d["ctr_deficit_pct"] = round(max(0.0, (self.expected_ctr - self.ctr) / self.expected_ctr * 100.0), 1)
+        return d
+
+
+@dataclass
+class GscCannibalizationItem:
+    """Multiple URLs on the same site competing for one query (split authority)."""
+    query: str
+    pages: List[str]
+    page_impressions: Dict[str, int]
+    page_positions: Dict[str, float]
+    total_impressions: int
+    best_position: float
+    top_page: str
+    top_page_impression_share_pct: float  # 0-100
+    recommendation: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "query": self.query,
+            "pages": self.pages,
+            "page_impressions": self.page_impressions,
+            "page_positions": {k: round(v, 1) for k, v in self.page_positions.items()},
+            "total_impressions": self.total_impressions,
+            "best_position": round(self.best_position, 1),
+            "top_page": self.top_page,
+            "top_page_impression_share_pct": round(self.top_page_impression_share_pct, 1),
+            "recommendation": self.recommendation
         }
 
 
@@ -74,6 +107,9 @@ class GscAnalysisResult:
     striking_distance: List[GscQueryItem] = field(default_factory=list)
     quick_wins: List[GscQueryItem] = field(default_factory=list)
     ctr_opportunities: List[GscQueryItem] = field(default_factory=list)
+    cannibalization: List[GscCannibalizationItem] = field(default_factory=list)
+    cannibalization_count: int = 0
+    cannibalization_note: str = ""  # set when the export lacks query+page columns
     decay_items: List[GscDecayItem] = field(default_factory=list)
     error_message: str = ""
 
@@ -90,9 +126,37 @@ class GscAnalysisResult:
             "striking_distance": [q.to_dict() for q in self.striking_distance[:50]],
             "quick_wins": [q.to_dict() for q in self.quick_wins[:20]],
             "ctr_opportunities": [q.to_dict() for q in self.ctr_opportunities[:20]],
+            "cannibalization_count": self.cannibalization_count,
+            "cannibalization_note": self.cannibalization_note,
+            "cannibalization": [c.to_dict() for c in self.cannibalization[:20]],
             "decay_items": [d.to_dict() for d in self.decay_items[:30]],
             "error_message": self.error_message
         }
+
+
+# Aggregate organic CTR benchmarks by Google position (piecewise-linear anchors).
+# Heuristic model aggregated from public industry CTR studies (Advanced Web Ranking /
+# Backlinko-style curves); used as a *relative* underperformance reference, never as
+# an absolute expectation. Tunable per niche.
+EXPECTED_CTR_CURVE: Dict[int, float] = {
+    1: 28.0, 2: 15.0, 3: 10.0, 4: 7.0, 5: 5.0,
+    6: 3.8, 7: 3.0, 8: 2.4, 9: 2.0, 10: 1.7
+}
+
+
+def expected_organic_ctr(position: float) -> Optional[float]:
+    """Interpolated expected CTR (%) for a given average position, or None beyond the curve."""
+    if position is None or position <= 0:
+        return None
+    anchors = sorted(EXPECTED_CTR_CURVE.items())
+    if position <= anchors[0][0]:
+        return anchors[0][1]
+    if position >= anchors[-1][0]:
+        return None
+    for (pos_a, ctr_a), (pos_b, ctr_b) in zip(anchors, anchors[1:]):
+        if pos_a <= position <= pos_b:
+            return ctr_a + (ctr_b - ctr_a) * ((position - pos_a) / (pos_b - pos_a))
+    return None
 
 
 # Header aliases for multilingual/varied exports
@@ -253,8 +317,14 @@ def analyze_gsc_csv(
                 item.opportunity_type = "quick_win"
                 quick_wins.append(item)
 
-        # CTR Opportunity: top 10 (pos <= 10.0), healthy impressions, but CTR underperforms (< 2.0%)
-        if item.position <= 10.0 and item.impressions >= (min_impressions * 2) and item.ctr < 2.0:
+        # CTR Opportunity (position-aware): flag snippets that underperform the
+        # position-typical CTR curve by >= 50%, in addition to the static < 2.0%
+        # floor for Page-1 ranks. E.g. position 1 with 5% CTR is a snippet failure
+        # even though 5% > 2.0%.
+        exp_ctr = expected_organic_ctr(item.position)
+        ctr_deficit = (exp_ctr is not None and exp_ctr > 0 and item.ctr < 0.5 * exp_ctr)
+        is_low_ctr_static = item.position <= 10.0 and item.impressions >= (min_impressions * 2) and item.ctr < 2.0
+        if item.impressions >= (min_impressions * 2) and (is_low_ctr_static or ctr_deficit):
             ctr_item = GscQueryItem(
                 query=item.query,
                 clicks=item.clicks,
@@ -262,15 +332,71 @@ def analyze_gsc_csv(
                 ctr=item.ctr,
                 position=item.position,
                 page=item.page,
-                opportunity_type="low_ctr"
+                opportunity_type="low_ctr",
+                expected_ctr=exp_ctr
             )
             ctr_opps.append(ctr_item)
+
+    # Keyword Cannibalization: same query served by multiple URLs on the site
+    # (split authority). Only measurable when the export carries both query and
+    # page dimensions; otherwise recorded as NOT MEASURED with a note.
+    cannibal_items: List[GscCannibalizationItem] = []
+    if col_query != -1 and col_page != -1:
+        q_page_agg: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        for item in parsed_items:
+            if not item.page:
+                continue
+            q_entry = q_page_agg.setdefault(item.query, {})
+            page_agg = q_entry.setdefault(item.page, {"impr": 0, "best_pos": None})
+            page_agg["impr"] += item.impressions
+            if item.position > 0 and (page_agg["best_pos"] is None or item.position < page_agg["best_pos"]):
+                page_agg["best_pos"] = item.position
+
+        for q_text, pages_agg in q_page_agg.items():
+            if len(pages_agg) < 2:
+                continue
+            total_impr = sum(a["impr"] for a in pages_agg.values())
+            if total_impr < min_impressions:
+                continue
+            top_page, _top_agg = max(pages_agg.items(), key=lambda kv: kv[1]["impr"])
+            top_impr = pages_agg[top_page]["impr"]
+            top_share = top_impr / total_impr * 100.0
+            best_pos = min((a["best_pos"] for a in pages_agg.values() if a["best_pos"] is not None), default=None)
+            # Healthy pattern: one dominant URL (>= 60% of impressions) already in
+            # the top 3. Anything else is split authority worth consolidating.
+            if top_share >= 60.0 and best_pos is not None and best_pos <= 3.0:
+                continue
+            if best_pos is not None and best_pos <= 3.0:
+                rec = (f"Primary URL {top_page} ranks top-3 but competes with {len(pages_agg) - 1} secondary page(s). "
+                       "Canonicalize or 301 secondary pages into the primary and align anchors.")
+            elif top_share >= 60.0:
+                rec = (f"{top_page} dominates this query but ranks outside top-3. Consolidate remaining "
+                       "secondary URLs into it, then strengthen internal links and on-page focus.")
+            else:
+                rec = ("No single URL owns this query (split impression share). Pick one canonical target, "
+                       "differentiate or fold the rest, and point internal anchors at the chosen primary.")
+            cannibal_items.append(GscCannibalizationItem(
+                query=q_text,
+                pages=sorted(pages_agg.keys(), key=lambda p: -pages_agg[p]["impr"]),
+                page_impressions={p: a["impr"] for p, a in pages_agg.items()},
+                page_positions={p: a["best_pos"] for p, a in pages_agg.items() if a["best_pos"] is not None},
+                total_impressions=total_impr,
+                best_position=best_pos if best_pos is not None else 0.0,
+                top_page=top_page,
+                top_page_impression_share_pct=top_share,
+                recommendation=rec
+            ))
+    elif col_query != -1 or col_page != -1:
+        res.cannibalization_note = ("NOT MEASURED: cannibalization detection requires a GSC export with both "
+                                    "query and page dimensions; this export provides only one of them.")
 
     # Sort opportunities by impressions descending (highest leverage first)
     res.striking_distance = sorted(striking_dist, key=lambda x: x.impressions, reverse=True)
     res.quick_wins = sorted(quick_wins, key=lambda x: x.impressions, reverse=True)
     res.ctr_opportunities = sorted(ctr_opps, key=lambda x: x.impressions, reverse=True)
     res.striking_distance_count = len(res.striking_distance)
+    res.cannibalization = sorted(cannibal_items, key=lambda x: x.total_impressions, reverse=True)
+    res.cannibalization_count = len(res.cannibalization)
     res.is_valid = True
 
     return res
@@ -303,11 +429,41 @@ def format_gsc_markdown_summary(res: GscAnalysisResult) -> str:
 
     if res.ctr_opportunities:
         md.append("")
-        md.append("### ⚠️ Snippet Underperformers (Top-10 Rank with Low CTR < 2%)")
+        md.append("### ⚠️ Snippet Underperformers (CTR Below Position Benchmark)")
         md.append("These queries already rank on Page 1, but searchers skip your snippet. Rewrite `<title>` pixel width (~580px) and `<meta description>`:")
         md.append("")
-        md.append("| Query | Position | Impressions | Current CTR | Recommended Snippet Fix |")
-        md.append("|---|:---:|:---:|:---:|---|")
+        md.append("| Query | Position | Impressions | Current CTR | Expected CTR* | Recommended Snippet Fix |")
+        md.append("|---|:---:|:---:|:---:|:---:|---|")
+        for q in res.ctr_opportunities[:15]:
+            exp_label = f"{q.expected_ctr:.1f}%" if q.expected_ctr is not None else "—"
+            if q.expected_ctr is not None:
+                fix = "Far below position-typical CTR: rewrite snippet with direct value proposition"
+            else:
+                fix = "Rewrite `<title>` (~580px) & `<meta description>` with active CTA"
+            md.append(f"| `{q.query}` | #{q.position:.1f} | {q.impressions:,} | {q.ctr:.2f}% | {exp_label} | {fix} |")
+        md.append("")
+        md.append("*Expected CTR is a heuristic aggregate benchmark for the average position — tune per niche.")
+
+    if res.cannibalization:
+        md.append("")
+        md.append("### 🔀 Keyword Cannibalization (Split Authority)")
+        md.append("One query is served by multiple URLs, splitting ranking signals across them. Consolidate to concentrate authority:")
+        md.append("")
+        md.append("| Query | URLs | Best Spot | Top URL Share | Total Impressions | Recommended Consolidation |")
+        md.append("|---|:---:|:---:|:---:|:---:|---|")
+        for c in res.cannibalization[:15]:
+            spot = f"#{c.best_position:.1f}" if c.best_position > 0 else "—"
+            md.append(f"| `{c.query}` | {len(c.pages)} | {spot} | {c.top_page_impression_share_pct:.0f}% | {c.total_impressions:,} | {c.recommendation} |")
+        md.append("")
+        md.append(f"<details><summary>Primary URL mapping ({len(res.cannibalization)} queries)</summary>\n")
+        for c in res.cannibalization[:20]:
+            md.append(f"- `{c.query}` → keep `{c.top_page}` ({c.top_page_impression_share_pct:.0f}% of impressions); fold: {', '.join(f'`{p}`' for p in c.pages if p != c.top_page)}")
+        md.append("\n</details>")
+
+    if res.cannibalization_note:
+        md.append("")
+        md.append(f"> [!NOTE]\n> **Cannibalization {res.cannibalization_note}**")
+
     if res.decay_items:
         md.append("")
         md.append("### 📉 Content Decay Alerts (Queries Losing $\\ge$20% Traffic)")

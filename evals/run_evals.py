@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v3.5.1)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v3.6.0)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
 Evidence Ledger formatting, UNKNOWN signal handling, negative mutation test cases,
-recorded model transcripts, and Autonomous Engine v3.5.1 deterministic inspection suite.
+recorded model transcripts, and Autonomous Engine v3.6.0 deterministic inspection suite.
 """
 
 import json
@@ -1079,8 +1079,8 @@ def main():
         if ok:
             mutations_passed += 1
 
-    # 4. Autonomous Inspection Engine (v3.5.1) Integration Suite
-    print("\n--- 3. Autonomous Inspection Engine (v3.5.1) Integration Suite ---")
+    # 4. Autonomous Inspection Engine (v3.6.0) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v3.6.0) Integration Suite ---")
     from evals.test_engine import (
         test_clean_page_inspection,
         test_defective_page_detection,
@@ -1114,6 +1114,7 @@ def main():
         test_v3_5_0_audit_remediation_suite,
         test_v3_5_1_sitemap_index_inspector_wiring,
         test_v3_5_1_epistemic_audit_remediation_suite,
+        test_v3_6_0_gsc_cannibalization_suite,
     )
 
     engine_tests = [
@@ -1149,6 +1150,7 @@ def main():
         ("test_v3_5_0_audit_remediation_suite", test_v3_5_0_audit_remediation_suite),
         ("test_v3_5_1_sitemap_index_inspector_wiring", test_v3_5_1_sitemap_index_inspector_wiring),
         ("test_v3_5_1_epistemic_audit_remediation_suite", test_v3_5_1_epistemic_audit_remediation_suite),
+        ("test_v3_6_0_gsc_cannibalization_suite", test_v3_6_0_gsc_cannibalization_suite),
     ]
 
     engine_passed = 0
@@ -1170,7 +1172,7 @@ def main():
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
     ):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.5.1 tests are healthy.")
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.6.0 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")
