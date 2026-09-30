@@ -26,8 +26,8 @@ FLUFF_INTRO_PATTERNS = [
     re.compile(r"\b(в современном мире|в этой статье|в этой публикации|как известно|ни для кого не секрет|давайте разберемся|сегодня мы поговорим|никому не секрет)\b", re.IGNORECASE),
 ]
 
-PERCENTAGE_PATTERN = re.compile(r"\b\d+([.,]\d+)?\s?%\b")
-NUMERIC_STAT_PATTERN = re.compile(r"\b\d{1,3}(,\d{3})+(\.\d+)?\b|\b\d+(\.\d+)?\s*(million|billion|trillion|x|times)\b", re.IGNORECASE)
+PERCENTAGE_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)?\s?%")
+NUMERIC_STAT_PATTERN = re.compile(r"\b\d{1,3}(,\d{3})+(\.\d+)?\b|\b\d{1,3}( \d{3})+\b|\b\d+(\.\d+)?\s*(million|billion|trillion|x|times)\b", re.IGNORECASE)
 
 CITATION_CUES = [
     "according to", "study by", "research by", "report from", "published in",

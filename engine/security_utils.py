@@ -40,17 +40,19 @@ def is_safe_target_url(url: str) -> Tuple[bool, str]:
     if not netloc:
         return False, "Missing hostname in target URL"
 
-    # Extract hostname, stripping brackets for IPv6 literals and port
-    if netloc.startswith("[") and "]" in netloc:
-        hostname = netloc[1:netloc.index("]")].strip().lower()
-    else:
-        hostname = netloc.split(":")[0].strip().lower()
+    # Extract hostname via parsed.hostname: strips port, brackets and — critically —
+    # userinfo ("user@host"), which netloc.split(":") left in place and let
+    # "http://x@127.0.0.1/" slip through when DNS lookup failed.
+    hostname = (parsed.hostname or "").strip().lower()
 
     if not hostname:
         return False, "Empty hostname in target URL"
 
-    # Quick check for known loopback/local names
-    if hostname in ("localhost", "local", "127.0.0.1", "::1", "0.0.0.0"):
+    # Quick check for known loopback/local names. Covers trailing-dot FQDN
+    # ("localhost.") and the whole *.localhost subdomain space, which are
+    # resolved to loopback by some OS resolvers without leaving the host.
+    _host_core = hostname.rstrip(".")
+    if hostname in ("localhost", "local", "127.0.0.1", "::1", "0.0.0.0") or             _host_core == "localhost" or _host_core.endswith(".localhost"):
         return False, f"Destination '{hostname}' is a forbidden loopback target (SSRF prevention)"
 
     def check_ip_object(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> Tuple[bool, str]:

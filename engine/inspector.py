@@ -21,6 +21,8 @@ from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult, merge_sitemap_results
+
+MAX_SITEMAP_INDEX_CHILDREN = 50  # hard cap on sitemap-index children to expand
 from .analyzers.eeat_analyzer import analyze_eeat
 from .analyzers.freshness_analyzer import analyze_freshness
 from .analyzers.performance_analyzer import analyze_performance
@@ -257,7 +259,7 @@ def run_inspection(
     # Expand sitemap index children if present
     if sitemap_res and sitemap_res.is_sitemap_index and sitemap_res.nested_sitemaps and not http_res["is_local"]:
         child_results = []
-        for child_sm_url in sitemap_res.nested_sitemaps[:5]:
+        for child_sm_url in sitemap_res.nested_sitemaps[:MAX_SITEMAP_INDEX_CHILDREN]:
             c_res = analyze_target_http(child_sm_url, timeout=timeout)
             if c_res["status_code"] == 200 and c_res["raw_content"]:
                 c_parsed = parse_sitemap_xml(

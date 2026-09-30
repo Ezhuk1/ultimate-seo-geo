@@ -12,6 +12,7 @@ Evaluates:
 
 from __future__ import annotations
 import re
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Set
 
@@ -101,17 +102,37 @@ def analyze_eeat(
     links = links or []
 
     # 1. Author Identification (from Schema or text patterns)
+    # Reference nodes ({"@id": "#person-1"}) are resolved against the @graph —
+    # the recommended unified-graph pattern used to lose name/bio/sameAs.
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for ent in schema_entities:
+        ent_id = ent.get("@id")
+        if isinstance(ent_id, str) and ent_id:
+            by_id[ent_id] = ent
+
+    def _resolve(node: Dict[str, Any]) -> Dict[str, Any]:
+        if isinstance(node, dict) and "name" not in node:
+            ref = node.get("@id")
+            if isinstance(ref, str) and ref in by_id:
+                return by_id[ref]
+        return node
+
+    def _type_list(value: Any) -> List[str]:
+        if isinstance(value, list):
+            return [str(v) for v in value]
+        return [str(value)] if value is not None else []
+
     authors: List[Dict[str, Any]] = []
     for ent in schema_entities:
-        t = ent.get("@type")
-        if t == "Person":
+        types = _type_list(ent.get("@type"))
+        if "Person" in types:
             authors.append(ent)
         elif isinstance(ent.get("author"), dict):
-            authors.append(ent["author"])
+            authors.append(_resolve(ent["author"]))
         elif isinstance(ent.get("author"), list):
             for a in ent["author"]:
                 if isinstance(a, dict):
-                    authors.append(a)
+                    authors.append(_resolve(a))
 
     if authors:
         result.has_author = True
@@ -128,8 +149,12 @@ def analyze_eeat(
             same_as = [str(s) for s in same_as]
         result.author_same_as = same_as
 
+        # Hostname match: a substring check let "https://evil.example/?p=linkedin.com"
+        # count as a trusted profile.
         for p in same_as:
-            if any(dom in p.lower() for dom in TRUSTED_AUTHORITY_DOMAINS):
+            host = (urlsplit(p).hostname or "").lower()
+            host = host[4:] if host.startswith("www.") else host
+            if any(host == dom or host.endswith("." + dom) for dom in TRUSTED_AUTHORITY_DOMAINS):
                 result.has_trusted_authority_profile = True
                 break
     else:
@@ -142,7 +167,7 @@ def analyze_eeat(
     # 2. Organization Identification
     for ent in schema_entities:
         t = ent.get("@type")
-        if t in ("Organization", "Corporation", "LocalBusiness"):
+        if any(x in _type_list(t) for x in ("Organization", "Corporation", "LocalBusiness")):
             result.has_organization = True
             result.organization_name = str(ent.get("name", "")).strip()
             break
