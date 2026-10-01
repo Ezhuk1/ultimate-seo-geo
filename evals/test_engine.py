@@ -2865,8 +2865,120 @@ def test_v3_6_0_gsc_cannibalization_suite():
     print("[PASS] test_v3_6_0_gsc_cannibalization_suite")
 
 
+def test_v3_7_0_aeo_and_speakable_suite():
+    """Validates Answer Engine Optimization (AEO) scoring, breakdown, and SCHEMA-SPEAKABLE-027."""
+    from engine.analyzers.schema_analyzer import analyze_json_ld
+    from engine.inspector import EvidenceLedger, format_markdown_report, run_inspection
+    from engine.scoring import calculate_scores, AeoDimensions
+
+    # 1. Schema Analyzer unit tests
+    schema_valid_speakable = [
+        """{
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": "AEO Guide",
+            "speakable": {
+                "@type": "SpeakableSpecification",
+                "cssSelector": ["#summary-box", ".key-takeaways"]
+            }
+        }"""
+    ]
+    res_speakable_pass = analyze_json_ld(schema_valid_speakable)
+    assert not any(f.rule_id == "SCHEMA-SPEAKABLE-027" for f in res_speakable_pass.findings), "Valid speakable must not produce findings/warnings"
+
+    # Schema Analyzer: speakable missing cssSelector/xpath -> WARNING
+    schema_invalid_speakable = [
+        """{
+            "@context": "https://schema.org",
+            "@type": "Article",
+            "headline": "AEO Guide",
+            "speakable": {
+                "@type": "SpeakableSpecification"
+            }
+        }"""
+    ]
+    res_speakable_warn = analyze_json_ld(schema_invalid_speakable)
+    warn_ev = [f for f in res_speakable_warn.findings if f.rule_id == "SCHEMA-SPEAKABLE-027"]
+    assert len(warn_ev) == 1 and warn_ev[0].severity == "WARNING", "Missing selectors must produce WARNING"
+
+    # End-to-end inspection with Speakable
+    e2e_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>AEO Test Page Guide</title>
+    <meta name="description" content="A comprehensive guide to Answer Engine Optimization testing speakable schema.">
+    <link rel="canonical" href="https://example.com/aeo">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "AEO Test Page Guide",
+        "speakable": {
+            "@type": "SpeakableSpecification",
+            "cssSelector": ["#summary"]
+        }
+    }
+    </script>
+</head>
+<body>
+    <h1>AEO Guide</h1>
+    <p id="summary">Answer Engine Optimization is the discipline of structuring web content for AI synthesis, voice search engines, and direct answer cards across search ecosystems.</p>
+    <p>Empirical benchmarks across modern retrieval systems demonstrate that direct answer frontloading and standalone passages significantly enhance synthetic retrieval fidelity.</p>
+</body>
+</html>"""
+    fd, path = tempfile.mkstemp(suffix=".html")
+    with open(fd, "w", encoding="utf-8") as f:
+        f.write(e2e_html)
+    try:
+        e2e_ledger, e2e_scores = run_inspection(path)
+        sp_ev = [e for e in e2e_ledger.evidence if e.rule_id == "SCHEMA-SPEAKABLE-027"]
+        assert len(sp_ev) == 1 and sp_ev[0].status == "PASS", "End-to-end inspection must emit PASS for valid speakable"
+        assert e2e_scores.aeo_score > 0, "AEO score must be calculated and > 0"
+        assert e2e_scores.aeo_dimensions is not None
+    finally:
+        os.remove(path)
+
+    # 2. AEO Scoring Calculation
+    from engine.ledger import LedgerBuilder
+    builder = LedgerBuilder("https://example.com/aeo-guide")
+    builder.metadata["target"] = "https://example.com/aeo-guide"
+    builder.metadata["provenance_sha256"] = "aeo123"
+    builder.metadata["generated_at"] = "2026-10-01T12:00:00Z"
+    builder.metadata["engine_version"] = "3.7.0"
+
+    # Add all 7 AEO passing signals
+    builder.add_evidence(rule_id="GEO-ANSWER-FRONTLOAD-001", category="geo", title="Direct Answer", status="PASS", confidence="VERIFIED", observed="Frontloaded", expected="Frontloaded", message="Direct answer frontloaded.")
+    builder.add_evidence(rule_id="CONTENT-QUESTION-HEADINGS-002", category="geo", title="Q&A Headings", status="PASS", confidence="VERIFIED", observed="Q&A format", expected="Q&A format", message="H2/H3 question headings present.")
+    builder.add_evidence(rule_id="GEO-SECTION-PYRAMID-024", category="geo", title="Section Inverted Pyramid", status="PASS", confidence="VERIFIED", observed="Pyramid structure", expected="Pyramid structure", message="Each section opens with primary answer.")
+    builder.add_evidence(rule_id="GEO-COREFERENCE-INDEPENDENCE-003", category="geo", title="Coreference Independence", status="PASS", confidence="VERIFIED", observed="Autonomous pronouns", expected="Autonomous pronouns", message="No dangling pronouns.")
+    builder.add_evidence(rule_id="GEO-ANCHOR-DEEPLINK-023", category="geo", title="Citation Anchors", status="PASS", confidence="VERIFIED", observed="Deep link IDs present", expected="Deep link IDs", message="Section deep link IDs present.")
+    builder.add_evidence(rule_id="CONTENT-EXTRACTABLE-003", category="geo", title="Extractable Formats", status="PASS", confidence="VERIFIED", observed="Lists & tables", expected="Lists & tables", message="Tabular formats present.")
+    builder.add_evidence(rule_id="SCHEMA-SPEAKABLE-027", category="schema", title="Speakable Voice Schema", status="PASS", confidence="VERIFIED", observed="SpeakableSpecification", expected="SpeakableSpecification", message="Valid speakable markup.")
+
+    ledger = builder.build()
+    scores = calculate_scores(ledger)
+    assert scores.aeo_score == 100, f"Expected 100 AEO score, got {scores.aeo_score}"
+    assert scores.aeo_tier == "STAGE_4_DIRECT_ANSWER_AUTHORITY"
+    assert scores.aeo_dimensions is not None
+    assert scores.aeo_dimensions.direct_answer_definition == 25
+    assert scores.aeo_dimensions.question_headings == 20
+    assert scores.aeo_dimensions.section_pyramid == 15
+    assert scores.aeo_dimensions.passage_autonomy == 15
+    assert scores.aeo_dimensions.citation_anchors == 10
+    assert scores.aeo_dimensions.extractable_formats == 10
+    assert scores.aeo_dimensions.semantic_qa_markup == 5
+
+    # 3. Verify Markdown Report renders AEO
+    md_rep = format_markdown_report(ledger, scores)
+    assert "AEO & Direct Answer Score" in md_rep, "Scorecard must contain AEO row"
+    assert "🎯 Answer Engine Optimization (AEO & Direct Answers)" in md_rep, "Report must contain AEO section"
+    assert "Direct Answer Definition" in md_rep
+
+    print("[PASS] test_v3_7_0_aeo_and_speakable_suite")
+
+
 if __name__ == "__main__":
-    print("Running Engine v3.6.0 integration suite...")
+    print("Running Engine v3.7.0 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -2878,6 +2990,7 @@ if __name__ == "__main__":
     test_sitemap_analyzer()
     test_schema_empty_and_calendar_validation()
     test_http_status_blocking_and_coverage()
+    test_sitemap_analyzer_inspector_inspector = True
     test_sitemap_analyzer_inspector_integration()
     test_audit_v2_16_fixes()
     test_week1_foundation_edge_cases()
@@ -2900,5 +3013,6 @@ if __name__ == "__main__":
     test_v3_5_1_sitemap_index_inspector_wiring()
     test_v3_5_1_epistemic_audit_remediation_suite()
     test_v3_6_0_gsc_cannibalization_suite()
-    print("All Engine v3.6.0 tests passed successfully (33 deterministic test suites)!")
+    test_v3_7_0_aeo_and_speakable_suite()
+    print("All Engine v3.7.0 tests passed successfully (34 deterministic test suites)!")
 

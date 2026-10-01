@@ -271,3 +271,37 @@ When marking up web tools, APIs, CLI utilities, or SaaS apps, nest `SoftwareAppl
   ]
 }
 ```
+
+---
+
+## 5. Voice & Direct Answer Schema (`SpeakableSpecification` for AEO)
+
+For voice assistants (Google Assistant, smart displays), audio playback, and Answer Engine Optimization (AEO), use `speakable` on `Article`, `NewsArticle`, or `BlogPosting` to identify sections of the page that are most suitable for text-to-speech audio readout or concise direct answers:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "@id": "https://example.com/guide/#article",
+      "headline": "Understanding Edge Computing Architectures",
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          "#definition-summary",
+          "#key-takeaways"
+        ]
+      },
+      "mainEntityOfPage": "https://example.com/guide/"
+    }
+  ]
+}
+```
+
+> [!NOTE]
+> **Guidelines for `SpeakableSpecification` (`SCHEMA-SPEAKABLE-027`):**
+> 1. Use concise, 20–30 second passages (typically 20–50 words) that directly answer the core question or provide key takeaways.
+> 2. Point to stable CSS selectors (`cssSelector`) or XPath expressions (`xpath`) targeting paragraphs or lists with self-contained, standalone context.
+> 3. Do not highlight entire article bodies, navigation, image captions, or headlines alone.
+

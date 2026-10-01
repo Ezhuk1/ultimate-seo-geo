@@ -408,6 +408,29 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
             except (ValueError, TypeError):
                 pass
 
+    # 9.5 Check SpeakableSpecification (SCHEMA-SPEAKABLE-027)
+    articles_for_sp = (
+        _find_entities_by_type(result.entities, "Article")
+        + _find_entities_by_type(result.entities, "NewsArticle")
+        + _find_entities_by_type(result.entities, "BlogPosting")
+    )
+    for art in articles_for_sp:
+        if "speakable" in art:
+            sp = art["speakable"]
+            has_selectors = False
+            if isinstance(sp, dict):
+                has_selectors = bool(sp.get("cssSelector") or sp.get("xpath"))
+            elif isinstance(sp, (list, str)) and sp:
+                has_selectors = True
+            if not has_selectors:
+                result.findings.append(SchemaFinding(
+                    rule_id="SCHEMA-SPEAKABLE-027",
+                    severity="WARNING",
+                    entity_type=art.get("@type"),
+                    message="Schema speakable property is present but lacks valid cssSelector or xpath targeting key audio answer passages.",
+                    details={"speakable": sp}
+                ))
+
     # 10. Compute 4-Tier Verdict
     result.syntax_valid = "NO" if result.syntax_errors else "YES"
     has_crit = any(f.severity == "CRITICAL" for f in result.findings)

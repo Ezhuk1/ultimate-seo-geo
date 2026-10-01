@@ -207,6 +207,22 @@
       "tier": "Tier E (Heuristic)",
       "description": "Organization/content entities must be cross-linked (publisher/author/brand/hasOfferCatalog) for LLM disambiguation.",
       "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
+    },
+    {
+      "id": "SCHEMA-SPEAKABLE-027",
+      "name": "SpeakableSpecification Audio/Voice Answer Targeting",
+      "category": "schema",
+      "severity": "INFO",
+      "impact": "P3",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier B (Google Structured Data Guidelines)",
+      "selector": "Article.speakable, WebPage.speakable",
+      "description": "Schema speakable property designates concise headlines and summary passages suitable for text-to-speech audio synthesis and voice search answers (Google Assistant, Siri).",
+      "remediation": "Add speakable property with cssSelector (e.g. ['.headline', '.lead-summary']) to Article schema.",
+      "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
     }
   ]
 }

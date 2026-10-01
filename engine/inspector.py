@@ -399,6 +399,58 @@ def run_inspection(
             )
     except Exception:
         pass
+
+    # SCHEMA-SPEAKABLE-027: SpeakableSpecification audio/voice answer targeting
+    try:
+        _has_article = bool(_etypes & {"Article", "NewsArticle", "BlogPosting", "WebPage"})
+        _speakable_entities = [e for e in schema_data.entities if "speakable" in e]
+        if _speakable_entities:
+            _sp_valid = False
+            for se in _speakable_entities:
+                sp = se.get("speakable")
+                if isinstance(sp, dict) and (sp.get("cssSelector") or sp.get("xpath")):
+                    _sp_valid = True
+                elif isinstance(sp, (list, str)) and sp:
+                    _sp_valid = True
+            if _sp_valid:
+                builder.add_evidence(
+                    rule_id="SCHEMA-SPEAKABLE-027",
+                    category="schema",
+                    title="SpeakableSpecification Audio/Voice Answer Targeting",
+                    status=STATUS_PASS,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed="speakable property defined with valid CSS/XPath selectors",
+                    expected="speakable property on Article/WebPage with SpeakableSpecification",
+                    message="Schema speakable property properly specifies audio and voice answer targets for Google Assistant and voice synthesis.",
+                    tier="Tier B (Google Structured Data Guidelines)"
+                )
+            else:
+                builder.add_evidence(
+                    rule_id="SCHEMA-SPEAKABLE-027",
+                    category="schema",
+                    title="SpeakableSpecification Audio/Voice Answer Targeting",
+                    status=STATUS_WARNING,
+                    confidence=CONFIDENCE_VERIFIED,
+                    observed="speakable property present but missing valid cssSelector or xpath",
+                    expected="Valid cssSelector or xpath targeting key summary paragraphs",
+                    message="Schema speakable property is present but lacks valid selector definitions.",
+                    tier="Tier B (Google Structured Data Guidelines)"
+                )
+        elif _has_article:
+            builder.add_evidence(
+                rule_id="SCHEMA-SPEAKABLE-027",
+                category="schema",
+                title="SpeakableSpecification Audio/Voice Answer Targeting",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed="No speakable property on Article/WebPage entity",
+                expected="speakable property (SpeakableSpecification) with cssSelector targeting concise answer passages",
+                message="Article/WebPage entity does not define speakable. Adding SpeakableSpecification enables text-to-speech answer engines (Google Assistant, Siri) to read key passages aloud.",
+                tier="Tier B (Google Structured Data Guidelines)"
+            )
+    except Exception:
+        pass
+
     if sitemap_res:
         builder.add_signal("sitemap_present", "XML Sitemap Present", sitemap_res.present)
         builder.add_signal("sitemap_total_urls", "Sitemap URL Count", sitemap_res.total_urls, unit="count")
@@ -3597,6 +3649,7 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
     md.append(f"| **Observable Technical Score** | **{scores.observable_technical_score} / 100** ({scores.technical_health_tier}) | Deterministic pass/fail checks strictly from verified payload |")
     md.append(f"| **Security Hygiene Score** | **{scores.security_score} / 100** ({scores.security_tier}) | Independent dimension: HTTPS (25%), HSTS (25%), Mixed Content (25%), Headers (25%) |")
     md.append(f"| **GEO Readiness Index** | **{scores.geo_readiness_index} / 100** ({scores.geo_maturity_tier}) | Direct answer frontloading, chunking, coreference, Schema graph |")
+    md.append(f"| **AEO & Direct Answer Score** | **{scores.aeo_score} / 100** ({scores.aeo_tier}) | Answer Engine Optimization: direct answers, Q&A headings, section pyramid, speech/voice schema |")
     crit_obs = ledger.metadata.get("criteria_observed", ledger.metadata.get("signals_measured", 0))
     crit_tot = ledger.metadata.get("criteria_total", ledger.metadata.get("signals_total", 0))
     md.append(f"| **Observation Coverage** | **{scores.observation_coverage_pct}%** ({crit_obs}/{crit_tot} criteria) | Empirical completeness of audit scope |")
@@ -3748,6 +3801,24 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
         md.append(f"| **AI Crawler Access** | 5 | **{geo.ai_crawler_access} pts** | Search & retrieval AI bots permitted in robots.txt |")
         md.append("")
         md.append("> *Non-Guarantee Policy*: High GEO Readiness indicates document extractability and retrieval readiness; it does not guarantee neural generation or citation by third-party AI models.")
+        md.append("")
+
+    # AEO 7-Component Breakdown
+    if scores.aeo_dimensions:
+        aeo = scores.aeo_dimensions
+        md.append("## 🎯 Answer Engine Optimization (AEO & Direct Answers)")
+        md.append("")
+        md.append(f"> **AEO & Direct Answer Score**: **{scores.aeo_score} / 100** ({scores.aeo_tier})  ")
+        md.append("")
+        md.append("| Dimension | Max Weight | Points | Evaluation Basis |")
+        md.append("| :--- | :--- | :--- | :--- |")
+        md.append(f"| **Direct Answer Definition** | 25 | **{aeo.direct_answer_definition} pts** | Definition frontloaded in first 40–60 words (`GEO-ANSWER-FRONTLOAD-001`) |")
+        md.append(f"| **Question Headings** | 20 | **{aeo.question_headings} pts** | H2/H3 natural question phrasing followed immediately by direct answer (`CONTENT-QUESTION-HEADINGS-002`) |")
+        md.append(f"| **Section Inverted Pyramid** | 15 | **{aeo.section_pyramid} pts** | Core conclusion/result first in each subsection (`GEO-SECTION-PYRAMID-024`) |")
+        md.append(f"| **Passage Autonomy** | 15 | **{aeo.passage_autonomy} pts** | Standalone self-contained paragraphs free of dangling pronouns (`GEO-COREFERENCE-INDEPENDENCE-003`, `GEO-ADAPTIVE-CHUNKING-002`) |")
+        md.append(f"| **Citation & Deep-Link Anchors** | 10 | **{aeo.citation_anchors} pts** | Explicit section IDs for precise AI quote deep-linking (`GEO-ANCHOR-DEEPLINK-023`) |")
+        md.append(f"| **Extractable Formats** | 10 | **{aeo.extractable_formats} pts** | Tabular, step-by-step, or TL;DR summary formats (`CONTENT-EXTRACTABLE-003`) |")
+        md.append(f"| **Machine & Voice Markup** | 5 | **{aeo.semantic_qa_markup} pts** | `SpeakableSpecification` or structured FAQ/HowTo markup (`SCHEMA-SPEAKABLE-027`, `SCHEMA-FAQ-PAGE-001`) |")
         md.append("")
 
     # E-E-A-T Profile

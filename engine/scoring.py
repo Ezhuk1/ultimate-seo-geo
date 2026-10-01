@@ -69,6 +69,32 @@ class GeoDimensions:
 
 
 @dataclass
+class AeoDimensions:
+    direct_answer_definition: int  # max 25 (GEO-ANSWER-FRONTLOAD-001)
+    question_headings: int        # max 20 (CONTENT-QUESTION-HEADINGS-002)
+    section_pyramid: int          # max 15 (GEO-SECTION-PYRAMID-024)
+    passage_autonomy: int         # max 15 (GEO-COREFERENCE-INDEPENDENCE-003 & GEO-ADAPTIVE-CHUNKING-002)
+    citation_anchors: int         # max 10 (GEO-ANCHOR-DEEPLINK-023)
+    extractable_formats: int      # max 10 (CONTENT-EXTRACTABLE-003)
+    semantic_qa_markup: int       # max 5  (FAQPage, HowTo, speakable)
+    total_score: int = 0
+    tier: str = "STAGE_1_RAW_WEB"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "direct_answer_definition": self.direct_answer_definition,
+            "question_headings": self.question_headings,
+            "section_pyramid": self.section_pyramid,
+            "passage_autonomy": self.passage_autonomy,
+            "citation_anchors": self.citation_anchors,
+            "extractable_formats": self.extractable_formats,
+            "semantic_qa_markup": self.semantic_qa_markup,
+            "total_score": self.total_score,
+            "tier": self.tier
+        }
+
+
+@dataclass
 class ScoreBreakdown:
     observable_technical_score: int
     geo_readiness_index: int
@@ -92,6 +118,9 @@ class ScoreBreakdown:
     security_hygiene: Optional[SecurityHygieneScore] = None
     indexability_matrix: Optional[Dict[str, Any]] = None
     geo_dimensions: Optional[GeoDimensions] = None
+    aeo_score: int = 0
+    aeo_tier: str = "STAGE_1_RAW_WEB"
+    aeo_dimensions: Optional[AeoDimensions] = None
 
 
 def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
@@ -412,6 +441,143 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         }
     )
 
+    # 4. AEO Readiness Index (Answer Engine Optimization for Direct Answers & Featured Snippets)
+    if has_error or has_no_content:
+        aeo_score = 0
+        aeo_tier = "STAGE_1_RAW_WEB"
+        aeo_dims = AeoDimensions(
+            direct_answer_definition=0,
+            question_headings=0,
+            section_pyramid=0,
+            passage_autonomy=0,
+            citation_anchors=0,
+            extractable_formats=0,
+            semantic_qa_markup=0,
+            total_score=0,
+            tier=aeo_tier
+        )
+    else:
+        # 1. Direct Answer Definition (25 pts)
+        ev_ans = next((e for e in ledger.evidence if e.rule_id == "GEO-ANSWER-FRONTLOAD-001"), None)
+        if ev_ans:
+            if ev_ans.status == STATUS_PASS:
+                aeo_ans = 25
+            elif ev_ans.status == STATUS_WARNING:
+                aeo_ans = 12
+            elif ev_ans.status == STATUS_CRITICAL:
+                aeo_ans = 0
+            else:
+                aeo_ans = 15
+        else:
+            aeo_ans = 10 if dim_ans > 0 else 0
+
+        # 2. Question-Answer Headings (20 pts)
+        ev_qh = next((e for e in ledger.evidence if e.rule_id == "CONTENT-QUESTION-HEADINGS-002"), None)
+        if ev_qh:
+            if ev_qh.status == STATUS_PASS:
+                aeo_qh = 20
+            elif ev_qh.status == STATUS_INFO:
+                aeo_qh = 15
+            elif ev_qh.status == STATUS_WARNING:
+                aeo_qh = 8
+            else:
+                aeo_qh = 0
+        else:
+            aeo_qh = 5
+
+        # 3. Inverted Pyramid per Section (15 pts)
+        ev_pyr = next((e for e in ledger.evidence if e.rule_id == "GEO-SECTION-PYRAMID-024"), None)
+        if ev_pyr:
+            if ev_pyr.status == STATUS_PASS:
+                aeo_pyr = 15
+            elif ev_pyr.status == STATUS_WARNING:
+                aeo_pyr = 8
+            elif ev_pyr.status == STATUS_CRITICAL:
+                aeo_pyr = 0
+            else:
+                aeo_pyr = 10
+        else:
+            aeo_pyr = 8
+
+        # 4. Passage Autonomy & Chunking (15 pts)
+        ev_coref = next((e for e in ledger.evidence if e.rule_id == "GEO-COREFERENCE-INDEPENDENCE-003"), None)
+        ev_chunk = next((e for e in ledger.evidence if e.rule_id == "GEO-ADAPTIVE-CHUNKING-002"), None)
+        if ev_coref and ev_coref.status == STATUS_PASS and (not ev_chunk or ev_chunk.status == STATUS_PASS):
+            aeo_aut = 15
+        elif (ev_coref and ev_coref.status == STATUS_PASS) or (ev_chunk and ev_chunk.status == STATUS_PASS):
+            aeo_aut = 10
+        elif (ev_coref and ev_coref.status == STATUS_WARNING) or (ev_chunk and ev_chunk.status == STATUS_WARNING):
+            aeo_aut = 6
+        else:
+            aeo_aut = 0
+
+        # 5. Citation Anchors (10 pts)
+        ev_anch = next((e for e in ledger.evidence if e.rule_id == "GEO-ANCHOR-DEEPLINK-023"), None)
+        if ev_anch:
+            if ev_anch.status == STATUS_PASS:
+                aeo_anch = 10
+            elif ev_anch.status == STATUS_WARNING:
+                aeo_anch = 5
+            else:
+                aeo_anch = 0
+        else:
+            aeo_anch = 5
+
+        # 6. Extractable Formats (10 pts)
+        ev_ext = next((e for e in ledger.evidence if e.rule_id == "CONTENT-EXTRACTABLE-003"), None)
+        if ev_ext:
+            if ev_ext.status == STATUS_PASS:
+                aeo_ext = 10
+            elif ev_ext.status == STATUS_INFO:
+                aeo_ext = 8
+            elif ev_ext.status == STATUS_WARNING:
+                aeo_ext = 4
+            else:
+                aeo_ext = 0
+        else:
+            aeo_ext = 5
+
+        # 7. Semantic Q&A / Speakable Markup (5 pts)
+        ev_spk = next((e for e in ledger.evidence if e.rule_id == "SCHEMA-SPEAKABLE-027"), None)
+        has_faq_evidence = any("faq" in (e.title or "").lower() or "howto" in (e.title or "").lower() for e in ledger.evidence)
+        if (ev_spk and ev_spk.status == STATUS_PASS) or has_faq_evidence:
+            aeo_sem = 5
+        elif ev_spk and ev_spk.status == STATUS_INFO:
+            aeo_sem = 3
+        else:
+            aeo_sem = 1 if (schema_count and schema_count.value and schema_count.value > 0) else 0
+
+        if content_signal and content_signal.value is not None and content_signal.value < 25:
+            aeo_ans = 0
+            aeo_qh = 0
+            aeo_pyr = 0
+            aeo_aut = 0
+            aeo_anch = 0
+            aeo_ext = 0
+            aeo_sem = 0
+
+        aeo_score = min(100, max(0, aeo_ans + aeo_qh + aeo_pyr + aeo_aut + aeo_anch + aeo_ext + aeo_sem))
+        if aeo_score >= 85:
+            aeo_tier = "STAGE_4_DIRECT_ANSWER_AUTHORITY"
+        elif aeo_score >= 70:
+            aeo_tier = "STAGE_3_HIGH_EXTRACTABILITY"
+        elif aeo_score >= 50:
+            aeo_tier = "STAGE_2_PARTIAL_EXTRACTABILITY"
+        else:
+            aeo_tier = "STAGE_1_RAW_WEB"
+
+        aeo_dims = AeoDimensions(
+            direct_answer_definition=aeo_ans,
+            question_headings=aeo_qh,
+            section_pyramid=aeo_pyr,
+            passage_autonomy=aeo_aut,
+            citation_anchors=aeo_anch,
+            extractable_formats=aeo_ext,
+            semantic_qa_markup=aeo_sem,
+            total_score=aeo_score,
+            tier=aeo_tier
+        )
+
     return ScoreBreakdown(
         observable_technical_score=tech_score,
         geo_readiness_index=geo_score,
@@ -434,5 +600,8 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         security_tier=sec_tier,
         security_hygiene=sec_hygiene,
         indexability_matrix=ledger.metadata.get("indexability_matrix"),
-        geo_dimensions=geo_dims
+        geo_dimensions=geo_dims,
+        aeo_score=aeo_score,
+        aeo_tier=aeo_tier,
+        aeo_dimensions=aeo_dims
     )

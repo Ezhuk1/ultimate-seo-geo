@@ -185,7 +185,16 @@ Score calculation must adhere to the **"Unknown $\ne$ Failure" Invariant**:
      - *Layer 2 (Engine Extraction Risk):* If substantive text is missing from raw HTML, record *High Extraction Risk (Unknown)* for non-rendering AI crawlers and *Rendering Queue Latency Risk* for Googlebot evergreen Chromium. Never declare unconditional `BLOCKED` without confirming missing content.
    - **Link Graph Topology:** Classifies 0 outbound internal links on single-page inspection as `terminal (0 outbound)`. Reserves orphan candidate warnings (`AMBIGUOUS`) for crawl graph verification where `inbound_internal_links_count == 0`.
    - Flags explicit conflicts (e.g. sitemap inclusion vs robots.txt disallow, self-canonical vs noindex).
-6. **Autonomous Agent Readiness & Emerging AI Protocols [Tier E Community Proposals]:**
+6. **Answer Engine Optimization (AEO & Direct Answers) (0–100) [RESEARCH / STANDARD / HEURISTIC]:**
+   - Independent sub-dimension assessing suitability for conversational answer engines, Google AI Overviews, Perplexity answer cards, and voice/audio assistants:
+     - *Direct Answer Definition (25 pts):* Definition frontloaded in opening 40–60 words (`GEO-ANSWER-FRONTLOAD-001`).
+     - *Question Headings (20 pts):* H2/H3 natural question phrasing immediately followed by direct 40–60 word answer paragraphs (`CONTENT-QUESTION-HEADINGS-002`).
+     - *Section Inverted Pyramid (15 pts):* Core takeaway/conclusion stated at the beginning of each subsection (`GEO-SECTION-PYRAMID-024`).
+     - *Passage Autonomy (15 pts):* Standalone chunks free of unresolved pronouns/coreferences (`GEO-COREFERENCE-INDEPENDENCE-003`, `GEO-ADAPTIVE-CHUNKING-002`).
+     - *Citation Deep-Link Anchors (10 pts):* Explicit section IDs for precise AI quote deep-linking (`GEO-ANCHOR-DEEPLINK-023`).
+     - *Extractable Formats (10 pts):* Tabular or step-by-step summary structures (`CONTENT-EXTRACTABLE-003`).
+     - *Machine & Voice Markup (5 pts):* `SpeakableSpecification` (`SCHEMA-SPEAKABLE-027`), FAQPage, or HowTo markup for assistive and voice engines.
+7. **Autonomous Agent Readiness & Emerging AI Protocols [Tier E Community Proposals]:**
    - **Interactive Accessibility (`AGENT-A11Y-INTERACTIVE-002`, Tier A / W3C WAI-ARIA):** Verifies that all buttons (`<button>`) and form inputs (`<input>`, `<textarea>`) expose accessible names via text content, `aria-label`, or `<label for="...">`. Eliminates non-semantic `<div onclick>` controls that prevent autonomous browsing agents (Operator, Claude Computer Use) from navigating interactive workflows.
    - **Markdown Content Negotiation (`AGENT-MARKDOWN-NEGOTIATION-001`, Tier E):** Verifies `<link rel="alternate" type="text/markdown" href="...">` or `Accept: text/markdown` HTTP negotiation, providing LLM agents with clean markdown without DOM scraping noise.
    - **Fast-Track Indexing Protocol (`TECH-INDEXNOW-KEY-039`, Tier B):** Recommends hosting an IndexNow key (`/{apiKey}.txt`) for instant change notification pings to Bing, Yandex, and Seznam. (Note: IndexNow notifies engines of changes, but does not guarantee instant indexing or ranking; Google Indexing API is officially restricted to `JobPosting` and `BroadcastEvent`; Google submission relies on Search Console).
@@ -239,10 +248,13 @@ In synthetic benchmark evaluations across 10,000 search queries on a fixed 5-doc
 > [!IMPORTANT]
 > **Production Search Engine Reality:** These figures represent relative changes observed within a controlled synthetic benchmark on fixed candidate subsets. In live commercial engines (ChatGPT Search, Perplexity, Claude, Google AI Overviews), generation is stochastic and retrieval is dynamic. **Never promise fixed percentage gains or guaranteed citation lifts to users.**
 
-**Passage-Level Citability Rules `[HEURISTIC]`:**
-* **Self-Containment & Coreference Independence:** Every citable excerpt must stand independently without relying on preceding text. Avoid opening answer blocks with ambiguous referents ("They", "This tool", "It"); explicitly state the entity and technology name.
-* **Adaptive Passage Chunking:** Structure key factual claims in self-contained ~100–200 word blocks aligned with standard 256- to 512-token dense embedding windows.
-* **Definition Opening:** Place the direct answer formula in the first 40–60 words: `[Entity] is [category] designed to [outcome] by [mechanism]`.
+**Passage-Level Citability & AEO Rules `[HEURISTIC]`:**
+* **Self-Containment & Coreference Independence:** Every citable excerpt must stand independently without relying on preceding text. Avoid opening answer blocks with ambiguous referents ("They", "This tool", "It"); explicitly state the entity and technology name (`GEO-COREFERENCE-INDEPENDENCE-003`).
+* **Adaptive Passage Chunking:** Structure key factual claims in self-contained ~100–200 word blocks aligned with standard 256- to 512-token dense embedding windows (`GEO-ADAPTIVE-CHUNKING-002`).
+* **Definition Opening:** Place the direct answer formula in the first 40–60 words: `[Entity] is [category] designed to [outcome] by [mechanism]` (`GEO-ANSWER-FRONTLOAD-001`).
+* **Question Headings & Immediate Answers:** Phrase H2/H3 headings as natural user queries (e.g., *"How does X work?"*) and answer them definitively in the immediate next paragraph (`CONTENT-QUESTION-HEADINGS-002`).
+* **Section Inverted Pyramid:** Open each subsection with its primary conclusion or finding before providing supporting background or proof (`GEO-SECTION-PYRAMID-024`).
+* **Citation Deep-Link Anchors:** Provide explicit HTML `id` attributes on key sections so answer engines can deep-link direct quotes (`GEO-ANCHOR-DEEPLINK-023`).
 * **Compound Evidence:** Pair fluency with verified numerical statistics and named source attribution. When optimizing content lacking verified numbers, improve clarity and structure, identify required proof metrics, and use `[VERIFY_BEFORE_PUBLISHING: REAL_NUMBER]` placeholders—**never fabricate numbers**.
 
 **Rewrite Pattern (Front-Loading):**
@@ -256,6 +268,7 @@ In synthetic benchmark evaluations across 10,000 search queries on a fixed 5-doc
 Construct a production-grade, error-free unified `@graph` JSON-LD block placed in `<head>` (`[RECOMMENDATION]`).
 Architecture guidelines:
 - Preferred architecture: Connect `WebSite` -> `WebPage` -> `about` (`Service` / `Product` / `SoftwareApplication`) -> `publisher` (`Organization`) via stable `@id` URIs. (Separate scripts describing distinct entities are valid `[STANDARD]`).
+- Voice & Direct Answer Schema (`SpeakableSpecification`, `SCHEMA-SPEAKABLE-027`): Attach `speakable` to `Article`, `NewsArticle`, or `BlogPosting` with CSS selectors targeting concise 20–50 word answer paragraphs `[STANDARD]`.
 - Link `FAQPage` directly into `WebPage.hasPart` or `WebPage.mainEntity` (Note: As of May 7, 2026, Google Search has completely discontinued FAQ rich results across all domains; FAQ schema is retained for LLM / GEO direct answer extraction `[HEURISTIC]`).
 - Link `HowTo` steps into `WebPage.hasPart` (optimized for generative procedural answers `[HEURISTIC]`).
 - Enhance authors (`Person`) with `sameAs` links to LinkedIn, GitHub, ORCID, or Wikidata `[RECOMMENDATION]`.
