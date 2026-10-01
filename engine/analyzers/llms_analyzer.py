@@ -51,7 +51,7 @@ def check_llms_txt(target_url: str, timeout: float = 5.0) -> LlmsTxtResult:
     try:
         req = urllib.request.Request(
             origin_llms_url,
-            headers={"User-Agent": "UltimateSeoGeoEngine/3.6.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
+            headers={"User-Agent": "UltimateSeoGeoEngine/3.7.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res.status_code = resp.getcode()
@@ -151,3 +151,49 @@ def generate_llms_txt(
 
     out.append("")
     return "\n".join(out)
+
+def check_llms_full_txt(target_url: str, timeout: float = 5.0) -> Dict[str, Any]:
+    """Probes /llms-full.txt (companion dump of the llms.txt specification)."""
+    origin = target_url.rstrip("/")
+    base = origin.split("?")[0].rstrip("/")
+    root = "/".join(base.split("/")[:3])
+    url = root + "/llms-full.txt"
+    out: Dict[str, Any] = {"url": url, "is_present": False, "status_code": None,
+                           "size_bytes": 0, "word_count": 0, "error_message": ""}
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "UltimateSeoGeoEngine/3.7.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            out["status_code"] = resp.getcode()
+            data = resp.read(1_000_000)
+            out["size_bytes"] = len(data)
+            out["word_count"] = len(data.decode("utf-8", errors="replace").split())
+            out["is_present"] = out["status_code"] == 200 and out["word_count"] > 0
+    except urllib.error.HTTPError as e:
+        out["status_code"] = e.code
+    except Exception as e:
+        out["error_message"] = str(e)[:120]
+    return out
+
+
+def generate_llms_full_txt(title: str, pages: List[Dict[str, str]]) -> str:
+    """Generates /llms-full.txt: full markdown dump of key page contents for
+    direct LLM context loading. pages: [{title, url, text}]."""
+    clean_title = (title or "Website").strip()
+    out = [f"# {clean_title} — Full Content Dump", "",
+           "> Machine-readable full-text companion of /llms.txt. Nav, footers and banners removed.", ""]
+    for page in pages:
+        p_title = (page.get("title") or "Page").strip()
+        p_url = (page.get("url") or "").strip()
+        text = (page.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(f"## {p_title}")
+        out.append("")
+        if p_url:
+            out.append(f"Source: {p_url}")
+            out.append("")
+        out.append(text)
+        out.append("")
+        out.append("---")
+        out.append("")
+    return chr(10).join(out)
