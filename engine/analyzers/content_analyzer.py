@@ -429,3 +429,87 @@ def analyze_content(
                             break
 
     return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Round-4 GEO additions: section-level inverted pyramid + information gain.
+# Both are Tier E heuristics (RU/EN) and never gate scores on their own.
+# ─────────────────────────────────────────────────────────────────────────────
+
+WATER_PHRASES = [
+    "in today's fast-paced world", "in the modern digital landscape",
+    "in the ever-evolving world", "digital landscape",
+    "never been more important", "more important than ever",
+    "в современном мире", "в современном быстро меняющемся мире",
+    "цифровом ландшафте", "как никогда ранее", "на сегодняшний день играют важную роль",
+    "трудно переоценить",
+]
+
+INFO_GAIN_TRIGGER_PATTERNS = [
+    re.compile(r"\b(we|our team|our lab)\b[^.?!]{0,120}?\b\d+([.,]\d+)?\s?(%|percent|ms|seconds|users|requests)", re.IGNORECASE),
+    re.compile(r"\b(мы|наш\w*)\b[^.?!]{0,120}?\b\d+([.,]\d+)?\s?(%|процент\w*|млн|тыс|мс|пользовател\w+)", re.IGNORECASE),
+    re.compile(r"\b(we tested|we measured|we benchmarked|case study|our experiment|in production we)\b", re.IGNORECASE),
+    re.compile(r"\b(мы протестировали|мы измерили|мы внедрили|наш эксперимент|кейс|бенчмарк)\b", re.IGNORECASE),
+    re.compile(r"[=≈]\s*\d+"),
+    re.compile(r"\b(source code|open[- ]sourced|github\.com/[^\s]+|according to our telemetry)\b", re.IGNORECASE),
+]
+
+
+def analyze_section_pyramid(
+    visible_text: str,
+    headings: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
+    """Per H2/H3 section: does the first ~55 words carry substance (stat,
+    definition or citation cue)? Inverted-pyramid heuristic for LLM chunking."""
+    headings = headings or []
+    section_heads = [h for h in headings if int(h.get("level", 9)) in (2, 3) and h.get("text")]
+    if not section_heads:
+        return {"sections_total": 0, "sections_frontloaded": 0, "ratio_pct": None,
+                "weak_sections": [], "applicable": False}
+
+    text = visible_text or ""
+    sections: List[Dict[str, Any]] = []
+    for i, h in enumerate(section_heads):
+        start = text.find(h["text"])
+        if start == -1:
+            continue
+        start += len(h["text"])
+        end = len(text)
+        for nxt in section_heads[i + 1:]:
+            npos = text.find(nxt["text"], start)
+            if npos != -1:
+                end = min(end, npos)
+        body = text[start:end].strip()
+        if len(body.split()) >= 60:
+            sections.append({"title": h["text"][:80], "body": body})
+
+    frontloaded = 0
+    weak: List[str] = []
+    for sec in sections:
+        head_words = " ".join(sec["body"].split()[:55])
+        has_stat = bool(PERCENTAGE_PATTERN.search(head_words) or NUMERIC_STAT_PATTERN.search(head_words))
+        has_def = any(p.search(head_words) for p in DEFINITION_PATTERNS)
+        has_cite = any(cue in head_words.lower() for cue in CITATION_CUES)
+        if has_stat or has_def or has_cite:
+            frontloaded += 1
+        else:
+            weak.append(sec["title"])
+    total = len(sections)
+    return {"sections_total": total, "sections_frontloaded": frontloaded,
+            "ratio_pct": round(frontloaded / total * 100.0, 1) if total else None,
+            "weak_sections": weak[:5], "applicable": total >= 2}
+
+
+def analyze_information_gain(visible_text: str) -> Dict[str, Any]:
+    """Weak-signal heuristics for information gain: originality triggers
+    (first-person results, benchmarks, formulas, artifacts) vs boilerplate
+    'water' openers that AI crawlers discard as noise."""
+    text = visible_text or ""
+    triggers: List[str] = []
+    for pat in INFO_GAIN_TRIGGER_PATTERNS:
+        m = pat.search(text)
+        if m:
+            triggers.append(m.group(0)[:80])
+    water = [w for w in WATER_PHRASES if w in text.lower()]
+    return {"trigger_count": len(set(triggers)), "triggers": list(dict.fromkeys(triggers))[:5],
+            "water_phrases": water[:5], "applicable": len(text.split()) >= 300}

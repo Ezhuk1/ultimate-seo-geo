@@ -340,7 +340,7 @@ python -m engine.inspector <target> --gsc-csv path/to/Queries.csv
 The analyzer automatically filters queries in the **Striking Distance Window** (positions 5.0–20.0 with $\ge$ 50 impressions):
 - **Page 2 Near-Misses (Positions 11–20):** High impressions with low clicks. Strategy: Front-load definitions (`GEO-ANSWER-FRONTLOAD-001`), add semantic entity Schema, and strengthen internal linking from relevant hubs.
 - **Page 1 Low-CTR Queries (Positions 5–10, CTR < 2%):** Searchers see your snippet but click competitor results. Strategy: Rewrite `<title>` pixel width (~580px) and `<meta description>` to include active value propositions and concise answers.
-- **Position-Aware Snippet Underperformers (v3.6.0):** Beyond the static 2% floor, the analyzer compares each query's CTR against a position-typical benchmark curve and flags anything below 50% of the expected rate — e.g. position 1 with 5% CTR is a snippet failure even though 5% > 2%. The benchmark is a tunable heuristic aggregate; treat it as a relative reference, not an absolute expectation.
+- **Position-Aware Snippet Underperformers (v3.7.0):** Beyond the static 2% floor, the analyzer compares each query's CTR against a position-typical benchmark curve and flags anything below 50% of the expected rate — e.g. position 1 with 5% CTR is a snippet failure even though 5% > 2%. The benchmark is a tunable heuristic aggregate; treat it as a relative reference, not an absolute expectation.
 
 #### Keyword Cannibalization Audit (query + page GSC exports)
 When the GSC export contains **both query and page dimensions**, the analyzer additionally detects **split authority** — one query served by multiple URLs on the site:

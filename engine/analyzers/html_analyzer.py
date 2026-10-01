@@ -123,7 +123,11 @@ class DocumentParser(HTMLParser):
         self.twitter_card = {}
         self.hreflang_tags = []
 
-        self.headings = []  # List of {"level": int, "text": str}
+        self.headings = []  # List of {"level": int, "text": str, "id": str}
+        self.noscript_texts: list[str] = []  # fallback content for non-JS crawlers
+        self.in_noscript = False
+        self._current_noscript_text: list[str] = []
+        self.current_heading_id = ""
         self.images = []    # List of {"src": str, "alt": str | None, "has_dims": bool, "loading": str, "fetchpriority": str}
         self.links = []     # List of {"href": str, "rel": str, "text": str, "aria_label": str, "has_text": bool}
         self.json_ld_blocks = []
@@ -290,6 +294,10 @@ class DocumentParser(HTMLParser):
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.current_heading_tag = tag
             self.current_heading_text = []
+            self.current_heading_id = attr_dict.get("id", "")
+        elif tag == "noscript":
+            self.in_noscript = True
+            self._current_noscript_text = []
         elif tag == "button":
             self.in_button = True
             self.current_button_text = []
@@ -410,10 +418,18 @@ class DocumentParser(HTMLParser):
             heading_str = " ".join("".join(self.current_heading_text).split())
             self.headings.append({
                 "level": int(tag[1]),
-                "text": heading_str
+                "text": heading_str,
+                "id": self.current_heading_id
             })
             self.current_heading_tag = None
             self.current_heading_text = []
+            self.current_heading_id = ""
+        elif tag == "noscript" and self.in_noscript:
+            self.in_noscript = False
+            _ns_text = " ".join("".join(self._current_noscript_text).split())
+            if _ns_text:
+                self.noscript_texts.append(_ns_text)
+            self._current_noscript_text = []
         elif tag in ("p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li", "section", "article", "header", "footer", "main", "aside"):
             if self.visible_text_parts and self.visible_text_parts[-1] != "\n\n":
                 self.visible_text_parts.append("\n\n")
@@ -425,6 +441,8 @@ class DocumentParser(HTMLParser):
             self._current_title_text.append(data)
         elif self.in_script:
             self._current_script_text.append(data)
+        elif self.in_noscript:
+            self._current_noscript_text.append(data)
         elif not self.in_style:
             if self.in_a:
                 self.current_a_text.append(data)
@@ -591,6 +609,11 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
         },
         "open_graph": parser.open_graph,
         "twitter_card": parser.twitter_card,
+        "noscript": {
+            "count": len(parser.noscript_texts),
+            "total_words": sum(len(t.split()) for t in parser.noscript_texts),
+            "sample": (parser.noscript_texts[0][:300] if parser.noscript_texts else "")
+        },
         "headings": {
             "h1_count": len(h1_headings),
             "h1_values": h1_headings,

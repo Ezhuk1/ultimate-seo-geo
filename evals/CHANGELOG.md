@@ -2,6 +2,18 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.7.0] - 2026-09-29
+
+### Added
+- **Edge/WAF AI-Bot Accessibility Probe (`GEO-WAF-BOT-ACCESS-021`):** per-UA fetches (GPTBot, PerplexityBot, ClaudeBot, Google-Extended, YandexRenderResourcesBot) detect silent Managed Challenge/403 blocks that robots.txt cannot see; remediation ships ready Cloudflare/Nginx/Caddy rules. New `_bot_challenge_signature` helper recognizes cf-mitigated, Turnstile and interstitial markers.
+- **CSR Fallback Content (`GEO-CSR-FALLBACK-022`):** `<noscript>` capture in html_analyzer; JS-heavy pages without a meaningful fallback (>=30 words) are flagged P1 for non-rendering crawlers.
+- **Citation Deep-Link Anchors (`GEO-ANCHOR-DEEPLINK-023`):** H2/H3 `id` anchors captured; pages with >=5 headings and zero anchors are flagged for `#fragment` / `#:~:text=` citability.
+- **Inverted Pyramid per Section (`GEO-SECTION-PYRAMID-024`):** `analyze_section_pyramid` checks every H2/H3 chunk for a standalone claim in the first ~55 words (stats/definition/citation cues).
+- **Information Gain (`GEO-INFO-GAIN-025`):** `analyze_information_gain` detects first-party results/benchmarks/formulas and flags boilerplate "water" openers (RU/EN).
+- **Entity Graph Connectivity (`SCHEMA-ENTITY-LINK-026`):** Organization/content entities without cross-linking properties (publisher/author/brand/hasOfferCatalog) flagged for LLM disambiguation.
+- **llms-full.txt companion (`GEO-LLMS-FULL-020`):** presence probe plus `generate_llms_full_txt` generator; `--generate-llms-txt` now writes both files.
+- Rules registry extended to 15 geo + 13 schema rules; version 3.7.0 synced across engine, pyproject, manifests, User-Agents and README badges.
+
 ## [3.6.0] - 2026-09-29
 
 ### Added

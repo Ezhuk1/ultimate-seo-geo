@@ -20,13 +20,14 @@ from .analyzers.html_analyzer import analyze_target_html
 from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
+from .analyzers.content_analyzer import analyze_section_pyramid, analyze_information_gain
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult, merge_sitemap_results
 
 MAX_SITEMAP_INDEX_CHILDREN = 50  # hard cap on sitemap-index children to expand
 from .analyzers.eeat_analyzer import analyze_eeat
 from .analyzers.freshness_analyzer import analyze_freshness
 from .analyzers.performance_analyzer import analyze_performance
-from .analyzers.llms_analyzer import check_llms_txt, generate_llms_txt, LlmsTxtResult
+from .analyzers.llms_analyzer import check_llms_txt, check_llms_full_txt, generate_llms_txt, generate_llms_full_txt, LlmsTxtResult
 from .analyzers.security_analyzer import SecurityAnalyzer
 from .sarif import format_sarif_json, generate_sarif_report
 from .indexability import evaluate_indexability_matrix, VERDICT_CONFLICTED
@@ -48,6 +49,23 @@ from .ledger import (
     STATUS_NOT_MEASURED,
 )
 from .scoring import calculate_scores, ScoreBreakdown
+
+
+def _bot_challenge_signature(status_code: int, headers: Optional[Dict[str, Any]], body: str) -> Optional[str]:
+    """Returns a challenge/block marker when an edge WAF answers a bot fetch
+    with a block or interactive challenge instead of real content."""
+    headers = headers or {}
+    if status_code in (401, 403, 429, 501):
+        return f"HTTP {status_code}"
+    cf_mit = str(headers.get("cf-mitigated", "") or "").lower()
+    if "challenge" in cf_mit:
+        return "cf-mitigated: challenge"
+    body_head = (body or "")[:4000].lower()
+    for marker in ("just a moment...", "checking your browser", "attention required",
+                   "cf-challenge", "turnstile", "captcha-delivery", "verifying you are human"):
+        if marker in body_head:
+            return f"challenge page: {marker}"
+    return None
 
 
 def run_inspection(
@@ -207,6 +225,14 @@ def run_inspection(
         links=html_data.get("links", {}).get("all", [])
     )
 
+    # Round-4 GEO: section pyramid + information gain (Tier E heuristics)
+    try:
+        section_pyramid = analyze_section_pyramid(content_text, headings=html_data["headings"].get("outline", []))
+        info_gain = analyze_information_gain(content_text)
+    except Exception:
+        section_pyramid = {"sections_total": 0, "sections_frontloaded": 0, "ratio_pct": None, "weak_sections": [], "applicable": False}
+        info_gain = {"trigger_count": 0, "triggers": [], "water_phrases": [], "applicable": False}
+
     # 4.5 Performance & Asset Inspection
     final_url = http_res.get("final_url", target)
     psi_key = getattr(config, "psi_api_key", None) if config else None
@@ -316,6 +342,7 @@ def run_inspection(
     builder.metadata["eeat_analysis"] = eeat_data.to_dict()
     builder.metadata["freshness_analysis"] = freshness_data.to_dict()
     builder.metadata["page_title"] = html_data["title"]["value"]
+    builder.metadata["page_visible_text"] = (content_text or "")[:20000]
     builder.metadata["meta_description"] = html_data["meta_description"]["value"]
     builder.metadata["html_links"] = html_data.get("links", {}).get("all", [])
     builder.metadata["schema_verdict"] = {
@@ -324,6 +351,54 @@ def run_inspection(
         "google_rich_result_eligibility": schema_data.google_rich_result_eligibility,
         "visible_content_consistency": schema_data.visible_content_consistency
     }
+
+    # SCHEMA-ENTITY-LINK-026: entity graph connectivity for disambiguation
+    try:
+        _etypes = {str(e.get("@type")) for e in schema_data.entities if e.get("@type")}
+        _etypes.discard("None")
+        _link_props = ("author", "publisher", "brand", "hasOfferCatalog", "about",
+                       "mainEntity", "reviewedBy", "member", "founder")
+        _linked = any(any(k.lower() in _link_props for k in (e.keys() if isinstance(e, dict) else []))
+                      for e in schema_data.entities)
+        _has_org = bool(_etypes & {"Organization", "Corporation", "LocalBusiness", "WebSite"})
+        _has_offer = bool(_etypes & {"Product", "Service", "Offer", "Article", "BlogPosting"})
+        if _has_org and _has_offer and not _linked:
+            builder.add_evidence(
+                rule_id="SCHEMA-ENTITY-LINK-026",
+                category="schema",
+                title="Entity Graph Connectivity (Disambiguation)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Entity types present: {sorted(_etypes)[:8]}, but no linking properties (author/publisher/brand/hasOfferCatalog)",
+                expected="Organization linked to content entities via author/publisher/brand/hasOfferCatalog",
+                message="Knowledge-graph entities exist but are not cross-linked, so LLMs cannot disambiguate the publisher behind the content."
+            )
+            builder.add_finding(
+                rule_id="SCHEMA-ENTITY-LINK-026",
+                category="schema",
+                severity=STATUS_WARNING,
+                title="Unlinked Schema Entities (No Publisher/Author Connectivity)",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Inside one @graph, connect entities explicitly:",
+                    "Organization -> publisher on Article; author -> Person with sameAs to profiles; hasOfferCatalog -> Product/Service."
+                ],
+                impact_estimate="Generative engines conflate the brand with unrelated entities; weaker knowledge-graph grounding."
+            )
+        elif _etypes:
+            builder.add_evidence(
+                rule_id="SCHEMA-ENTITY-LINK-026",
+                category="schema",
+                title="Entity Graph Connectivity (Disambiguation)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Entity types: {sorted(_etypes)[:8]}; linking properties: {'yes' if _linked else 'single-entity graph'}",
+                expected="Cross-linked entities inside a unified @graph",
+                message="Schema entity graph is connected enough for entity disambiguation."
+            )
+    except Exception:
+        pass
     if sitemap_res:
         builder.add_signal("sitemap_present", "XML Sitemap Present", sitemap_res.present)
         builder.add_signal("sitemap_total_urls", "Sitemap URL Count", sitemap_res.total_urls, unit="count")
@@ -2957,6 +3032,201 @@ def run_inspection(
             message="Local inspection mode; remote /llms.txt probe skipped."
         )
 
+    # GEO-LLMS-FULL-020: llms-full.txt companion check
+    if llms_res and llms_res.is_valid and not http_res["is_local"]:
+        _llms_full = check_llms_full_txt(final_url, timeout=min(3.0, timeout))
+        if _llms_full.get("is_present"):
+            builder.add_evidence(
+                rule_id="GEO-LLMS-FULL-020",
+                category="geo",
+                title="/llms-full.txt Full-Content Companion",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"/llms-full.txt present ({_llms_full.get('word_count', 0)} words, {_llms_full.get('size_bytes', 0)} bytes)",
+                expected="Full-content companion for direct LLM context loading",
+                message="Site publishes the full-content dump, enabling one-shot context loading for agents."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-LLMS-FULL-020",
+                category="geo",
+                title="/llms-full.txt Full-Content Companion",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"/llms-full.txt not found (HTTP {_llms_full.get('status_code')})",
+                expected="Full-content companion for direct LLM context loading",
+                message="llms.txt exists without its full-content companion; agents must crawl linked pages individually."
+            )
+
+    # GEO-WAF-BOT-ACCESS-021: edge/WAF AI-bot accessibility probe (remote only)
+    if (not http_res["is_local"] and final_url.startswith(("http://", "https://"))
+            and http_res.get("status_code") == 200
+            and not _bot_challenge_signature(http_res.get("status_code", 0), http_res.get("headers", {}), str(http_res.get("raw_content", "")))):
+        _probe_uas = ("GPTBot", "PerplexityBot", "ClaudeBot", "Google-Extended", "YandexRenderResourcesBot")
+        _probe_results: Dict[str, Dict[str, Any]] = {}
+        for _ua in _probe_uas:
+            try:
+                _pr = analyze_target_http(final_url, timeout=min(5.0, timeout),
+                                          user_agent=f"Mozilla/5.0 (compatible; {_ua}/1.0; +https://github.com/Ezhuk1/ultimate-seo-geo)")
+                _sig = _bot_challenge_signature(_pr.get("status_code", 0), _pr.get("headers", {}),
+                                                str(_pr.get("raw_content", "")))
+                _probe_results[_ua] = {"status": _pr.get("status_code"), "challenge": _sig}
+            except Exception as _pe:
+                _probe_results[_ua] = {"status": None, "challenge": None, "error": str(_pe)[:80]}
+        _blocked_search = [u for u in ("GPTBot", "PerplexityBot", "ClaudeBot") if _probe_results.get(u, {}).get("challenge")]
+        _blocked_any = [u for u, v in _probe_results.items() if v.get("challenge")]
+        _probe_observed = "; ".join(f"{u}: {v['status']}" + (f" ({v['challenge']})" if v.get("challenge") else "")
+                                    for u, v in _probe_results.items())
+        if _blocked_search:
+            builder.add_evidence(
+                rule_id="GEO-WAF-BOT-ACCESS-021",
+                category="geo",
+                title="Edge/WAF AI-Bot Accessibility Probe",
+                status=STATUS_CRITICAL,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=_probe_observed,
+                expected="Search-retrieval AI bots receive the same 200 HTML as browsers",
+                message="Edge WAF (Cloudflare/CloudFront/Qrator/Fastly) silently challenges or blocks AI search crawlers despite robots.txt allowing them — the site is invisible in AI answers."
+            )
+            builder.add_finding(
+                rule_id="GEO-WAF-BOT-ACCESS-021",
+                category="geo",
+                severity=STATUS_CRITICAL,
+                title="Edge WAF Blocks AI Search Crawlers (Managed Challenge)",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P0_BLOCKER",
+                remediation_steps=[
+                    "Cloudflare: Security -> WAF -> Custom rules — create rule: (cf.client.bot) or User Agent contains 'GPTBot' or 'PerplexityBot' or 'ClaudeBot' -> Action: Skip (all managed challenges).",
+                    "Nginx: map $http_user_agent $ai_bot { default 0; ~*(GPTBot|PerplexityBot|ClaudeBot|Google-Extended) 1; } server { if ($ai_bot) { set $skip_challenge 1; } } — and exclude them from rate-limit/challenge zones.",
+                    "Caddy: @aibots header User-Agent *GPTBot* / *PerplexityBot* / *ClaudeBot* — invoke @aibots before any bot-protection directive.",
+                    "Verify after deploy: curl -A 'Mozilla/5.0 (compatible; GPTBot/1.0)' -I https://your.site/ must return 200 without challenge markers."
+                ],
+                impact_estimate="robots.txt permits these bots, but the WAF answer means zero citations in ChatGPT/Perplexity/Claude search products."
+            )
+        elif _blocked_any:
+            builder.add_evidence(
+                rule_id="GEO-WAF-BOT-ACCESS-021",
+                category="geo",
+                title="Edge/WAF AI-Bot Accessibility Probe",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=_probe_observed,
+                expected="AI crawlers receive real content instead of challenges",
+                message="Edge WAF challenges AI crawlers (training/user-fetch tier). Search retrieval is unaffected, but training-tier visibility is lost."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-WAF-BOT-ACCESS-021",
+                category="geo",
+                title="Edge/WAF AI-Bot Accessibility Probe",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=_probe_observed,
+                expected="AI crawlers receive real content instead of challenges",
+                message="Edge/WAF layer serves AI crawlers real content (no Managed Challenge detected)."
+            )
+
+    # GEO-CSR-FALLBACK-022: fallback content for non-rendering crawlers
+    try:
+        _ns = html_data.get("noscript", {}) or {}
+        _ns_words = int(_ns.get("total_words", 0) or 0)
+        _csr_risk = bool(html_data.get("is_csr_shell")) or len(html_data.get("render_blocking_js", []) or []) > 3
+        if _csr_risk and _ns_words >= 30:
+            builder.add_evidence(
+                rule_id="GEO-CSR-FALLBACK-022",
+                category="geo",
+                title="CSR Fallback Content (Non-Rendering Crawlers)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"JS-heavy page with <noscript> fallback ({_ns_words} words)",
+                expected="Meaningful <noscript> or server-side skeleton for critical sections",
+                message="Page is JS-heavy but provides a noscript fallback, so non-rendering AI crawlers still see key content."
+            )
+        elif _csr_risk:
+            builder.add_evidence(
+                rule_id="GEO-CSR-FALLBACK-022",
+                category="geo",
+                title="CSR Fallback Content (Non-Rendering Crawlers)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"JS-heavy page, <noscript> fallback {_ns_words} words (need >= 30)",
+                expected="Meaningful <noscript> or server-side skeleton for critical sections",
+                message="Client-rendered page offers no meaningful fallback: bots without JS rendering (GPTBot, ClaudeBot, PerplexityBot) see an empty shell."
+            )
+            builder.add_finding(
+                rule_id="GEO-CSR-FALLBACK-022",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="No Meaningful Fallback Content for Non-Rendering Crawlers",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P1_HIGH",
+                remediation_steps=[
+                    "Add a <noscript> block duplicating the critical above-the-fold content (price, key specs, main answer).",
+                    "Prefer SSR/SSG for the main content; hydrate interactivity only.",
+                    "Keep the initial HTML self-sufficient: title, h1, key sections present without JS."
+                ],
+                impact_estimate="Non-rendering AI crawlers index an empty page; the URL cannot be cited."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-CSR-FALLBACK-022",
+                category="geo",
+                title="CSR Fallback Content (Non-Rendering Crawlers)",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"Server-rendered page (noscript blocks: {_ns.get('count', 0)})",
+                expected="N/A for server-rendered pages",
+                message="Page does not rely on client-side rendering; fallback content is not required."
+            )
+    except Exception:
+        pass
+
+    # GEO-ANCHOR-DEEPLINK-023: heading/table anchors for citation deep links
+    try:
+        _outline = html_data["headings"].get("outline", [])
+        _h23 = [h for h in _outline if int(h.get("level", 9)) in (2, 3)]
+        _anchored = [h for h in _h23 if h.get("id")]
+        _h23n = len(_h23)
+        _ratio = round(len(_anchored) / _h23n * 100.0, 1) if _h23n else None
+        if _h23n >= 5 and _ratio == 0.0:
+            builder.add_evidence(
+                rule_id="GEO-ANCHOR-DEEPLINK-023",
+                category="geo",
+                title="Citation Deep-Link Anchors (id on Headings)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"0 of {_h23n} H2/H3 headings have id anchors",
+                expected="Unique id attributes on headings and key tables for #fragment and #:~:text= citations",
+                message="AI answers cannot deep-link into this page: no heading anchors exist for fragment citations."
+            )
+            builder.add_finding(
+                rule_id="GEO-ANCHOR-DEEPLINK-023",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="No Deep-Link Anchors for Citation Fragments",
+                confidence=CONFIDENCE_VERIFIED,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Give every H2/H3 a stable unique id attribute matching its topic (e.g. <h2 id='pricing'>).",
+                    "Add id attributes to comparison tables and FAQ entries.",
+                    "Keep ids stable across releases — they become citation addresses in AI answers."
+                ],
+                impact_estimate="Answers citing the page cannot link to the specific block, losing verification traffic and trust signals."
+            )
+        elif _h23n:
+            builder.add_evidence(
+                rule_id="GEO-ANCHOR-DEEPLINK-023",
+                category="geo",
+                title="Citation Deep-Link Anchors (id on Headings)",
+                status=STATUS_PASS if (_ratio or 0) >= 70.0 else STATUS_INFO,
+                confidence=CONFIDENCE_VERIFIED,
+                observed=f"{len(_anchored)}/{_h23n} H2/H3 headings carry id anchors ({_ratio}%)",
+                expected=">= 70% of headings anchored",
+                message="Deep-link anchors allow AI engines to cite specific blocks via fragment identifiers."
+            )
+    except Exception:
+        pass
+
     # GEO-AI-BOT-POLICY-007
     if robots_sim:
         blocked_search_bots = []
@@ -3010,6 +3280,99 @@ def run_inspection(
             expected="Permissive search retrieval policy",
             message="No robots.txt restrictions detected; search retrieval bots allowed by default."
         )
+
+    # GEO-SECTION-PYRAMID-024: per-section inverted pyramid for LLM chunking
+    if section_pyramid.get("applicable"):
+        _sp_total = section_pyramid["sections_total"]
+        _sp_ratio = section_pyramid["ratio_pct"] or 0.0
+        if _sp_ratio >= 70.0:
+            builder.add_evidence(
+                rule_id="GEO-SECTION-PYRAMID-024",
+                category="geo",
+                title="Inverted Pyramid per Section (LLM Chunkability)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"{section_pyramid['sections_frontloaded']}/{_sp_total} H2/H3 sections frontload substance (stats/definition/citation) in the first ~55 words",
+                expected=">= 70% of sections lead with a standalone claim",
+                message="Sections follow the inverted-pyramid pattern, so LLM chunks stay self-contained."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-SECTION-PYRAMID-024",
+                category="geo",
+                title="Inverted Pyramid per Section (LLM Chunkability)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Only {section_pyramid['sections_frontloaded']}/{_sp_total} sections frontload substance; weak: {', '.join(section_pyramid['weak_sections'][:3]) or '—'}",
+                expected=">= 70% of sections lead with a standalone claim",
+                message="Sections bury the key claim below narrative background; LLM chunks start with noise and get skipped."
+            )
+            builder.add_finding(
+                rule_id="GEO-SECTION-PYRAMID-024",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="Sections Lack Inverted-Pyramid Structure",
+                confidence=CONFIDENCE_HEURISTIC,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Open every H2/H3 section with a standalone claim in the first 40–60 words.",
+                    "Place statistics, definitions or a verdict sentence before background narrative.",
+                    "Weak sections detected: " + (", ".join(section_pyramid["weak_sections"][:3]) or "—")
+                ],
+                impact_estimate="Perplexity/SearchGPT index 300–800-token chunks; chunks without a leading claim are dropped from synthesis."
+            )
+
+    # GEO-INFO-GAIN-025: originality triggers vs boilerplate water
+    if info_gain.get("applicable"):
+        _ig_triggers = info_gain["trigger_count"]
+        _ig_water = info_gain["water_phrases"]
+        if _ig_triggers >= 2 and not _ig_water:
+            builder.add_evidence(
+                rule_id="GEO-INFO-GAIN-025",
+                category="geo",
+                title="Information Gain (Originality Signals)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Originality triggers: {info_gain['triggers'][:3]}",
+                expected="First-party results, benchmarks, formulas or artifacts",
+                message="Page carries first-party information AI engines cannot source elsewhere."
+            )
+        elif _ig_triggers == 0 and _ig_water:
+            builder.add_evidence(
+                rule_id="GEO-INFO-GAIN-025",
+                category="geo",
+                title="Information Gain (Originality Signals)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"No originality triggers; boilerplate openers: {_ig_water[:3]}",
+                expected="First-party results, benchmarks, formulas or artifacts",
+                message="Page adds no verifiable information beyond common knowledge and opens with boilerplate AI crawlers discard."
+            )
+            builder.add_finding(
+                rule_id="GEO-INFO-GAIN-025",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="Low Information Gain (Boilerplate, No First-Party Signals)",
+                confidence=CONFIDENCE_HEURISTIC,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Add first-party data: 'we tested / we measured / our telemetry shows X'.",
+                    "Replace boilerplate openers (" + ", ".join(_ig_water[:2]) + ") with the main claim.",
+                    "Publish at least one artifact: benchmark table, formula, dataset or annotated screenshot."
+                ],
+                impact_estimate="Zero-information-gain pages are de-prioritized by AI answer engines and duplicate-content filters."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-INFO-GAIN-025",
+                category="geo",
+                title="Information Gain (Originality Signals)",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Triggers: {_ig_triggers}; water: {_ig_water[:2] or '—'}",
+                expected="First-party results, benchmarks, formulas or artifacts",
+                message="Partial originality signals detected; more first-party data would strengthen citation eligibility."
+            )
 
     # GEO-CITATION-LINKS-008
     st_count = content_data.unverified_stats_count
@@ -3723,6 +4086,21 @@ def main():
             with open(args.output, "w", encoding="utf-8") as f:
                 f.write(llms_txt_str)
             print(f"Generated /llms.txt saved to {args.output}")
+            _full_path = args.output.replace(".txt", "") + "-full.txt"
+            _page_text = ""
+            try:
+                _page_text = str(ledger.metadata.get("page_visible_text", "") or "")
+            except Exception:
+                _page_text = ""
+            with open(_full_path, "w", encoding="utf-8") as f:
+                f.write(generate_llms_full_txt(
+                    title=site_title,
+                    pages=[{"title": site_title, "url": args.target, "text": _page_text}] + [
+                        {"title": p.get("title", ""), "url": p.get("url", ""), "text": ""}
+                        for p in pages_list[1:]
+                    ]
+                ))
+            print(f"Generated /llms-full.txt saved to {_full_path}")
         else:
             print(llms_txt_str)
         return

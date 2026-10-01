@@ -193,6 +193,20 @@
       "description": "Author name declared in Schema Person nodes should visibly match the byline author name displayed in the article text.",
       "remediation": "Ensure author name in Schema JSON-LD matches the visible author name in the page header/footer.",
       "source_id": "SRC-GOOGLE-EEAT"
+    },
+    {
+      "id": "SCHEMA-ENTITY-LINK-026",
+      "name": "Entity Graph Connectivity (Disambiguation)",
+      "category": "schema",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "verified",
+      "unknown_policy": "neutral",
+      "tier": "Tier E (Heuristic)",
+      "description": "Organization/content entities must be cross-linked (publisher/author/brand/hasOfferCatalog) for LLM disambiguation.",
+      "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
     }
   ]
 }
