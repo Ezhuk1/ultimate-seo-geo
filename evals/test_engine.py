@@ -2780,7 +2780,8 @@ def test_v3_6_0_gsc_cannibalization_suite():
     # 0. Expected CTR curve interpolation
     assert expected_organic_ctr(1.0) == 28.0
     assert abs(expected_organic_ctr(2.5) - 12.5) < 0.01
-    assert expected_organic_ctr(15.0) is None, "Beyond curve must return None, not extrapolate"
+    assert abs(expected_organic_ctr(15.0) - 0.8) < 0.01, "Curve now covers the advertised striking band (5-20)"
+    assert expected_organic_ctr(25.0) is None, "Beyond curve must return None, not extrapolate"
     assert expected_organic_ctr(0.0) is None
 
     # 1. Query+page export: split authority detected, healthy dominance skipped

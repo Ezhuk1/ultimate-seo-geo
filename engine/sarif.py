@@ -24,7 +24,17 @@ def generate_sarif_report(ledger: EvidenceLedger) -> Dict[str, Any]:
     """
     Transforms an EvidenceLedger into an OASIS SARIF v2.1.0 document.
     """
-    target_uri = getattr(ledger, "target", None) or ledger.metadata.get("target") or "https://example.com"
+    from pathlib import Path as _Path
+    target_uri = getattr(ledger, "target", None) or ledger.metadata.get("target")
+    if not target_uri:
+        target_uri = "unknown://no-target"
+    elif not target_uri.startswith(("http://", "https://", "file://")):
+        # Local file paths (e.g. Windows "C:\\...\\p.html") are rejected by
+        # GitHub Code Scanning as artifact URIs — convert to a file:// URI.
+        try:
+            target_uri = _Path(target_uri).resolve().as_uri()
+        except Exception:
+            target_uri = "unknown://invalid-target"
     rules_dict: Dict[str, Dict[str, Any]] = {}
     results: List[Dict[str, Any]] = []
 

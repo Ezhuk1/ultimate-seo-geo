@@ -140,7 +140,9 @@ class GscAnalysisResult:
 # an absolute expectation. Tunable per niche.
 EXPECTED_CTR_CURVE: Dict[int, float] = {
     1: 28.0, 2: 15.0, 3: 10.0, 4: 7.0, 5: 5.0,
-    6: 3.8, 7: 3.0, 8: 2.4, 9: 2.0, 10: 1.7
+    6: 3.8, 7: 3.0, 8: 2.4, 9: 2.0, 10: 1.7,
+    11: 1.4, 12: 1.2, 13: 1.0, 14: 0.9, 15: 0.8,
+    16: 0.7, 17: 0.6, 18: 0.55, 19: 0.5, 20: 0.45
 }
 
 
@@ -197,6 +199,8 @@ def analyze_gsc_csv(
     """
     Parses a Google Search Console CSV export and extracts actionable query opportunities.
     """
+    # Excel/Windows exports keep a UTF-8 BOM in the first header cell, which
+    # makes the query column unrecognizable ("\ufeffЗапрос"). Strip it once here.
     res = GscAnalysisResult()
 
     raw_text = ""
@@ -210,6 +214,7 @@ def analyze_gsc_csv(
             return res
     else:
         raw_text = file_path_or_content
+    raw_text = raw_text.lstrip("\ufeff").lstrip()
 
     if not raw_text.strip():
         res.error_message = "CSV content is empty."
@@ -285,7 +290,10 @@ def analyze_gsc_csv(
 
         tot_clicks += clicks
         tot_impr += impressions
-        weighted_pos_sum += pos * max(1, impressions)
+        # Zero-impression rows carry no weight in either term (pos*max(1,0)
+        # used to add pos to the numerator while adding nothing to the denominator)
+        if impressions > 0:
+            weighted_pos_sum += pos * impressions
 
         item = GscQueryItem(
             query=main_key,
@@ -312,10 +320,15 @@ def analyze_gsc_csv(
         # Striking Distance: position in [min_position, max_position] and impressions >= threshold
         if min_position <= item.position <= max_position and item.impressions >= min_impressions:
             striking_dist.append(item)
-            # Quick win: top-10 striking distance (pos 5.0 - 10.0 with high impressions)
+            # Quick win: top-10 striking distance (pos 5.0 - 10.0 with high impressions).
+            # Append a copy: mutating the shared item used to relabel the entry already
+            # sitting in striking_distance ("widget" showed opportunity_type=quick_win there).
             if item.position <= 10.0 and item.impressions >= (min_impressions * 2):
-                item.opportunity_type = "quick_win"
-                quick_wins.append(item)
+                quick_wins.append(GscQueryItem(
+                    query=item.query, clicks=item.clicks, impressions=item.impressions,
+                    ctr=item.ctr, position=item.position, page=item.page,
+                    opportunity_type="quick_win"
+                ))
 
         # CTR Opportunity (position-aware): flag snippets that underperform the
         # position-typical CTR curve by >= 50%, in addition to the static < 2.0%
@@ -323,8 +336,8 @@ def analyze_gsc_csv(
         # even though 5% > 2.0%.
         exp_ctr = expected_organic_ctr(item.position)
         ctr_deficit = (exp_ctr is not None and exp_ctr > 0 and item.ctr < 0.5 * exp_ctr)
-        is_low_ctr_static = item.position <= 10.0 and item.impressions >= (min_impressions * 2) and item.ctr < 2.0
-        if item.impressions >= (min_impressions * 2) and (is_low_ctr_static or ctr_deficit):
+        is_low_ctr_static = 0 < item.position <= 10.0 and item.impressions >= (min_impressions * 2) and item.ctr < 2.0
+        if item.position > 0 and item.impressions >= (min_impressions * 2) and (is_low_ctr_static or ctr_deficit):
             ctr_item = GscQueryItem(
                 query=item.query,
                 clicks=item.clicks,
@@ -358,15 +371,19 @@ def analyze_gsc_csv(
             total_impr = sum(a["impr"] for a in pages_agg.values())
             if total_impr < min_impressions:
                 continue
+            if total_impr <= 0:
+                continue
             top_page, _top_agg = max(pages_agg.items(), key=lambda kv: kv[1]["impr"])
             top_impr = pages_agg[top_page]["impr"]
             top_share = top_impr / total_impr * 100.0
+            top_page_pos = pages_agg[top_page].get("best_pos")
             best_pos = min((a["best_pos"] for a in pages_agg.values() if a["best_pos"] is not None), default=None)
-            # Healthy pattern: one dominant URL (>= 60% of impressions) already in
-            # the top 3. Anything else is split authority worth consolidating.
-            if top_share >= 60.0 and best_pos is not None and best_pos <= 3.0:
+            # Healthy pattern: one dominant URL (>= 60% of impressions) that ITSELF
+            # ranks top-3. Judging by the best position across all pages used to
+            # mask a dominant URL stuck on #8 behind a minor #2 hit.
+            if top_share >= 60.0 and top_page_pos is not None and top_page_pos <= 3.0:
                 continue
-            if best_pos is not None and best_pos <= 3.0:
+            if top_page_pos is not None and top_page_pos <= 3.0:
                 rec = (f"Primary URL {top_page} ranks top-3 but competes with {len(pages_agg) - 1} secondary page(s). "
                        "Canonicalize or 301 secondary pages into the primary and align anchors.")
             elif top_share >= 60.0:

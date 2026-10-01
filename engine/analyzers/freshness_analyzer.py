@@ -30,21 +30,26 @@ def _parse_iso_or_http_date(date_val: Optional[str]) -> Optional[datetime]:
         return None
     val_str = str(date_val).strip()
     # Try ISO 8601
+    def _naive_utc(dt: datetime) -> datetime:
+        # All comparisons downstream are naive-vs-naive: an aware ISO date mixed
+        # with an aware HTTP date used to raise TypeError and kill the audit.
+        return dt.astimezone(timezone.utc).replace(tzinfo=None) if dt.tzinfo else dt
+
     try:
         clean = val_str.replace("Z", "+00:00")
         if "T" in clean:
-            return datetime.fromisoformat(clean)
-        return datetime.strptime(clean[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            return _naive_utc(datetime.fromisoformat(clean))
+        return datetime.strptime(clean[:10], "%Y-%m-%d")
     except Exception:
         pass
 
     # Try HTTP date format (RFC 7231 / RFC 1123)
     try:
-        return datetime.strptime(val_str, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+        return _naive_utc(datetime.strptime(val_str, "%a, %d %b %Y %H:%M:%S %Z"))
     except Exception:
         pass
     try:
-        return datetime.strptime(val_str, "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
+        return datetime.strptime(val_str, "%a, %d %b %Y %H:%M:%S GMT")
     except Exception:
         pass
 
@@ -154,7 +159,7 @@ def analyze_freshness(
     dt_http = _parse_iso_or_http_date(result.http_last_modified)
     dt_sitemap = _parse_iso_or_http_date(result.sitemap_lastmod)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     score = 100
 
     # A. Check if modified < published

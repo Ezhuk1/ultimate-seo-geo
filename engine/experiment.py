@@ -51,7 +51,11 @@ def _normalize_domain(url_or_domain: str) -> str:
     cleaned = url_or_domain.strip().lower()
     if "://" in cleaned:
         cleaned = urlsplit(cleaned).netloc
-    return cleaned.split(":")[0].lstrip("www.")
+    host = cleaned.split(":")[0]
+    # lstrip("www.") stripped the character set {w, .}: www.webow.com -> ebow.com
+    if host.startswith("www."):
+        host = host[4:]
+    return host
 
 
 def evaluate_citation_benchmark(
@@ -97,8 +101,13 @@ def evaluate_citation_benchmark(
         is_cited = False
         target_pos: Optional[int] = None
 
+        def _same_site(a: str, b: str) -> bool:
+            # Bidirectional substring matching let notexample.com count as a
+            # citation of example.com. Match exact host or real subdomain relation.
+            return a == b or a.endswith("." + b) or b.endswith("." + a)
+
         for idx, src_domain in enumerate(norm_sources):
-            if norm_target_domain in src_domain or src_domain in norm_target_domain:
+            if _same_site(norm_target_domain, src_domain):
                 if not is_cited:
                     is_cited = True
                     target_pos = idx + 1
@@ -111,7 +120,7 @@ def evaluate_citation_benchmark(
 
         # Track competitor citations
         for comp in competitors:
-            if any(comp in src_d or src_d in comp for src_d in norm_sources):
+            if any(_same_site(comp, src_d) for src_d in norm_sources):
                 comp_cited_counts[comp] += 1
 
     cit_rate = round(cited_count / total_queries * 100, 1)

@@ -330,11 +330,14 @@ def run_inspection(
         builder.add_signal("sitemap_target_in_sitemap", "Target URL in Sitemap", sitemap_res.target_in_sitemap)
 
     # Week 2 Signals
-    builder.add_signal("target_is_https", "Target Protocol HTTPS", final_url.lower().startswith("https://"))
-    builder.add_signal("http_hsts_present", "HSTS Header Present", bool(headers.get("strict-transport-security")))
+    # Local files have no wire protocol/headers: marking these signals measured
+    # turned every local audit into a measured HTTPS failure (security 25/100).
+    _wire_measured = not http_res.get("is_local", False)
+    builder.add_signal("target_is_https", "Target Protocol HTTPS", final_url.lower().startswith("https://"), is_measured=_wire_measured)
+    builder.add_signal("http_hsts_present", "HSTS Header Present", bool(headers.get("strict-transport-security")), is_measured=_wire_measured)
     builder.add_signal("html_insecure_resources_count", "Mixed Insecure Content Count", html_data.get("mixed_content", {}).get("insecure_count", 0), unit="count")
     sec_hdrs_count = sum(1 for h in ("x-content-type-options", "x-frame-options", "content-security-policy", "referrer-policy") if h in headers)
-    builder.add_signal("http_security_headers_count", "Security Headers Count", sec_hdrs_count, unit="count")
+    builder.add_signal("http_security_headers_count", "Security Headers Count", sec_hdrs_count, unit="count", is_measured=_wire_measured)
     builder.add_signal("http_cache_control", "Cache-Control Header", headers.get("cache-control"))
     builder.add_signal("http_content_encoding", "Content-Encoding", headers.get("content-encoding"))
     builder.add_signal("html_landmarks_has_main", "HTML5 <main> Landmark Present", html_data.get("landmarks", {}).get("has_main", False))
@@ -1072,8 +1075,10 @@ def run_inspection(
         )
     elif robots_sim:
         blocked_search = [b for b, res in robots_sim.items() if b in ("Googlebot", "Bingbot") and not res.get("target_allowed", res["root_allowed"])]
-        blocked_ai_search = [b for b, res in robots_sim.items() if b in ("OAI-SearchBot", "PerplexityBot", "ClaudeBot", "ChatGPT-User") and not res.get("target_allowed", res["root_allowed"])]
-        blocked_ai_training = [b for b, res in robots_sim.items() if b in ("GPTBot", "Google-Extended", "Bytespider", "Amazonbot", "CCBot", "Diffbot") and not res.get("target_allowed", res["root_allowed"])]
+        # Aligned with CRAWLER_POLICIES (robots_simulator): ClaudeBot is MODEL_TRAINING,
+        # ChatGPT-User is USER_FETCH — neither is a search-retrieval bot.
+        blocked_ai_search = [b for b, res in robots_sim.items() if b in ("OAI-SearchBot", "PerplexityBot", "Claude-SearchBot") and not res.get("target_allowed", res["root_allowed"])]
+        blocked_ai_training = [b for b, res in robots_sim.items() if b in ("GPTBot", "Google-Extended", "ClaudeBot", "Bytespider", "CCBot", "Amazonbot") and not res.get("target_allowed", res["root_allowed"])]
 
         if blocked_search:
             builder.add_evidence(
@@ -3111,9 +3116,11 @@ def run_inspection(
     # TECH-INDEXNOW-KEY-039: IndexNow Protocol Fast-Track Search Engine Indexing
     has_indexnow = False
     indexnow_detail = "IndexNow key not detected on single-page fetch"
-    if "indexnow" in str(body_text).lower() or (robots_ast and any("indexnow" in s.lower() for s in getattr(robots_ast, "sitemaps", []))):
+    # Only structured markers (meta/link tag) count: a page merely *mentioning*
+    # IndexNow in body text used to earn PASS "instant indexing configured".
+    if re.search(r"<meta[^>]+indexnow|<link[^>]+indexnow", str(body_text), re.IGNORECASE):
         has_indexnow = True
-        indexnow_detail = "IndexNow directive or meta tag detected"
+        indexnow_detail = "IndexNow meta/link tag detected in page head"
     builder.add_evidence(
         rule_id="TECH-INDEXNOW-KEY-039",
         category="technical",
@@ -3128,7 +3135,8 @@ def run_inspection(
     # AGENT-MARKDOWN-NEGOTIATION-001: Content Negotiation for AI Agents
     agentic_data = html_data.get("agentic_readiness", {})
     md_alt = agentic_data.get("markdown_alternate_url")
-    has_vary_accept = "accept" in headers.get("vary", "").lower()
+    _vary_tokens = [t.strip().lower() for t in str(headers.get("vary", "")).split(",")]
+    has_vary_accept = "accept" in _vary_tokens
     if md_alt or has_vary_accept:
         builder.add_evidence(
             rule_id="AGENT-MARKDOWN-NEGOTIATION-001",
@@ -3194,10 +3202,14 @@ def run_inspection(
             message="Clean accessibility tree: autonomous browsing agents can accurately identify and operate interactive controls."
         )
 
-    ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
+    # Disabled rules must be filtered BEFORE build(): filtering the built ledger
+    # only touched evidence, leaving findings, coverage and criteria tables
+    # inconsistent with the report (and --fail-on firing on disabled rules).
     if config and config.disabled_rules:
         disabled_set = set(config.disabled_rules)
-        ledger.evidence = [e for e in ledger.evidence if e.rule_id not in disabled_set]
+        builder.evidence = [e for e in builder.evidence if e.rule_id not in disabled_set]
+        builder.findings = [f for f in builder.findings if f.rule_id not in disabled_set]
+    ledger = builder.build(expected_baseline=EXPECTED_BASELINE_SIGNALS)
 
     ledger.metadata["agentic_readiness"] = agentic_data
     scores = calculate_scores(ledger)
@@ -3236,7 +3248,22 @@ def format_markdown_report(ledger: EvidenceLedger, scores: ScoreBreakdown) -> st
 
     # 1. Your Next SEO Move (Top 1-3 Recommendations: Do this / Why)
     findings = ledger.findings
-    top_findings = findings[:3]
+    # "Highest-leverage actions" requires actual prioritization, not emission order.
+    def _priority_rank(f):
+        ap = str(getattr(f, "action_priority", "") or "")
+        if ap.startswith("P0"):
+            return 0
+        if ap.startswith("P1"):
+            return 1
+        if ap.startswith("P2"):
+            return 2
+        return 3
+
+    _sev_rank = {"CRITICAL": 0, "WARNING": 1, "INFO": 2, "PASS": 3}
+    top_findings = sorted(
+        findings,
+        key=lambda f: (_priority_rank(f), _sev_rank.get(getattr(f, "severity", ""), 4)),
+    )[:3]
     deferred_findings = findings[3:]
 
     if top_findings:

@@ -123,7 +123,12 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             # Not applicable or informational recommendations incur 0 penalty
             continue
 
-        if ev.category in ("technical", "schema", "performance"):
+        # A P0 (CRITICAL) finding must hit the technical score regardless of
+        # category: the category gate used to drop security/geo criticals entirely
+        # (prompt-injection P0 cost 0 points). Warnings stay category-local to
+        # avoid double-penalizing routine geo signals already reflected in the
+        # GEO index and security hygiene score.
+        if ev.category in ("technical", "schema", "performance") or ev.status == STATUS_CRITICAL:
             rule = registry.get(ev.rule_id)
 
             if ev.status == STATUS_CRITICAL:
@@ -269,7 +274,8 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         # Component 7: Freshness (Weight: 5)
         fresh_sig = ledger.signals.get("freshness_score")
         if fresh_sig and fresh_sig.is_measured:
-            f_val = fresh_sig.value or 50
+            # A measured freshness of 0 must stay 0 ('x or 50' turned measured 0 into 50)
+            f_val = fresh_sig.value if fresh_sig.value is not None else 50
             dim_fresh = 5 if f_val >= 80 else (3 if f_val >= 50 else 1)
         else:
             dim_fresh = 0
@@ -302,6 +308,12 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
             dim_ev = 0
             dim_src = 0
             dim_chunk = 0
+            # Structurally zeroed dimensions are not observable for this page:
+            # exclude them from measured_count instead of reporting HIGH confidence.
+            for _d in ("answerability", "evidence_density", "entity_clarity",
+                       "source_attribution", "passage_extractability"):
+                if _d not in unknown_dims:
+                    unknown_dims.append(_d)
 
         geo_score = min(100, max(0, dim_ans + dim_ev + dim_ent + dim_chunk + dim_src + dim_schema + dim_fresh + dim_crawl))
 
