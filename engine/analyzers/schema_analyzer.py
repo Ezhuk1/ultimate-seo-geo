@@ -413,19 +413,20 @@ def analyze_json_ld(raw_json_blocks: List[str]) -> SchemaAnalysisResult:
     has_crit = any(f.severity == "CRITICAL" for f in result.findings)
     has_warn = any(f.severity == "WARNING" for f in result.findings)
 
-    if result.syntax_valid == "NO" or has_crit:
+    if not parsed_roots:
+        # No structured data at all: claiming VALID/ELIGIBLE declared schema-less
+        # pages "rich-result ready". Honest verdict is UNKNOWN.
+        result.schema_org_structure = "UNKNOWN"
+        result.google_rich_result_eligibility = "UNKNOWN"
+    elif result.syntax_valid == "NO" or has_crit:
         result.schema_org_structure = "INVALID"
+        result.google_rich_result_eligibility = "UNKNOWN"
     elif has_warn:
         result.schema_org_structure = "PARTIAL"
-    else:
-        result.schema_org_structure = "VALID"
-
-    if result.schema_org_structure == "VALID":
-        result.google_rich_result_eligibility = "ELIGIBLE"
-    elif result.schema_org_structure == "PARTIAL":
         result.google_rich_result_eligibility = "WARNING"
     else:
-        result.google_rich_result_eligibility = "UNKNOWN"
+        result.schema_org_structure = "VALID"
+        result.google_rich_result_eligibility = "ELIGIBLE"
 
     return result
 

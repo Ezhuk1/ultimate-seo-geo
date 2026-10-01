@@ -135,7 +135,7 @@ def crawl_site(
     timeout: float = 10.0,
     respect_robots: bool = True,
     allowed_domains: Optional[List[str]] = None,
-    user_agent: str = "UltimateSeoGeoCrawler/2.1"
+    user_agent: str = "UltimateSeoGeoCrawler/3.6.0"
 ) -> SiteCrawlReport:
     """
     Executes a deterministic breadth-first crawl of the configured site.

@@ -134,18 +134,21 @@ def _is_soft_404(status_code: int, raw_content: str) -> bool:
 
 
 def _has_redirect_loop(redirect_chain: list[dict[str, Any]]) -> bool:
-    if len(redirect_chain) > 5:
-        return True
-    seen_urls = set()
+    """True iff the visited URL sequence repeats (real cycle), not merely for
+    being long. Intermediate URLs legitimately appear as both "to" of one hop
+    and "from" of the next — a cycle means the chain returns to an URL it
+    already visited (final destination == an earlier hop).
+    """
+    visited: set[str] = set()
     for hop in redirect_chain:
-        from_url = hop.get("from")
-        to_url = hop.get("to")
-        if from_url and from_url in seen_urls:
+        frm = hop.get("from")
+        to = hop.get("to")
+        if frm and not visited:
+            visited.add(frm)
+        if to and to in visited:
             return True
-        if to_url and to_url in seen_urls:
-            return True
-        if from_url:
-            seen_urls.add(from_url)
+        if to:
+            visited.add(to)
     return False
 
 
