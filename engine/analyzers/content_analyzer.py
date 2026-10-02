@@ -513,3 +513,107 @@ def analyze_information_gain(visible_text: str) -> Dict[str, Any]:
     water = [w for w in WATER_PHRASES if w in text.lower()]
     return {"trigger_count": len(set(triggers)), "triggers": list(dict.fromkeys(triggers))[:5],
             "water_phrases": water[:5], "applicable": len(text.split()) >= 300}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Round-5 GEO additions: AI-slop density (citation-killer phrasing) and the
+# category-for-audience definition pattern. Both are Tier E heuristics (EN/RU)
+# and never gate scores on their own.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SLOP_LEXICON = [
+    # Unsupported superlatives / claims without referent
+    "best in class", "best-in-class", "industry-leading", "industry leading",
+    "world-class", "world class", "cutting-edge", "cutting edge",
+    "next-generation", "next generation", "state-of-the-art", "state of the art",
+    "game-changing", "game changing", "revolutionary", "unparalleled",
+    "unrivaled", "unmatched", "best-of-breed", "market leader",
+    "лучший в мире", "непревзойденный", "революционный", "инновационный",
+    "уникальный на рынке", "не имеет аналогов",
+    # Transformation / hype verbs
+    "unlock the power", "unleash", "supercharge", "empower",
+    "раскрыть потенциал", "вывести на новый уровень",
+    # Seamless family
+    "seamless", "frictionless", "бесшовный", "максимально удобно",
+    # Corporate softeners / abstract plurals
+    "synergy", "holistic approach", "leverage our", "robust platform",
+    "comprehensive suite", "solutions for your business", "wide range of services",
+    "комплексное решение", "широкий спектр услуг", "индивидуальный подход",
+    "команда профессионалов", "качество на высшем уровне",
+    # Temporal fillers / discourse glue
+    "in today's fast-paced world", "in the ever-evolving", "look no further",
+    "в современном быстро меняющемся мире", "ваш надежный партнер",
+]
+
+SLOP_HEDGE_PATTERNS = [
+    re.compile(r"\b(may|might|could)\b[^.!?]{0,50}\b(potentially|possibly)\b", re.IGNORECASE),
+    re.compile(r"\bможет\s+(потенциально|возможно)\b", re.IGNORECASE),
+]
+
+EMOJI_STRUCTURE_PATTERN = re.compile(
+    "[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF]", re.UNICODE
+)
+
+
+def analyze_slop_patterns(visible_text: str) -> Dict[str, Any]:
+    """Density of AI-slop phrasing (unsupported superlatives, hype verbs,
+    corporate filler, hedging stacks, emoji-as-structure) normalized per 1000
+    words. Anti-citation signal: pages that read as generated boilerplate are
+    trusted and quoted less by synthesis engines."""
+    text = visible_text or ""
+    words = len(text.split())
+    lower = text.lower()
+
+    matches: List[str] = []
+    counts: List[int] = []
+    for phrase in SLOP_LEXICON:
+        n = lower.count(phrase)
+        if n > 0:
+            matches.append(f"{phrase} x{n}")
+            counts.append(n)
+
+    hedge_hits = sum(1 for pat in SLOP_HEDGE_PATTERNS if pat.search(text))
+    if hedge_hits:
+        matches.append(f"hedge_stack x{hedge_hits}")
+        counts.append(hedge_hits)
+
+    emoji_hits = len(EMOJI_STRUCTURE_PATTERN.findall(text))
+    if emoji_hits >= 3:
+        matches.append(f"emoji_structure x{emoji_hits}")
+        counts.append(emoji_hits)
+
+    total_hits = sum(counts)
+    density = round(total_hits * 1000.0 / words, 1) if words >= 50 else 0.0
+
+    return {
+        "applicable": words >= 150,
+        "word_count": words,
+        "hit_count": total_hits,
+        "density_per_1000": density,
+        "matches": matches[:8],
+        "verdict": "HIGH" if density >= 8.0 else ("LOW" if total_hits == 0 else "MODERATE"),
+    }
+
+
+AUDIENCE_DEFINITION_PATTERNS = [
+    # EN: "X is a [category] for [audience] ..."
+    re.compile(r"\b(?:is|are)\s+(?:a|an|the)\s+[a-z][\w\s&/-]{0,60}?\bfor\b\s+[a-z][\w\s&/-]{0,60}", re.IGNORECASE),
+    # RU: "X — это [категория] для [аудитории] ..." / "предназначен для ..."
+    re.compile(r"\b(?:это|является|—)\s*[a-zа-яё][\wа-яё\s&/-]{0,60}?\bдля\b\s+[a-zа-яё][\wа-яё\s&/-]{0,60}", re.IGNORECASE),
+    re.compile(r"\b(?:предназначен[аы]?|разработан[аы]?|создан[аы]?)\s+для\b", re.IGNORECASE),
+    # EN purpose: "designed for / built for / built to help"
+    re.compile(r"\b(?:designed|built|created)\s+(?:for|to\s+help)\b", re.IGNORECASE),
+]
+
+
+def analyze_audience_definition(opening_text: str) -> Dict[str, Any]:
+    """Detects the canonical self-description pattern '[Entity] is [category]
+    for [audience]' in the opening block. AI engines reuse verbatim definition
+    sentences when asked 'what is X / who is X for'; a definition naming both
+    category and audience is the strongest entity-disambiguation signal on-page."""
+    opening = opening_text or ""
+    for pat in AUDIENCE_DEFINITION_PATTERNS:
+        m = pat.search(opening)
+        if m:
+            return {"found": True, "snippet": m.group(0)[:120]}
+    return {"found": False, "snippet": ""}

@@ -1,6 +1,6 @@
 {
   "name": "ultimate-seo-geo-evals",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "evals": [
     {
       "id": "audit-landing-page",
@@ -24,8 +24,14 @@
         "reports_observation_coverage": true,
         "heuristic_notice_present": true,
         "score_ranges": {
-          "technical_seo": [0, 100],
-          "geo": [0, 100]
+          "technical_seo": [
+            0,
+            100
+          ],
+          "geo": [
+            0,
+            100
+          ]
         }
       }
     },
@@ -118,8 +124,14 @@
         "exempts_quotes_for_technical_docs": true,
         "evaluates_parameters_and_specs": true,
         "score_ranges": {
-          "technical_seo": [0, 100],
-          "geo": [0, 100]
+          "technical_seo": [
+            0,
+            100
+          ],
+          "geo": [
+            0,
+            100
+          ]
         }
       }
     },

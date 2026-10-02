@@ -139,6 +139,14 @@ class DocumentParser(HTMLParser):
         self.csr_mount_elements = []
         self.has_client_bundle = False
 
+        # Interstitial / overlay detection (cookie walls, modals, paywalls)
+        self.dialog_elements = 0
+        self.dialog_open_on_load = 0
+        self.aria_modal_markers = 0
+        self.named_wall_markers: list[str] = []
+        self.generic_overlay_markers: list[str] = []
+        self.fixed_overlay_candidates = 0
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]):
         tag = tag.lower()
         attr_dict = {k.lower(): (v if v is not None else "") for k, v in attrs}
@@ -194,6 +202,29 @@ class DocumentParser(HTMLParser):
 
         if any(marker in tag_id or marker in tag_cls for marker in ("tldr", "key-takeaway", "summary-box", "takeaways", "quick-answer")):
             self.tldr_blocks_count += 1
+
+        # Interstitial / overlay detection (Tier B: Google intrusive interstitial
+        # policy; anti-citation signal for AI crawlers that receive raw HTML)
+        if tag == "dialog":
+            self.dialog_elements += 1
+            if "open" in attr_dict:
+                self.dialog_open_on_load += 1
+        if attr_dict.get("role", "").lower() == "dialog" or attr_dict.get("aria-modal", "").lower() == "true":
+            self.aria_modal_markers += 1
+        marker_text = f"{tag_id} {tag_cls}"
+        named_walls = ("cookie", "consent", "gdpr", "cmp-banner", "paywall", "interstitial")
+        generic_overlays = ("popup", "modal", "overlay", "lightbox")
+        for marker in named_walls:
+            if marker in marker_text and marker not in self.named_wall_markers:
+                self.named_wall_markers.append(marker)
+        for marker in generic_overlays:
+            if marker in marker_text and marker not in self.generic_overlay_markers:
+                self.generic_overlay_markers.append(marker)
+        style_attr = attr_dict.get("style", "").lower()
+        if "position:fixed" in style_attr.replace(" ", "") or "position: fixed" in style_attr:
+            z_m = re.search(r"z-index\s*:\s*(\d+)", style_attr)
+            if z_m and int(z_m.group(1)) >= 100:
+                self.fixed_overlay_candidates += 1
 
         if tag == "title" and not self.in_svg:
             self.in_title = True
@@ -699,5 +730,13 @@ def analyze_target_html(html_content: str, base_url: str = "") -> dict[str, Any]
             "unlabelled_inputs_count": unlabelled_inputs_count,
             "fake_buttons_count": fake_buttons_count,
             "interactive_accessibility_score": agentic_a11y_score
+        },
+        "interstitial_signals": {
+            "dialog_elements": parser.dialog_elements,
+            "dialog_open_on_load": parser.dialog_open_on_load,
+            "aria_modal_markers": parser.aria_modal_markers,
+            "named_walls": parser.named_wall_markers,
+            "generic_overlays": parser.generic_overlay_markers,
+            "fixed_high_z_overlays": parser.fixed_overlay_candidates
         }
     }

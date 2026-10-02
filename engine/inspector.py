@@ -21,6 +21,7 @@ from .analyzers.robots_simulator import parse_robots_txt, simulate_ai_crawlers
 from .analyzers.schema_analyzer import analyze_json_ld, validate_schema_snippet
 from .analyzers.content_analyzer import analyze_content
 from .analyzers.content_analyzer import analyze_section_pyramid, analyze_information_gain
+from .analyzers.content_analyzer import analyze_slop_patterns, analyze_audience_definition
 from .analyzers.sitemap_analyzer import parse_sitemap_xml, SitemapAnalysisResult, merge_sitemap_results
 
 MAX_SITEMAP_INDEX_CHILDREN = 50  # hard cap on sitemap-index children to expand
@@ -232,6 +233,14 @@ def run_inspection(
     except Exception:
         section_pyramid = {"sections_total": 0, "sections_frontloaded": 0, "ratio_pct": None, "weak_sections": [], "applicable": False}
         info_gain = {"trigger_count": 0, "triggers": [], "water_phrases": [], "applicable": False}
+
+    # Round-5 GEO: AI-slop density + entity category-for-audience definition
+    try:
+        slop_data = analyze_slop_patterns(content_text)
+        audience_def = analyze_audience_definition(content_data.opening_snippet)
+    except Exception:
+        slop_data = {"applicable": False, "word_count": 0, "hit_count": 0, "density_per_1000": 0.0, "matches": [], "verdict": "LOW"}
+        audience_def = {"found": False, "snippet": ""}
 
     # 4.5 Performance & Asset Inspection
     final_url = http_res.get("final_url", target)
@@ -971,6 +980,62 @@ def run_inspection(
             observed="Semantic content present in initial HTML payload",
             expected="Server-rendered semantic HTML payload",
             message="Initial HTML payload contains readable semantic content (not an empty CSR shell)."
+        )
+
+    # TECH-INTERSTITIAL-040: content-blocking overlays & cookie walls
+    interstitial = html_data.get("interstitial_signals", {}) or {}
+    _i_named = interstitial.get("named_walls", [])
+    _i_generic = (
+        (interstitial.get("dialog_elements", 0) + interstitial.get("aria_modal_markers", 0)
+         + interstitial.get("fixed_high_z_overlays", 0)) > 0
+        or bool(interstitial.get("generic_overlays"))
+    )
+    if _i_named:
+        builder.add_evidence(
+            rule_id="TECH-INTERSTITIAL-040",
+            category="technical",
+            title="Content-Blocking Overlays & Cookie Walls",
+            status=STATUS_WARNING,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"Named overlay wall(s) served in initial HTML: {', '.join(_i_named[:5])}",
+            expected="Content reachable in first-paint HTML without interaction",
+            message="Consent/paywall/interstitial overlay markup is present in the served HTML. Crawlers that do not execute interaction flows (Google mobile interstitial policy; AI retrieval bots) may receive a blocked or degraded content view."
+        )
+        builder.add_finding(
+            rule_id="TECH-INTERSTITIAL-040",
+            category="technical",
+            severity=STATUS_WARNING,
+            title="Content-Blocking Overlay Detected (Cookie Wall / Paywall)",
+            confidence=CONFIDENCE_HEURISTIC,
+            action_priority="P2_MEDIUM",
+            remediation_steps=[
+                "Defer consent UI to a non-blocking banner; never gate the main answer behind a cookie wall or paywall.",
+                "Verify with 'curl -s <URL>': the primary content and answer must be present in the raw response.",
+                "Named wall markers detected: " + ", ".join(_i_named[:5])
+            ],
+            impact_estimate="Google down-ranks pages with intrusive interstitials; AI crawlers quoting raw HTML may extract overlay text instead of page content."
+        )
+    elif _i_generic:
+        builder.add_evidence(
+            rule_id="TECH-INTERSTITIAL-040",
+            category="technical",
+            title="Content-Blocking Overlays & Cookie Walls",
+            status=STATUS_INFO,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed=f"Dialog/overlay elements present (dialogs: {interstitial.get('dialog_elements', 0)}, aria-modal: {interstitial.get('aria_modal_markers', 0)}, high-z fixed: {interstitial.get('fixed_high_z_overlays', 0)}); no named consent walls",
+            expected="Content reachable in first-paint HTML without interaction",
+            message="Modal/dialog markup detected. If it covers the answer on load, AI crawlers and Google's interstitial policy treat it as blocking content."
+        )
+    else:
+        builder.add_evidence(
+            rule_id="TECH-INTERSTITIAL-040",
+            category="technical",
+            title="Content-Blocking Overlays & Cookie Walls",
+            status=STATUS_PASS,
+            confidence=CONFIDENCE_HEURISTIC,
+            observed="No overlay/consent-wall markup in initial HTML",
+            expected="Content reachable in first-paint HTML without interaction",
+            message="No content-blocking overlays detected in the served HTML."
         )
 
     # TECH-VIEWPORT-006: Mobile Responsive Viewport
@@ -3424,6 +3489,85 @@ def run_inspection(
                 observed=f"Triggers: {_ig_triggers}; water: {_ig_water[:2] or '—'}",
                 expected="First-party results, benchmarks, formulas or artifacts",
                 message="Partial originality signals detected; more first-party data would strengthen citation eligibility."
+            )
+
+    # GEO-SLOP-DETECT-026: AI-slop phrasing density (anti-citation register)
+    if slop_data.get("applicable"):
+        _sl_density = slop_data.get("density_per_1000", 0.0)
+        _sl_hits = slop_data.get("hit_count", 0)
+        _sl_matches = slop_data.get("matches", [])
+        if slop_data.get("verdict") == "HIGH":
+            builder.add_evidence(
+                rule_id="GEO-SLOP-DETECT-026",
+                category="geo",
+                title="AI Slop Density (Citation-Killer Phrasing)",
+                status=STATUS_WARNING,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Slop density {_sl_density}/1000 words ({_sl_hits} hits): {', '.join(_sl_matches[:5])}",
+                expected="Concrete, verifiable register without generated-boilerplate phrasing",
+                message="Page reads as AI-generated boilerplate: unsupported superlatives, hype verbs and corporate filler erode the trust synthesis engines place in a passage."
+            )
+            builder.add_finding(
+                rule_id="GEO-SLOP-DETECT-026",
+                category="geo",
+                severity=STATUS_WARNING,
+                title="High AI-Slop Density (Unsupported Superlatives, Hype Filler)",
+                confidence=CONFIDENCE_HEURISTIC,
+                action_priority="P2_MEDIUM",
+                remediation_steps=[
+                    "Replace each superlative ('industry-leading', 'революционный') with a named fact: client, number, date.",
+                    "Flatten hedging stacks ('may potentially reduce') to one verifiable claim ('reduces by 31% at client X').",
+                    "Remove emoji used as document structure; keep one register throughout.",
+                    "Detected patterns: " + ", ".join(_sl_matches[:6])
+                ],
+                impact_estimate="Citation-killer register: readers and AI engines discount claims that pattern-match generated boilerplate; pages are quoted less and trusted less."
+            )
+        elif slop_data.get("verdict") == "LOW":
+            builder.add_evidence(
+                rule_id="GEO-SLOP-DETECT-026",
+                category="geo",
+                title="AI Slop Density (Citation-Killer Phrasing)",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed="No AI-slop phrasing patterns detected",
+                expected="Concrete, verifiable register without generated-boilerplate phrasing",
+                message="Content register is concrete and free of generated-boilerplate phrasing."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-SLOP-DETECT-026",
+                category="geo",
+                title="AI Slop Density (Citation-Killer Phrasing)",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Slop density {_sl_density}/1000 words ({_sl_hits} hits): {', '.join(_sl_matches[:5])}",
+                expected="Concrete, verifiable register without generated-boilerplate phrasing",
+                message="Some boilerplate phrasing detected; replacing it with named facts would strengthen citation trust."
+            )
+
+    # GEO-ENTITY-DEFINITION-027: '[category] for [audience]' opening definition
+    if content_data.opening_has_direct_answer:
+        if audience_def.get("found"):
+            builder.add_evidence(
+                rule_id="GEO-ENTITY-DEFINITION-027",
+                category="geo",
+                title="Category-for-Audience Definition Pattern",
+                status=STATUS_PASS,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed=f"Definition pattern in opening block: \"{audience_def.get('snippet', '')[:100]}\"",
+                expected="Opening defines entity as '[category] for [audience]'",
+                message="Opening block carries a canonical category-for-audience definition AI engines can reuse verbatim for 'what is X / who is X for' queries."
+            )
+        else:
+            builder.add_evidence(
+                rule_id="GEO-ENTITY-DEFINITION-027",
+                category="geo",
+                title="Category-for-Audience Definition Pattern",
+                status=STATUS_INFO,
+                confidence=CONFIDENCE_HEURISTIC,
+                observed="Opening block has a definition but does not name the audience ('... for [audience]')",
+                expected="Opening defines entity as '[category] for [audience]'",
+                message="Add the audience to the opening definition: '[Entity] is a [category] for [audience] that [outcome]' — the pattern AI engines reuse verbatim."
             )
 
     # GEO-CITATION-LINKS-008

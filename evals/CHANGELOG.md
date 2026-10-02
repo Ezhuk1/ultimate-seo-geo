@@ -2,6 +2,16 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.8.0] - 2026-10-03
+
+### Added
+- **AI Slop Density (`GEO-SLOP-DETECT-026`):** `analyze_slop_patterns` scores density of citation-killer phrasing per 1000 words — unsupported superlatives ("industry-leading", "революционный"), hype verbs ("unlock", "empower"), the seamless family, corporate softeners, hedging stacks ("may potentially reduce"), emoji-as-structure (EN/RU lexicon). Density >= 8/1000 words raises a P2 WARNING with per-pattern remediation; clean pages pass, pages under 150 words are not applicable (Unknown ≠ Failure).
+- **Content-Blocking Overlays & Cookie Walls (`TECH-INTERSTITIAL-040`):** html_analyzer captures `<dialog>` (incl. `open` on load), `role=dialog`/`aria-modal`, inline `position:fixed` + z-index>=100 overlays, and named consent-wall markers (cookie/consent/gdpr/paywall/interstitial). Named walls raise a P2 WARNING (Tier B: Google intrusive interstitial policy + anti-citation signal for non-rendering AI crawlers); generic modals stay informational to avoid false positives.
+- **Category-for-Audience Definition Pattern (`GEO-ENTITY-DEFINITION-027`):** `analyze_audience_definition` detects the canonical "[Entity] is [category] for [audience]" self-description in the opening block (EN/RU, incl. "предназначен для / designed for"). PASS reuses the pattern verbatim; definition-without-audience yields an advisory INFO (no double penalty with GEO-ANSWER-FRONTLOAD-001).
+- **`references/ai-crawler-spec.md`:** Operational Notes — UA token renames without notice (re-verify before robots.txt edits), the Google-Extended ≠ AI Overviews exclusion mistake, and Perplexity as the most reproducible AI-visibility measurement surface (fresh session + 3× repeats protocol).
+- **`SKILL.md`:** Slop-Free Delivery self-audit rule — generated copy/report prose is checked against the GEO-SLOP-DETECT-026 register before emission.
+- Rules registry extended to 17 geo + 50 technical rules; regression suite `evals/test_engine_round5.py` (23 deterministic checks); version 3.8.0 synced across engine, pyproject, manifests, evals suite, User-Agents and README badges.
+
 ## [3.7.0] - 2026-09-29
 
 ### Added

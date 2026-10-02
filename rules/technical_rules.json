@@ -1,6 +1,6 @@
 {
   "category": "technical",
-  "version": "2.1.0",
+  "version": "3.8.0",
   "rules": [
     {
       "id": "TECH-HTTP-000",
@@ -785,6 +785,22 @@
       "description": "Interactive buttons and form inputs must have accessible names (aria-label, text, or matching label) to be operable by AI browsing agents.",
       "remediation": "Add descriptive text or aria-label to all buttons and associate <label for='...'> with form inputs.",
       "source_id": "SRC-W3C-WAI-ARIA"
+    },
+    {
+      "id": "TECH-INTERSTITIAL-040",
+      "name": "Content-Blocking Overlays & Cookie Walls",
+      "category": "technical",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 10,
+      "confidence_type": "heuristic",
+      "unknown_policy": "exclude",
+      "tier": "Tier B (Official Search Engine Documentation)",
+      "selector": "dialog, [role=dialog], [aria-modal], [class*=consent], [class*=cookie], [class*=paywall]",
+      "description": "Named consent walls (cookie/consent/gdpr/paywall/interstitial) served in initial HTML block content from crawlers that do not execute interaction flows (Google intrusive interstitial policy; AI crawlers receive raw HTML).",
+      "remediation": "Serve content without a blocking first-paint overlay; defer consent UI to a non-blocking banner. Never gate the main answer behind a cookie wall or paywall.",
+      "source_id": "SRC-GOOGLE-SEARCH-CENTRAL"
     }
   ]
 }

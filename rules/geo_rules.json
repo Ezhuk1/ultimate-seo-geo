@@ -1,6 +1,6 @@
 {
   "category": "geo",
-  "version": "2.1.0",
+  "version": "3.8.0",
   "rules": [
     {
       "id": "GEO-ANSWER-FRONTLOAD-001",
@@ -274,6 +274,36 @@
       "tier": "Tier E (Specification)",
       "description": "llms.txt companion dump for one-shot agent context loading.",
       "source_id": "SRC-LLMS-TXT"
+    },
+    {
+      "id": "GEO-SLOP-DETECT-026",
+      "name": "AI Slop Density (Citation-Killer Phrasing)",
+      "category": "geo",
+      "severity": "WARNING",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "heuristic",
+      "unknown_policy": "neutral",
+      "tier": "Tier E (Heuristic)",
+      "description": "Density of AI-slop phrasing (unsupported superlatives, hype verbs, corporate filler, hedging stacks, emoji-as-structure) per 1000 words. Generated-boilerplate register erodes the trust AI synthesis engines place in a passage.",
+      "remediation": "Replace unsupported superlatives with named facts (client, number, date). Flatten hedging stacks to one verifiable claim. Remove emoji used as document structure.",
+      "source_id": "SRC-GEO-PRINCETON"
+    },
+    {
+      "id": "GEO-ENTITY-DEFINITION-027",
+      "name": "Category-for-Audience Definition Pattern",
+      "category": "geo",
+      "severity": "INFO",
+      "impact": "P3",
+      "score_weight": 0,
+      "max_penalty_cap": 0,
+      "confidence_type": "heuristic",
+      "unknown_policy": "neutral",
+      "tier": "Tier E (Heuristic)",
+      "description": "Opening block defines the entity as '[category] for [audience]' — the canonical self-description AI engines reuse verbatim when answering 'what is X / who is X for'.",
+      "remediation": "Open the page with one sentence of the form: '[Entity] is a [category] for [audience] that [outcome], proven by [evidence].'",
+      "source_id": "SRC-HEURISTIC-CHUNKING"
     }
   ]
 }

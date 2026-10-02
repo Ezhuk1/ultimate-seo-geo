@@ -22,6 +22,17 @@ Generative engines use specialized User-Agent tokens distinct from standard Goog
 | *Google-Extended* | Google | *Control token* (evaluated by Googlebot for Gemini/Vertex training; does not crawl and does not affect AI Overviews) | Opt-out only (`Disallow: /`) |
 | *Applebot-Extended* | Apple | *Control token* (evaluated for Apple Intelligence model training; does not crawl and does not affect Siri/Spotlight search) | Opt-out only (`Disallow: /`) |
 
+### Operational Notes `[HEURISTIC]`
+
+> [!WARNING]
+> **User-Agent tokens are renamed without notice.** Vendors periodically split or rename product tokens (e.g., Anthropic later split `ClaudeBot` into `Claude-SearchBot` / `Claude-User`; OpenAI introduced `OAI-SearchBot` separately from `GPTBot`). Before writing or diffing any `robots.txt` group, verify the current token against the vendor's official documentation (`/robots.txt` of the vendor's own site is a fast cross-check). Never hard-code a token list into long-lived infrastructure without a re-verification step.
+
+> [!NOTE]
+> **Common expensive mistake:** blocking `Google-Extended` does **NOT** remove a site from AI Overviews (AI Overviews follow classic Googlebot indexing + ranking; the token only gates Gemini/Vertex training use). Symmetrically, `Applebot-Extended` does not affect Siri/Spotlight suggestions. Blocking retrieval tokens (`OAI-SearchBot`, `PerplexityBot`, `Claude-SearchBot`) *does* remove a site from the respective AI search products — this is a business decision, not a technical default.
+
+> [!NOTE]
+> **Measurement surface:** Perplexity is currently the most reproducible engine for AI-visibility measurement — citations are inline, visible, and comparatively stable week-over-week, unlike ChatGPT answers (entity priors can be stale — always probe a direct brand-name query too) or Google AI Overviews (grounded in classic SERP composition). Run each probe question in a fresh session and repeat unstable answers 3× before treating an observation as a signal.
+
 ---
 
 ## 2. Crawl Governance: RFC 9309 Group Precedence & Indexation Exposure `[STANDARD]`
