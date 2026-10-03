@@ -51,7 +51,7 @@ def check_llms_txt(target_url: str, timeout: float = 5.0) -> LlmsTxtResult:
     try:
         req = urllib.request.Request(
             origin_llms_url,
-            headers={"User-Agent": "UltimateSeoGeoEngine/3.8.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
+            headers={"User-Agent": "UltimateSeoGeoEngine/3.8.1 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"}
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             res.status_code = resp.getcode()
@@ -161,7 +161,7 @@ def check_llms_full_txt(target_url: str, timeout: float = 5.0) -> Dict[str, Any]
     out: Dict[str, Any] = {"url": url, "is_present": False, "status_code": None,
                            "size_bytes": 0, "word_count": 0, "error_message": ""}
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "UltimateSeoGeoEngine/3.8.0 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"})
+        req = urllib.request.Request(url, headers={"User-Agent": "UltimateSeoGeoEngine/3.8.1 (LLM; +https://github.com/Ezhuk1/ultimate-seo-geo)"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             out["status_code"] = resp.getcode()
             data = resp.read(1_000_000)

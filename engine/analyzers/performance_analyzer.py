@@ -156,17 +156,31 @@ def analyze_performance(
         ))
 
     # 2. PERF-RENDER-BLOCK-003: Render-Blocking CSS and Synchronous JS
-    blocking_total = len(res.render_blocking_css) + len(res.render_blocking_js)
-    if blocking_total > 0:
-        css_note = f"{len(res.render_blocking_css)} render-blocking stylesheet(s)" if res.render_blocking_css else ""
-        js_note = f"{len(res.render_blocking_js)} synchronous script(s) in <head>" if res.render_blocking_js else ""
+    # A single external stylesheet is the standard bundler pattern (Next.js /
+    # Vite / Astro emit one CSS bundle); making it async risks FOUC and is a
+    # build-tool concern, not a page-authoring defect. Escalate to WARNING
+    # only for >=2 stylesheets or any synchronous script.
+    css_count = len(res.render_blocking_css)
+    js_count = len(res.render_blocking_js)
+    if css_count + js_count > 0:
+        css_note = f"{css_count} render-blocking stylesheet(s)" if res.render_blocking_css else ""
+        js_note = f"{js_count} synchronous script(s) in <head>" if res.render_blocking_js else ""
         combined_note = " and ".join(filter(None, [css_note, js_note]))
+        escalates = js_count > 0 or css_count >= 2
+        if escalates:
+            message = f"Document contains {combined_note} delaying initial paint."
+        else:
+            message = (
+                f"Document contains {combined_note}. A single bundled stylesheet is the "
+                "standard build-tool pattern; deferring it risks FOUC. Verify with field "
+                "Core Web Vitals data before restructuring the bundle."
+            )
         res.findings.append(PerformanceFinding(
             rule_id="PERF-RENDER-BLOCK-003",
-            severity="WARNING",
+            severity="WARNING" if escalates else "INFO",
             title="Render-Blocking CSS/JS Assets in <head>",
-            message=f"Document contains {combined_note} delaying initial paint.",
-            action_priority="P1_HIGH",
+            message=message,
+            action_priority="P1_HIGH" if escalates else "P3_LOW",
             remediation_steps=[
                 "Add `defer` or `async` to non-critical `<script>` tags inside `<head>`.",
                 "Inline critical above-the-fold CSS and load non-critical stylesheets asynchronously via `rel='preload'` or `media='print'` onload switch."

@@ -2,6 +2,17 @@
 
 All notable changes to the `ultimate-seo-geo` evaluation benchmark will be documented in this file.
 
+## [3.8.1] - 2026-10-04
+
+### Fixed
+- **noModule fallbacks are not render-blocking (`PERF-RENDER-BLOCK-003`):** html_analyzer excluded legacy `<script nomodule>` bundles from `render_blocking_js`. Modern and evergreen crawlers never fetch them, so counting them inflated blocking-asset findings (observed on bezmezhau.com: the Next.js polyfill chunk was the only "synchronous script").
+- **Single bundled stylesheet is informational, not a WARNING (`PERF-RENDER-BLOCK-003`):** one external stylesheet is the standard Next.js/Vite/Astro bundler pattern and making it async risks FOUC; the rule now escalates to a scored WARNING only for >=2 blocking stylesheets or any synchronous script. Single-stylesheet pages get a zero-penalty INFO with a field-CWV caveat.
+- **Hero-image candidate filtered by explicit dimensions (`PERF-RESOURCE-HINTS-006`):** the "first body `<img>`" heuristic no longer treats explicitly tiny images (largest side < 300px — QR codes, icons, badges) as LCP hero candidates; a 112x112 below-the-fold QR code with `loading=lazy` no longer triggers the P1 lazy-loading warning. Undimensioned images remain candidates (Unknown ≠ Failure). Inspector maps the perf finding severity to evidence status (INFO = 0 penalty).
+- **`evals/test_engine_round3.py`:** crawler UA version assertion now compares against `engine.__version__` instead of a hardcoded "3.7.0" (regressed silently on the 3.8.0 version sync).
+
+### Added
+- Regression suite `evals/test_engine_round6.py` (12 deterministic checks): nomodule exclusion, stylesheet escalation threshold, hero dimension filter (tiny/paired/partial/px-suffix/undimensioned cases), end-to-end guard that a genuinely lazy large hero is still flagged.
+
 ## [3.8.0] - 2026-10-03
 
 ### Added

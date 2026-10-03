@@ -2978,7 +2978,7 @@ def test_v3_7_0_aeo_and_speakable_suite():
 
 
 if __name__ == "__main__":
-    print("Running Engine v3.8.0 integration suite...")
+    print("Running Engine v3.8.1 integration suite...")
     test_clean_page_inspection()
     test_defective_page_detection()
     test_robots_simulator_rfc9309()
@@ -3014,5 +3014,5 @@ if __name__ == "__main__":
     test_v3_5_1_epistemic_audit_remediation_suite()
     test_v3_6_0_gsc_cannibalization_suite()
     test_v3_7_0_aeo_and_speakable_suite()
-    print("All Engine v3.8.0 tests passed successfully (34 deterministic test suites)!")
+    print("All Engine v3.8.1 tests passed successfully (34 deterministic test suites)!")
 

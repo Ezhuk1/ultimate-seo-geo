@@ -137,7 +137,7 @@ def test_section_pyramid_units():
 
 def test_version_sync():
     import engine
-    check("version: engine __version__ == 3.8.0", engine.__version__ == "3.8.0")
+    check("version: engine __version__ == 3.8.1", engine.__version__ == "3.8.1")
     cfg_src = open("engine/config.py", encoding="utf-8").read()
     check("version: no stale 3.6.0 in config", "3.6.0" not in cfg_src)
     rules_geo = json.load(open("rules/geo_rules.json", encoding="utf-8"))

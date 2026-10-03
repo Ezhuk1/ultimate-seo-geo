@@ -11,6 +11,10 @@ import re
 
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
+# LCP elements are almost always >=300px on their largest side; anything
+# explicitly smaller (QR codes, icons, badges) cannot be a hero candidate.
+HERO_MIN_DIM_PX = 300
+
 
 def estimate_title_pixel_width(title: str, font_size: int = 18) -> int:
     """
@@ -250,7 +254,16 @@ class DocumentParser(HTMLParser):
             if self.in_head and script_src:
                 is_async = "async" in attr_dict
                 is_defer = "defer" in attr_dict
-                if not is_async and not is_defer and self.current_script_type not in ("module", "application/ld+json"):
+                is_nomodule = "nomodule" in attr_dict
+                # noModule fallbacks are fetched only by browsers lacking ES module
+                # support; evergreen crawlers and modern browsers never download them,
+                # so they are not render-blocking for FCP/LCP accounting.
+                if (
+                    not is_async
+                    and not is_defer
+                    and not is_nomodule
+                    and self.current_script_type not in ("module", "application/ld+json")
+                ):
                     self.render_blocking_js.append(script_src)
         elif tag == "meta":
             name = attr_dict.get("name", "").lower()
@@ -369,11 +382,12 @@ class DocumentParser(HTMLParser):
                 "fetchpriority": fetch_attr
             })
             if not self.in_head and self.hero_image is None and src:
-                self.hero_image = {
-                    "src": src,
-                    "loading": loading_attr,
-                    "fetchpriority": fetch_attr
-                }
+                if self._plausible_hero_dimensions(attr_dict):
+                    self.hero_image = {
+                        "src": src,
+                        "loading": loading_attr,
+                        "fetchpriority": fetch_attr
+                    }
             clean_src = src.split("?")[0].lower()
             ext = clean_src.rsplit(".", 1)[-1] if "." in clean_src else ""
             if ext in ("webp", "avif", "svg"):
@@ -392,6 +406,31 @@ class DocumentParser(HTMLParser):
             self.current_a_has_img_alt = False
             if "pricing.md" in self.current_a_href.lower() or "/pricing" in self.current_a_href.lower() or self.current_a_href.strip().lower().endswith("/pricing") or self.current_a_href.strip().lower() == "pricing":
                 self.has_pricing_link = True
+
+    @staticmethod
+    def _plausible_hero_dimensions(attr_dict: dict) -> bool:
+        """Decide whether an <img> can plausibly be the LCP hero.
+
+        Explicitly sized images below HERO_MIN_DIM_PX on their largest side
+        (icons, QR codes, badges) cannot be above-the-fold LCP elements, so
+        they are skipped as hero candidates. Images without both dimensions
+        are kept as candidates: absence of markup evidence is not proof of a
+        small image (Unknown != Failure).
+        """
+        def _to_px(value: str | None) -> int | None:
+            if value is None:
+                return None
+            try:
+                return int(str(value).strip().rstrip("px"))
+            except ValueError:
+                return None
+
+        width = _to_px(attr_dict.get("width"))
+        height = _to_px(attr_dict.get("height"))
+        if width is None and height is None:
+            return True
+        largest = max(d for d in (width, height) if d is not None)
+        return largest >= HERO_MIN_DIM_PX
 
     def handle_endtag(self, tag: str):
         tag = tag.lower()

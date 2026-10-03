@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Deterministic regression suite for round-5 GEO capabilities (v3.8.0).
+Deterministic regression suite for round-5 GEO capabilities (v3.8.1).
 Run: python evals/test_engine_round5.py
 Covers: AI-slop density detection, content-blocking overlays & cookie walls,
 category-for-audience definition pattern, version sync.
@@ -140,7 +140,7 @@ def test_evidence_blocks():
 
 def test_version_sync():
     import engine
-    check("version: engine __version__ == 3.8.0", engine.__version__ == "3.8.0")
+    check("version: engine __version__ == 3.8.1", engine.__version__ == "3.8.1")
     rules_geo = json.load(open("rules/geo_rules.json", encoding="utf-8"))
     ids = {r["id"] for r in rules_geo["rules"]}
     check("rules: round-5 geo rules registered",

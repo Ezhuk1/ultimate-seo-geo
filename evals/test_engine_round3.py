@@ -200,12 +200,15 @@ def test_sarif_uri():
 
 
 def test_version_sync():
+    import engine
     import engine.config as cfg
     cfg_src = open(cfg.__file__, encoding="utf-8").read()
     check("config: no stale 3.4.0/3.3.0 versions",
           not re.search(r"3\.(3|4)\.0", cfg_src))
     crawl_src = open("engine/crawler.py", encoding="utf-8").read()
-    check("crawler: UA version synced", "UltimateSeoGeoCrawler/3.7.0" in crawl_src
+    # Version asserts must never be hardcoded (they rot on every release);
+    # sync against engine.__version__ instead.
+    check("crawler: UA version synced", f"UltimateSeoGeoCrawler/{engine.__version__}" in crawl_src
           and "UltimateSeoGeoCrawler/2.1" not in crawl_src)
 
 

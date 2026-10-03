@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v3.8.0)
+ultimate-seo-geo: Evaluation Suite Runner & Assertion Harness (v3.8.1)
 Validates evals.json schema integrity, reference file bindings, assertion engine rules,
 Evidence Ledger formatting, UNKNOWN signal handling, negative mutation test cases,
-recorded model transcripts, and Autonomous Engine v3.8.0 deterministic inspection suite.
+recorded model transcripts, and Autonomous Engine v3.8.1 deterministic inspection suite.
 """
 
 import json
@@ -1079,8 +1079,8 @@ def main():
         if ok:
             mutations_passed += 1
 
-    # 4. Autonomous Inspection Engine (v3.8.0) Integration Suite
-    print("\n--- 3. Autonomous Inspection Engine (v3.8.0) Integration Suite ---")
+    # 4. Autonomous Inspection Engine (v3.8.1) Integration Suite
+    print("\n--- 3. Autonomous Inspection Engine (v3.8.1) Integration Suite ---")
     from evals.test_engine import (
         test_clean_page_inspection,
         test_defective_page_detection,
@@ -1174,7 +1174,7 @@ def main():
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
     ):
-        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.8.0 tests are healthy.")
+        print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.8.1 tests are healthy.")
         sys.exit(0)
     else:
         print("\n[FAILURE] One or more test suites failed.")

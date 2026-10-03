@@ -2658,25 +2658,29 @@ def run_inspection(
 
     rb_findings = [f for f in perf_data.findings if f.rule_id == "PERF-RENDER-BLOCK-003"]
     if rb_findings:
+        # INFO level (single bundled stylesheet, no sync scripts) is observed
+        # friction with zero score penalty; WARNING escalates to a deduction.
+        rb = rb_findings[0]
+        rb_escalated = rb.severity == STATUS_WARNING
         builder.add_evidence(
             rule_id="PERF-RENDER-BLOCK-003",
             category="performance",
             title="Render-Blocking CSS and Synchronous JavaScript",
-            status=STATUS_WARNING,
+            status=STATUS_WARNING if rb_escalated else STATUS_INFO,
             confidence=CONFIDENCE_VERIFIED,
-            observed=rb_findings[0].message,
+            observed=rb.message,
             expected="Asynchronous non-critical styles and scripts",
-            message=rb_findings[0].message
+            message=rb.message
         )
         builder.add_finding(
             rule_id="PERF-RENDER-BLOCK-003",
             category="performance",
-            severity=STATUS_WARNING,
+            severity=STATUS_WARNING if rb_escalated else STATUS_INFO,
             title="Render-Blocking Assets in <head>",
             confidence=CONFIDENCE_VERIFIED,
-            action_priority="P1_HIGH",
-            remediation_steps=rb_findings[0].remediation_steps,
-            impact_estimate=rb_findings[0].impact_estimate
+            action_priority="P1_HIGH" if rb_escalated else "P3_LOW",
+            remediation_steps=rb.remediation_steps,
+            impact_estimate=rb.impact_estimate
         )
     else:
         builder.add_evidence(
@@ -4102,7 +4106,7 @@ def main():
         except Exception:
             pass
 
-    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.8.0")
+    parser = argparse.ArgumentParser(description="Ultimate SEO & GEO Autonomous Inspection Engine v3.8.1")
     parser.add_argument("target", nargs="?", default=None, help="Target URL (https://...) or local HTML file path")
     parser.add_argument("--validate-schema", nargs="?", const="stdin", default=None, help="Validate standalone Schema.org JSON-LD snippet (file path, raw JSON string, or stdin)")
     parser.add_argument("--format", choices=["markdown", "json", "sarif"], default="markdown", help="Output format (markdown, json, or sarif)")
