@@ -223,6 +223,38 @@
       "description": "Schema speakable property designates concise headlines and summary passages suitable for text-to-speech audio synthesis and voice search answers (Google Assistant, Siri).",
       "remediation": "Add speakable property with cssSelector (e.g. ['.headline', '.lead-summary']) to Article schema.",
       "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
+    },
+    {
+      "id": "SCHEMA-EMPTY-000",
+      "name": "Empty JSON-LD Schema Snippet",
+      "category": "schema",
+      "severity": "CRITICAL",
+      "impact": "P0",
+      "score_weight": 25,
+      "max_penalty_cap": 25,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier A (Schema.org / W3C JSON-LD)",
+      "selector": "script[type='application/ld+json']",
+      "description": "Empty JSON-LD block ({}) provides zero structured metadata and indicates broken serialization.",
+      "remediation": "Populate valid @context, @type, and required properties, or remove empty script block.",
+      "source_id": "SRC-SCHEMA-ORG"
+    },
+    {
+      "id": "SCHEMA-FAQ-PAGE-001",
+      "name": "FAQPage Structured Data Markup",
+      "category": "schema",
+      "severity": "INFO",
+      "impact": "P2",
+      "score_weight": 5,
+      "max_penalty_cap": 5,
+      "confidence_type": "deterministic",
+      "unknown_policy": "exclude",
+      "tier": "Tier B (Google Structured Data Guidelines)",
+      "selector": "FAQPage",
+      "description": "Valid FAQPage JSON-LD schema providing structured questions and answers for direct search answers.",
+      "remediation": "Ensure question and acceptedAnswer are accurately aligned with visible page text.",
+      "source_id": "SRC-GOOGLE-STRUCTURED-DATA"
     }
   ]
 }

@@ -4189,6 +4189,24 @@ def main():
 
     # Site-Level Crawl Mode
     if args.crawl:
+        incompatible = []
+        if args.fail_on:
+            incompatible.append("--fail-on")
+        if args.fail_on_score is not None:
+            incompatible.append("--fail-on-score")
+        if args.strict:
+            incompatible.append("--strict")
+        if args.sarif:
+            incompatible.append("--sarif")
+        if args.previous_audit:
+            incompatible.append("--previous-audit")
+        if args.gsc_csv:
+            incompatible.append("--gsc-csv")
+        if args.ga4_csv:
+            incompatible.append("--ga4-csv")
+        if incompatible:
+            parser.error(f"--crawl is incompatible with audit gating and input flags: {', '.join(incompatible)}")
+
         from .config import CrawlConfig
         from .crawler import crawl_site, format_site_crawl_markdown
         config = CrawlConfig(

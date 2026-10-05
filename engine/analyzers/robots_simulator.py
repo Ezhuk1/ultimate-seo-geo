@@ -28,6 +28,8 @@ KNOWN_AI_CRAWLERS = [
     ("cohere-ai", "Cohere AI Training & Embeddings Crawler"),
     ("MistralAI-User", "Mistral AI Assistant Web Browser"),
     ("Googlebot", "Google Web Search Crawler"),
+    ("Googlebot-News", "Google News Indexer"),
+    ("Googlebot-Image", "Google Image Indexer"),
     ("Google-Extended", "Google Gemini / Vertex AI Training"),
     ("Bingbot", "Microsoft Bing & Copilot Crawler"),
     ("Applebot", "Apple Search & Siri Indexer"),
@@ -161,7 +163,7 @@ def parse_robots_txt(content: str) -> RobotsData:
                 allow=is_allow,
                 pattern=value,
                 regex=_pattern_to_regex(value),
-                length=len(match_value.rstrip("$")),
+                length=len(pattern_clean),
                 parts=pattern_clean.split("*"),
                 end_anchor=end_anchor,
             )
@@ -183,11 +185,9 @@ def parse_robots_txt(content: str) -> RobotsData:
 
 
 def _rule_matches(rule: "Rule", path: str) -> bool:
-    """Linear glob match over '*'-split segments.
-
-    Replaces backtracking regex matching: patterns with many wildcards
-    (untrusted robots.txt input) caused catastrophic regex backtracking.
-    """
+    """Linear glob match over '*'-split segments, with anchored regex fallback for '$'."""
+    if rule.end_anchor and rule.regex is not None:
+        return bool(rule.regex.match(path))
     if rule.parts is None:
         return bool(rule.regex.match(path))
     parts = [p for p in rule.parts if p != ""]
@@ -199,18 +199,10 @@ def _rule_matches(rule: "Rule", path: str) -> bool:
     for i, part in enumerate(parts):
         first = (i == 0)
         last = (i == n - 1)
-        if first and start_anchored and not (last and rule.end_anchor):
-            # Must match as a prefix
+        if first and start_anchored:
             if not path.startswith(part):
                 return False
             pos = len(part)
-        elif last and rule.end_anchor:
-            # Must match as a suffix ($)
-            if not path.endswith(part):
-                return False
-            if len(path) - len(part) < pos:
-                return False
-            pos = len(path)
         else:
             idx = path.find(part, pos)
             if idx == -1:
@@ -229,11 +221,23 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
     if not path.startswith("/"):
         path = "/" + path
     path = unquote(path)
-    
+
     # Extract product tokens from User-Agent string (RFC 9309 Section 2.2.1)
-    ua_tokens = set(re.findall(r'[a-zA-Z0-9_\-]+', ua_clean))
+    # E.g. "Googlebot-News/2.1" -> tokens: "googlebot-news", "googlebot"
+    raw_tokens = re.split(r'[\s;()]+', ua_clean)
+    product_tokens = []
+    for t in raw_tokens:
+        t = t.strip()
+        if not t:
+            continue
+        prod = t.split('/')[0].strip().lower()
+        if prod:
+            product_tokens.append(prod)
+            if "-" in prod:
+                product_tokens.append(prod.split("-")[0])
     if ua_clean:
-        ua_tokens.add(ua_clean)
+        product_tokens.append(ua_clean)
+    product_tokens_set = set(product_tokens)
 
     # 1. Collect rules from matching groups or merged wildcard groups
     matching_rules: List[Rule] = []
@@ -246,7 +250,10 @@ def is_allowed(robots_data: RobotsData, user_agent: str, path: str) -> Tuple[boo
         for group_ua in group.user_agents:
             if group_ua == "*":
                 is_wildcard = True
-            elif group_ua in ua_tokens:
+            elif group_ua in product_tokens_set:
+                is_specific_match = True
+                break
+            elif len(group_ua) > 1 and any(p.startswith(group_ua) for p in product_tokens):
                 is_specific_match = True
                 break
         if is_specific_match:

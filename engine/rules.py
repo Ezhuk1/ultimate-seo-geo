@@ -61,7 +61,7 @@ def validate_epistemic_integrity(rule: RuleDefinition) -> List[str]:
             )
 
     # Rule 2: Title and meta description length heuristics cannot claim Tier A
-    if any(k in rule.id for k in ["TITLE-003", "META-DESC-004", "DESC-DUP-015"]):
+    if any(k in rule.id for k in ["TECH-TITLE-003", "TECH-META-DESC-004", "TECH-DESC-DUP-015"]):
         if "TIER A" in tier_upper:
             violations.append(
                 f"Epistemic Inflation: Snippet heuristic {rule.id} cannot be classified as Tier A Protocol."

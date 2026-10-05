@@ -11,11 +11,11 @@ To ensure scientific rigor, eliminate pseudo-scientific dogmatism, and guide aut
 | Tier | Epistemic Basis | Authority & Foundation | Examples | Audit Verification |
 |---|---|---|---|:---:|
 | **Tier A** | **Official Protocol Standards** | Deterministic specifications ratified by IETF, W3C, Schema.org, WHATWG. | RFC 9309 (robots.txt), RFC 9110 (HTTP 200/401/403), canonical tags (RFC 6596), Schema.org JSON-LD syntax. | Deterministic (PASS / FAIL) |
-| **Tier B** | **Peer-Reviewed Academic Research** | Formal empirical studies published at peer-reviewed computer science conferences (ACM KDD, SIGIR, ACL). | Princeton KDD 2024 GEO benchmark (Aggarwal et al.), PAWC mathematical formulation, Section 5.3 synergy. | Empirical Benchmark |
-| **Tier C** | **Large-Scale Industry Datasets** | Large-scale empirical field data across thousands of production domains. | Ahrefs 75k brand study, HTTP Archive web trends, Chrome User Experience Report (CrUX real-user metrics). | Observational Correlation |
-| **Tier D** | **Reproducible Controlled Experiments** | First-party or in-house controlled A/B testing with disclosed methodology, sample size ($n \ge 100$), and test query sets. | In-house retrieval ablation studies, vector chunking recall tests, crawler log access verification. | Empirical Test |
+| **Tier B** | **Official Search Engine Documentation** | First-party documentation published by search engine providers. | Google Search Central documentation, Bing Webmaster Guidelines, OpenAI crawler documentation. | Official Specification |
+| **Tier C** | **Empirical Research & Field Telemetry** | Peer-reviewed academic studies and large-scale real-user field telemetry. | Princeton KDD 2024 GEO benchmark (Aggarwal et al.), Chrome User Experience Report (CrUX), GA4 analytics. | Empirical Benchmark |
+| **Tier D** | **Industry Evidence & Security Standards** | Industry security standards, live probe measurements, and reproducible tests. | OWASP LLM01 Prompt Injection, Web Almanac security benchmarks, crawler log access verification. | Empirical Test / Security Probe |
 | **Tier E** | **Practitioner Engineering Heuristics** | Battle-tested information retrieval, vector search, and RAG chunking rules of thumb. | Testable passage-length heuristics (~100–200 words), direct answer front-loading, coreference independence. | Probabilistic Guideline |
-| **Tier F** | **Working Hypotheses & Edge Observations** | Qualitative observations, single-domain case studies, or reverse-engineered engine behaviors. | Speculative Perplexity rank-flipping theories, unannounced Gemini context window adjustments. | Hypothesis (Requires Verification) |
+| **Tier F** | **Recommendations & Advisory** | Working hypotheses, qualitative observations, and accessibility advisory. | Speculative rank-flipping theories, unannounced Gemini context window adjustments, non-ranking accessibility suggestions. | Advisory / Hypothesis |
 
 > [!CAUTION]
 > **The Epistemic Promotion Invariant:**

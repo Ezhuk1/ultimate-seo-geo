@@ -1117,6 +1117,7 @@ def main():
         test_v3_5_1_epistemic_audit_remediation_suite,
         test_v3_6_0_gsc_cannibalization_suite,
         test_v3_7_0_aeo_and_speakable_suite,
+        test_v3_8_2_audit_remediation_suite,
     )
 
     engine_tests = [
@@ -1154,6 +1155,7 @@ def main():
         ("test_v3_5_1_epistemic_audit_remediation_suite", test_v3_5_1_epistemic_audit_remediation_suite),
         ("test_v3_6_0_gsc_cannibalization_suite", test_v3_6_0_gsc_cannibalization_suite),
         ("test_v3_7_0_aeo_and_speakable_suite", test_v3_7_0_aeo_and_speakable_suite),
+        ("test_v3_8_2_audit_remediation_suite", test_v3_8_2_audit_remediation_suite),
     ]
 
     engine_passed = 0

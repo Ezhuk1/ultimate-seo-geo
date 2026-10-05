@@ -95,23 +95,14 @@ class SecurityAnalyzer:
                             is_hidden=True
                         ))
 
-        # Exclude code, pre, kbd, samp, blockquote blocks and markdown code fences from visible attack detection
-        # (Legitimate technical documentation and cybersecurity research cite injection payloads)
+        # Exclude legitimate HTML code elements (code, pre, kbd, samp) where cybersecurity research
+        # or API documentation cite injection payloads.
+        # Prose text, blockquotes, and fake markdown fences inside <p> are strictly NOT exempt.
         content_for_visible_scan = re.sub(
-            r'<(code|pre|kbd|samp|blockquote)[^>]*>.*?</\1>',
+            r'<(code|pre|kbd|samp)[^>]*>.*?</\1>',
             ' [CODE_EXEMPT] ',
             html_content,
             flags=re.DOTALL | re.IGNORECASE
-        )
-        content_for_visible_scan = re.sub(
-            r'```[\s\S]*?```',
-            ' [CODE_EXEMPT] ',
-            content_for_visible_scan
-        )
-        content_for_visible_scan = re.sub(
-            r'`[^`\n]+`',
-            ' [CODE_EXEMPT] ',
-            content_for_visible_scan
         )
 
         for pattern, p_type in DIRECT_INJECTION_PATTERNS:

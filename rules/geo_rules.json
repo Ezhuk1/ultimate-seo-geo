@@ -304,6 +304,24 @@
       "description": "Opening block defines the entity as '[category] for [audience]' — the canonical self-description AI engines reuse verbatim when answering 'what is X / who is X for'.",
       "remediation": "Open the page with one sentence of the form: '[Entity] is a [category] for [audience] that [outcome], proven by [evidence].'",
       "source_id": "SRC-HEURISTIC-CHUNKING"
+    },
+    {
+      "id": "GEO-SOURCE-ATTRIBUTION-005",
+      "name": "Source Attribution & Citation Grounding",
+      "category": "geo",
+      "severity": "WARNING",
+      "impact": "P1",
+      "score_weight": 10,
+      "max_penalty_cap": 20,
+      "confidence_type": "heuristic",
+      "unknown_policy": "exclude",
+      "tier": "Tier C (Empirical Research & Field Telemetry)",
+      "description": "Factual assertions and empirical claims must provide citations, external authoritative links, or DOI references for citation grounding.",
+      "remediation": "Anchor data claims and benchmarks to named primary sources, peer-reviewed literature, or official technical documentation.",
+      "source_id": "SRC-GEO-PRINCETON",
+      "geo_points": {
+        "source_attribution": 10
+      }
     }
   ]
 }

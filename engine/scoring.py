@@ -33,6 +33,7 @@ class SecurityHygieneScore:
     hsts_score: int
     mixed_content_score: int
     headers_score: int
+    coverage: float = 1.0
     details: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -313,7 +314,6 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         # Component 8: AI Crawler Access (Weight: 5)
         rob_sig = ledger.signals.get("ai_crawler_summary")
         ev_ai_policy = next((e for e in ledger.evidence if e.rule_id == "GEO-AI-BOT-POLICY-007"), None)
-        dim_crawl = 5  # RFC 9309 neutral default allow
         if ev_ai_policy:
             if ev_ai_policy.status == STATUS_PASS:
                 dim_crawl = 5
@@ -321,7 +321,9 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
                 dim_crawl = 2
             elif ev_ai_policy.status == STATUS_CRITICAL:
                 dim_crawl = 0
-        elif rob_sig and isinstance(rob_sig.value, dict) and rob_sig.value:
+            else:
+                dim_crawl = 5
+        elif rob_sig and rob_sig.is_measured and isinstance(rob_sig.value, dict) and rob_sig.value:
             blocked = sum(1 for b, info in rob_sig.value.items() if not info.get("root_allowed", True))
             if blocked > 5:
                 dim_crawl = 0
@@ -329,6 +331,9 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
                 dim_crawl = 2
             else:
                 dim_crawl = 5
+        else:
+            dim_crawl = 0
+            unknown_dims.append("ai_crawler_access")
 
         # Content Depth Guard: True content stubs (<25 words) cannot claim substantive GEO content scores
         if content_signal and content_signal.value is not None and content_signal.value < 25:
@@ -403,6 +408,7 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         has_hsts = False
         insecure_count = 0
         sec_hdrs_count = 0
+        sec_coverage = 0.0
     else:
         is_https = bool(https_sig.value) if (https_sig and https_sig.is_measured) else False
         has_hsts = bool(hsts_sig.value) if (hsts_sig and hsts_sig.is_measured) else False
@@ -415,16 +421,32 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         mixed_pts = 25 if no_mixed else 0
         hdrs_pts = min(25, round(25 * (min(4, sec_hdrs_count) / 4))) if (sec_hdrs_sig and sec_hdrs_sig.is_measured) else 0
 
-        max_possible = len(measured_sec_sigs) * 25
-        sec_score = round((https_pts + hsts_pts + mixed_pts + hdrs_pts) * 100 / max_possible) if max_possible > 0 else 0
-        if sec_score >= 90:
-            sec_tier = "EXCELLENT"
-        elif sec_score >= 70:
-            sec_tier = "GOOD"
-        elif sec_score >= 50:
-            sec_tier = "MODERATE_RISK"
+        # Security Hygiene Score denominator is ALWAYS 100 (4 signals * 25 pts max).
+        # Unmeasured signals receive 0 pts and do NOT inflate score by reducing denominator.
+        measured_sec_count = len(measured_sec_sigs)
+        sec_coverage = round(measured_sec_count / 4.0, 2)
+        sec_score = min(100, max(0, https_pts + hsts_pts + mixed_pts + hdrs_pts))
+
+        if measured_sec_count < 4:
+            if sec_score >= 90:
+                sec_tier = "EXCELLENT (PARTIAL)"
+            elif sec_score >= 70:
+                sec_tier = "GOOD (PARTIAL)"
+            elif sec_score >= 50:
+                sec_tier = "MODERATE_RISK"
+            elif sec_score > 0:
+                sec_tier = "PARTIAL"
+            else:
+                sec_tier = "NOT_MEASURED"
         else:
-            sec_tier = "VULNERABLE"
+            if sec_score >= 90:
+                sec_tier = "EXCELLENT"
+            elif sec_score >= 70:
+                sec_tier = "GOOD"
+            elif sec_score >= 50:
+                sec_tier = "MODERATE_RISK"
+            else:
+                sec_tier = "VULNERABLE"
 
     sec_hygiene = SecurityHygieneScore(
         score=sec_score,
@@ -433,11 +455,15 @@ def calculate_scores(ledger: EvidenceLedger) -> ScoreBreakdown:
         hsts_score=hsts_pts,
         mixed_content_score=mixed_pts,
         headers_score=hdrs_pts,
+        coverage=sec_coverage if measured_sec_sigs else 0.0,
         details={
             "is_https": is_https,
             "has_hsts": has_hsts,
             "insecure_resources_count": insecure_count,
-            "security_headers_count": sec_hdrs_count
+            "security_headers_count": sec_hdrs_count,
+            "measured_signals_count": len(measured_sec_sigs),
+            "total_signals_count": 4,
+            "coverage": sec_coverage if measured_sec_sigs else 0.0,
         }
     )
 

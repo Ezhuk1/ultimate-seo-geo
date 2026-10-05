@@ -63,8 +63,8 @@ def test_local_file_wire_signals():
               sigs["http_hsts_present"]["is_measured"] is False)
         sh = d["scores"].get("security_hygiene")
         sh = sh if isinstance(sh, dict) else {}
-        check("local file: security score not a measured HTTPS failure",
-              sh.get("score") not in (0, 25))
+        check("local file: security hygiene reports partial coverage",
+              sh.get("coverage") == 0.25 and sh.get("tier") == "PARTIAL")
     finally:
         os.unlink(tf.name)
 
