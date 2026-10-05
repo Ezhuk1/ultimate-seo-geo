@@ -233,7 +233,7 @@ def render_experiment_markdown(comp: Dict[str, Any]) -> str:
     md.append("")
     md.append(f"> **Target Domain**: `{comp['target_domain']}`  ")
     md.append(f"> **Target Brand**: `{comp['target_brand']}`  ")
-    md.append(f"> **Methodology Tier**: `Tier C (Empirical Research)`  ")
+    md.append("> **Methodology Tier**: `Tier C (Empirical Research)`  ")
     md.append("")
     md.append("## Benchmark Summary")
     md.append("")

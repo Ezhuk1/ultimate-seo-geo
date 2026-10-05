@@ -1,6 +1,6 @@
 # Epistemic Methodology & Tier Hierarchy
 
-**Version**: 3.1.0  
+**Version**: 3.8.1  
 **Status**: Production Standard  
 **Framework**: 6-Tier Epistemic Authority Model  
 
@@ -27,9 +27,9 @@ Because generative engine ranking and retrieval depend on proprietary, non-deter
 |---|---|---|---|---|
 | **Tier A** | **Protocol / Standard** | Hard technical specifications governed by international standards bodies (IETF, W3C, sitemaps.org). Non-compliance breaks mechanical transport or machine parsing. | RFC 9110 (HTTP), RFC 9309 (Robots Exclusion), RFC 8288 (Web Linking), W3C HTML5 | Critical/Warning: Immediate technical penalty up to 25 pts. |
 | **Tier B** | **Official Search Engine Documentation** | Explicit crawl, indexing, and rich-result requirements published by major search engines. | Google Search Central, Bing Webmaster Tools, OpenAI OAI-SearchBot documentation | Warning/Critical: Direct impact on indexability or search eligibility. |
-| **Tier C** | **Empirical / Peer-Reviewed Research** | Statistically validated findings published in academic papers or large-scale dataset evaluations. | Aggarwal et al. (Princeton KDD 2024 GEO paper), Chrome UX Report | Information/Warning: Influences GEO Readiness Index. |
+| **Tier C** | **Empirical Research & Field Telemetry** | Statistically validated findings published in academic papers or real-user field datasets. | Aggarwal et al. (Princeton KDD 2024 GEO paper), Chrome UX Report (CrUX), GA4/GSC | Information/Warning: Influences GEO Readiness Index or field telemetry. |
 | **Tier D** | **Industry Evidence & Security Standards** | Standardized threat models, security best practices, and consensus industry benchmarks. | OWASP Top 10 for LLMs, HTTP Archive / Web Almanac | Critical/Warning: Segregated Security Hygiene score. |
-| **Tier E** | **Practical Heuristics** | Document engineering rules of thumb derived from RAG architectures, token context windows, and SERP snippet displays. | Adaptive passage chunking (150–300w), inverted pyramid leads, title lengths (50–60 chars) | Advisory/Warning: Influences GEO chunking points; zero technical penalty. |
+| **Tier E** | **Practical Heuristics** | Document engineering rules of thumb derived from RAG architectures, token context windows, and SERP snippet displays. | Adaptive passage chunking (100–200w), inverted pyramid leads, title lengths (50–60 chars) | Advisory/Warning: Influences GEO chunking points; zero technical penalty. |
 | **Tier F** | **Best-Practice Recommendations** | Editorial, stylistic, or accessibility enhancements that improve human UX and machine comprehension. | HTML semantic landmarks (`<main>`, `<nav>`), form labels, heading hierarchy | Info/Advisory: Low penalty weight (1–5 pts). |
 
 ---

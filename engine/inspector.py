@@ -9,6 +9,7 @@ Usage:
 
 from __future__ import annotations
 import sys
+import time
 import os
 import re
 import argparse
@@ -294,8 +295,14 @@ def run_inspection(
     # Expand sitemap index children if present
     if sitemap_res and sitemap_res.is_sitemap_index and sitemap_res.nested_sitemaps and not http_res["is_local"]:
         child_results = []
-        for child_sm_url in sitemap_res.nested_sitemaps[:MAX_SITEMAP_INDEX_CHILDREN]:
+        child_delay = getattr(getattr(config, "crawl", None), "delay_seconds", 0.05) if config else 0.05
+        for idx, child_sm_url in enumerate(sitemap_res.nested_sitemaps[:MAX_SITEMAP_INDEX_CHILDREN]):
+            if idx > 0 and child_delay > 0:
+                time.sleep(child_delay)
             c_res = analyze_target_http(child_sm_url, timeout=timeout)
+            if c_res.get("status_code") in (429, 503):
+                # Origin rate-limited or busy: back off politely
+                time.sleep(min(child_delay * 4, 1.0))
             if c_res["status_code"] == 200 and c_res["raw_content"]:
                 c_parsed = parse_sitemap_xml(
                     c_res["raw_content"],
@@ -4131,6 +4138,7 @@ def main():
     parser.add_argument("--gsc-csv", help="Optional path to Google Search Console performance export CSV for striking distance and CTR underperformance analysis")
     parser.add_argument("--ga4-csv", help="Optional path to GA4 Traffic Acquisition CSV for AI referral engine analysis (ChatGPT, Perplexity, Claude, etc.)")
     parser.add_argument("--project-context", help="Optional path to persistent SEO project dossier JSON (auto-detects seo-project-context.json or .seo-context.json if omitted)")
+    parser.add_argument("--psi-key", default=None, help="Google PageSpeed Insights API key for CrUX Core Web Vitals telemetry")
 
     args = parser.parse_args()
 
@@ -4154,6 +4162,8 @@ def main():
 
     # Load configuration
     cfg = EngineConfig.load(args.config)
+    if args.psi_key:
+        cfg.psi_api_key = args.psi_key
 
     # Standalone Schema Validation Mode
     if args.validate_schema:

@@ -91,7 +91,7 @@ Modern AI Search operates in **two interconnected stages**:
 
 ## 🖥️ Autonomous Inspection Engine CLI (`engine/`)
 
-The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library). Execution latency is **<15ms for in-memory & local file inspection** (zero network overhead) and **<500ms for live network audits** (including HTTP fetch, TLS handshake, and robots/sitemap discovery):
+The built-in deterministic inspection engine requires **zero external pip dependencies** (built strictly on Python 3.10+ standard library). Execution latency is **<15ms for in-memory & local file inspection** (zero network overhead) and fast, lightweight live single-page inspection (typically <1–2s depending on origin server RTT and network latency):
 
 ```bash
 # 1. Audit a live website with AI bot access simulation, Indexability Matrix & E-E-A-T
@@ -280,7 +280,7 @@ Suite: ultimate-seo-geo-evals (v3.8.1) - 10 test cases
 --- 2. Negative Mutation & Anti-Regression Suite ---
   [PASS] 20/20 negative mutation guards passed
 --- 3. Autonomous Inspection Engine (v3.8.1) Integration Suite ---
-  [PASS] 30/30 engine integration tests passed (including test_v3_5_0_audit_remediation_suite)
+  [PASS] 34/34 engine integration tests passed (plus rounds 2–6 capability suites)
 
 [SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.8.1 tests are healthy.
 ```
@@ -326,7 +326,7 @@ ultimate-seo-geo/
 └── evals/
     ├── evals.json                    # Heuristic & structured test cases with negative safety checks
     ├── run_evals.py                  # Test runner & assertion harness
-    ├── test_engine.py                # Automated engine integration suite (24 test suites)
+    ├── test_engine.py                # Automated engine integration suite (34 test suites)
     └── CHANGELOG.md                  # Comprehensive benchmark & engine changelog
 ```
 

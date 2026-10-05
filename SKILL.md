@@ -1,12 +1,7 @@
 ---
 name: ultimate-seo-geo
-description: >
-  The definitive, all-in-one SEO and Generative Engine Optimization (GEO/AEO) system for AI agents.
-  Audits technical on-page SEO across 3 distinct layers (Protocol, Indexability, SERP presentation),
-  scores content structural extractability for RAG engines (Princeton KDD 2024 / Answer.AI),
-  generates rich JSON-LD Schema.org graphs, configures AI crawler access (robots.txt & llms.txt),
-  and crafts evidence-driven content plans without speculative claims.
-argument-hint: "<URL, file path, codebase, or specific mode: audit | optimize | schema | ai-files | strategy>"
+description: Autonomous SEO & Generative Engine Optimization (GEO/AEO) system. Audits technical crawlability & indexability, scores RAG extractability, generates unified Schema.org JSON-LD graphs, configures AI robots.txt & llms.txt, and crafts evidence-driven content plans.
+argument-hint: "<URL, file path, codebase, or mode: audit | optimize | schema | ai-files | strategy>"
 ---
 
 # Ultimate SEO & GEO All-In-One Specialist
@@ -21,11 +16,11 @@ Modern AI search engines operate in **two interconnected stages**:
 
 > **Methodology Notice:** Dual scoring reflects differing certainty levels across the **6 Epistemic Tiers (Tier A–F)**:
 > - **Tier A (Standards & Protocols):** RFC 9309, RFC 9110, RFC 6596, RFC 8288, W3C HTML5/WAI-ARIA, Schema.org. Evaluated with **HIGH confidence** against deterministic specifications (`[STANDARD]`).
-> - **Tier B (Search Engine Specifications):** Google Search Central, Bing Webmaster, IndexNow, AI bot crawler documentation. Evaluated with **HIGH/MEDIUM confidence** (`[OFFICIAL]`).
-> - **Tier C (Deterministic Field Telemetry):** Google Search Console, Google Analytics 4, CrUX field data. Evaluated with **HIGH confidence** when observed; recorded as `UNKNOWN` or `NOT_MEASURED` (zero penalty) when unavailable (`[FIELD_DATA]`).
-> - **Tier D (Peer-Reviewed Empirical Research):** Princeton KDD 2024 (Aggarwal et al., arXiv:2311.09735). Evaluated with **MEDIUM confidence** as benchmark observations on candidate retrieval subsets (`[RESEARCH]`).
+> - **Tier B (Official Search Documentation):** Google Search Central, Bing Webmaster, IndexNow, AI bot crawler documentation. Evaluated with **HIGH/MEDIUM confidence** (`[OFFICIAL]`).
+> - **Tier C (Empirical Research & Field Telemetry):** Princeton KDD 2024 (Aggarwal et al., arXiv:2311.09735), CrUX field telemetry, Google Search Console, GA4. Evaluated with **HIGH/MEDIUM confidence** (`[RESEARCH]` / `[FIELD_DATA]`). Unobserved telemetry is recorded as `UNKNOWN` / `NOT_MEASURED` (zero penalty).
+> - **Tier D (Industry Evidence & Security Standards):** OWASP Top 10 for LLMs, Web Security Standards. Evaluated with **HIGH confidence** (`[SECURITY]`).
 > - **Tier E (Heuristics & Conventions):** Adaptive RAG passage chunking (100–200 words), direct answer formulas, `/llms.txt`. Evaluated with **MEDIUM confidence** (`[HEURISTIC]`).
-> - **Tier F (LLM Reasoning & Hypotheses):** Qualitative synthesis, stylistic tailoring, and strategic interpretations. Evaluated with **LOW/MEDIUM confidence** (`[HYPOTHESIS]`).
+> - **Tier F (Recommendations & Qualitative Hypotheses):** Editorial/accessibility best practices, semantic landmarks, strategic hypotheses (`[RECOMMENDATION]` / `[HYPOTHESIS]`).
 >
 > **Technical SEO Score Stratification & Low-Coverage Caution:**  
 > The Technical SEO assessment evaluates 3 distinct layers:
@@ -51,6 +46,14 @@ Infer or confirm which mode the user needs:
 | **3. `schema`** | "add schema", "generate JSON-LD", "rich snippets", "FAQ markup", "HowTo schema" | Generates and validates unified `@graph` Schema.org JSON-LD tailored for AI comprehension and entity resolution. |
 | **4. `ai-files`** | "generate llms.txt", "fix robots.txt", "allow AI bots", "AI crawler setup" | Creates production-ready `robots.txt` (with explicit AI crawler directives and indexation-safe disallows) and structured `llms.txt`. |
 | **5. `strategy`** | "content plan", "topical authority", "keyword strategy", "AI search strategy" | Builds search & AI citation content clusters with target questions, evidence requirements, and formats. |
+
+### Default / Fallback Mode Routing
+If the user's prompt is underspecified or does not explicitly state a mode:
+- **Default to `audit` (Mode 1)** whenever a URL, domain, or local HTML file path is provided.
+- **Default to `optimize` (Mode 2)** whenever raw article text, markdown copy, or content drafting is provided.
+- **Default to `schema` (Mode 3)** whenever structured data, JSON-LD, or rich results are discussed.
+- **Default to `ai-files` (Mode 4)** whenever crawler access, robots.txt, or llms.txt is discussed.
+- **Default to `strategy` (Mode 5)** whenever keyword planning, topic clusters, or search intent roadmaps are requested.
 
 *(Note: The internal `safety_check` evaluation harness tests strict enforcement of the non-negotiable Zero Fabrication rule below).*
 
@@ -101,7 +104,7 @@ A report with twenty undifferentiated findings has failed. Every audit, recommen
 > **Context Window Protection (Zero Eager Loading / Strict JIT):**
 > DO NOT load all reference documents simultaneously! Reading all 5 manuals eagerly burns over 40,000 tokens, dilutes agent focus, and causes severe "lost in the middle" quality degradation.
 > You MUST read **ONLY** the single, targeted reference file corresponding to the active mode:
-> - **Mode 1 (`audit`):** If running CLI engine (`python -m engine.inspector`), no reference files need to be loaded into context! If manually auditing, read `references/technical-seo-checklist.md` and `references/geo-framework.md`.
+> - **Mode 1 (`audit`):** If running CLI engine (`python -m engine.inspector`), no reference files need to be loaded into context! If manually auditing or formatting executive reports, read `references/mode-audit.md`, `references/technical-seo-checklist.md`, and `references/geo-framework.md`.
 > - **Mode 2 (`optimize`):** Read ONLY `references/geo-framework.md`.
 > - **Mode 3 (`schema`):** Read ONLY `references/schema-templates.md`.
 > - **Mode 4 (`ai-files`):** Read ONLY `references/ai-crawler-spec.md`.

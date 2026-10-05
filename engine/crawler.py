@@ -342,7 +342,7 @@ def crawl_site(
 def format_site_crawl_markdown(report: SiteCrawlReport) -> str:
     """Renders a comprehensive Site-Level Crawl & Linking Audit Report in Markdown."""
     md = []
-    md.append(f"# Site-Level SEO & Architecture Crawl Report")
+    md.append("# Site-Level SEO & Architecture Crawl Report")
     md.append("")
     md.append(f"> **Seed URL**: `{report.seed_url}`  ")
     md.append(f"> **Pages Crawled**: **{report.total_crawled}**  ")

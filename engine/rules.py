@@ -84,7 +84,14 @@ def get_rule_registry(force_reload: bool = False) -> Dict[str, RuleDefinition]:
         Path(__file__).resolve().parent / "rules",
         Path(sys.prefix) / "rules" if "sys" in globals() else Path("/nonexistent"),
     ]
-    rules_dir = next((c for c in candidates if c.exists()), candidates[0])
+    try:
+        import rules as _rules_pkg
+        if hasattr(_rules_pkg, "__file__") and _rules_pkg.__file__:
+            candidates.insert(0, Path(_rules_pkg.__file__).resolve().parent)
+    except Exception:
+        pass
+
+    rules_dir = next((c for c in candidates if c.exists() and (c / "technical_rules.json").exists()), candidates[0])
     registry: Dict[str, RuleDefinition] = {}
 
     rule_files = ["technical_rules.json", "schema_rules.json", "geo_rules.json"]
@@ -123,8 +130,13 @@ def get_rule_registry(force_reload: bool = False) -> Dict[str, RuleDefinition]:
                         # Fallback to Tier E rather than allowing false authority
                         rule.tier = "Tier E (Heuristic)"
                     registry[r_id] = rule
-        except Exception:
-            pass
+        except Exception as exc:
+            import warnings
+            warnings.warn(f"Failed to parse rule file {path}: {exc}", RuntimeWarning)
+
+    if not registry:
+        import warnings
+        warnings.warn(f"Ultimate SEO & GEO: No rules loaded! Searched paths: {[str(c) for c in candidates]}", RuntimeWarning)
 
     _REGISTRY_CACHE = registry
     return _REGISTRY_CACHE

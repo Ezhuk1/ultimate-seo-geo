@@ -1,5 +1,5 @@
 """
-Security utilities and SSRF prevention guards for ultimate-seo-geo v3.1.1.
+Security utilities and SSRF prevention guards for ultimate-seo-geo v3.8.1.
 Protects against SSRF, cloud metadata access, DNS rebinding, and private network exploitation.
 """
 

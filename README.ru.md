@@ -87,7 +87,7 @@
 
 ## 🖥️ Автономный консольный движок CLI (`engine/`)
 
-Встроенный детерминированный движок не требует **никаких сторонних pip-зависимостей** (написан исключительно на стандартной библиотеке Python 3.10+). Скорость выполнения составляет **<15 мс для локальных файлов и in-memory AST-парсинга** (без сетевых задержек) и **<500 мс для полного аудита живого сайта** (включая HTTP-запросы, TLS-рукопожатие и анализ robots/sitemap):
+Встроенный детерминированный движок не требует **никаких сторонних pip-зависимостей** (написан исключительно на стандартной библиотеке Python 3.10+). Скорость выполнения составляет **<15 мс для локальных файлов и in-memory AST-парсинга** (без сетевых задержек) и от 500 мс до 1–2 с для живого аудита страницы по сети (зависит от RTT и задержек целевого сервера):
 
 ```bash
 # 1. Аудит живого сайта с симуляцией AI-краулеров и детекцией CSR-пустышек
@@ -266,7 +266,7 @@ Suite: ultimate-seo-geo-evals (v3.8.1) - 10 test cases
 --- 2. Negative Mutation & Anti-Regression Suite ---
   [PASS] 20/20 negative mutation guards passed
 --- 3. Autonomous Inspection Engine (v3.8.1) Integration Suite ---
-  [PASS] 30/30 engine integration tests passed (включая test_v3_5_0_audit_remediation_suite)
+  [PASS] 34/34 engine integration tests passed (плюс раунды 2–6 capability suites)
 
 [SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.8.1 tests are healthy.
 ```
@@ -312,7 +312,7 @@ ultimate-seo-geo/
 └── evals/
     ├── evals.json                    # Эвристические и структурные тесты + негативные проверки
     ├── run_evals.py                  # Тестовый харнесс и раннер ассершенов
-    ├── test_engine.py                # Интеграционный тестовый набор движка (24 тест-сьюта)
+    ├── test_engine.py                # Интеграционный тестовый набор движка (34 тест-сьюта)
     └── CHANGELOG.md                  # Полный журнал изменений бенчмарка и движка
 ```
 

@@ -11,7 +11,7 @@ Implements:
 from __future__ import annotations
 import re
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Any
 from urllib.parse import unquote
 
 

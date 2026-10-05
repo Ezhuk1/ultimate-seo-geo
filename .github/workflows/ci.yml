@@ -24,8 +24,27 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run Autonomous Engine v3.0.0 Integration Suite
+      - name: Run Autonomous Engine Integration Suite
         run: python evals/test_engine.py
+
+      - name: Run Hardening & Capability Rounds (2–6)
+        run: |
+          python evals/test_engine_round2.py
+          python evals/test_engine_round3.py
+          python evals/test_engine_round4.py
+          python evals/test_engine_round5.py
+          python evals/test_engine_round6.py
 
       - name: Run Canonical Evals & Mutation Defense Suite
         run: python evals/run_evals.py
+
+      - name: Smoke Test Package Installation & Rule Loading
+        run: |
+          pip install .
+          python -c "from engine.rules import get_rule_registry; r = get_rule_registry(); assert len(r) > 50, f'Registry empty: {len(r)} rules'; print(f'Package install smoke test PASSED: {len(r)} rules loaded')"
+
+      - name: Lint with Ruff
+        run: |
+          pip install ruff
+          ruff check .
+

@@ -174,7 +174,7 @@ def analyze_ga4_csv(file_or_content: Union[str, Path, bytes]) -> Ga4AnalysisResu
             break
 
     if header_idx == -1 or "source" not in col_map or "sessions" not in col_map:
-        res.error_message = f"Required GA4 columns ('Session source', 'Sessions') not found in headers"
+        res.error_message = "Required GA4 columns ('Session source', 'Sessions') not found in headers"
         return res
 
     total_sessions = 0

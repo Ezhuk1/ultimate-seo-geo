@@ -53,3 +53,29 @@ include = ["engine*", "rules*", "references*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.md"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = [
+    "E501",  # line length handled by formatting / prose
+    "E402",  # module import not at top of file
+    "E741",  # ambiguous variable name
+    "F401",  # unused import
+    "F841",  # unused variable
+    "B008",  # do not perform function calls in argument defaults
+    "B028",  # no explicit stacklevel
+    "B905",  # zip without strict
+    "UP006", # non-pep585-annotation (typing.Dict/List)
+    "UP007", # non-pep604-annotation (Optional/Union)
+    "UP015", # redundant open modes
+    "UP035", # deprecated imports
+    "UP037", # quoted annotation
+    "UP038", # non-pep604-isinstance
+    "W293",  # blank line with whitespace
+]
+
+

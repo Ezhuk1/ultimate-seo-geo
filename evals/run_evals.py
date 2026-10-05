@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -1164,15 +1165,37 @@ def main():
         except Exception as exc:
             print(f"  [FAIL] {test_name:<38} -> {exc}")
 
+    print("\n--- 4. Capability & Anti-Regression Rounds Suite (Rounds 2–6) ---")
+    round_scripts = [
+        "test_engine_round2.py",
+        "test_engine_round3.py",
+        "test_engine_round4.py",
+        "test_engine_round5.py",
+        "test_engine_round6.py",
+    ]
+    rounds_passed = 0
+    evals_dir = Path(__file__).resolve().parent
+    for r_script in round_scripts:
+        script_path = evals_dir / r_script
+        if script_path.exists():
+            proc = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
+            if proc.returncode == 0:
+                print(f"  [PASS] {r_script:<38} -> All round checks passed")
+                rounds_passed += 1
+            else:
+                print(f"  [FAIL] {r_script:<38} -> Exit code {proc.returncode}\n{proc.stderr or proc.stdout}")
+
     print("\n--------------------------------------------------")
     print(f"Canonical evals:  {passed}/{len(evals_list)} passed.")
     print(f"Mutation tests:   {mutations_passed}/{len(mutations)} passed.")
     print(f"Engine tests:     {engine_passed}/{len(engine_tests)} passed.")
+    print(f"Round suites:     {rounds_passed}/{len(round_scripts)} passed.")
 
     if (
         passed == len(evals_list)
         and mutations_passed == len(mutations)
         and engine_passed == len(engine_tests)
+        and rounds_passed == len(round_scripts)
     ):
         print("\n[SUCCESS] All evaluation fixtures, assertions, mutation guards, and Engine v3.8.1 tests are healthy.")
         sys.exit(0)

@@ -1,0 +1,34 @@
+name: Feature or Rule Request
+description: Propose a new SEO/GEO rule or analyzer enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Propose a new deterministic inspection rule or analyzer capability.
+  - type: input
+    id: proposed_rule
+    attributes:
+      label: Proposed Rule ID / Name
+      placeholder: e.g. TECH-INP-HYDRATION-045
+    validations:
+      required: true
+  - type: dropdown
+    id: epistemic_tier
+    attributes:
+      label: Epistemic Tier
+      options:
+        - "Tier A: Protocol / Standard (RFC, W3C, sitemaps.org)"
+        - "Tier B: Official Search Documentation (Google, Bing, OpenAI)"
+        - "Tier C: Empirical Research & Field Telemetry (Princeton, CrUX, GA4)"
+        - "Tier D: Industry Evidence & Security Standards (OWASP)"
+        - "Tier E: Practical Heuristics"
+        - "Tier F: Recommendations"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Rule Specification & Authority Citation
+      description: Provide the rationale, verification condition, and link to authority documentation
+    validations:
+      required: true

@@ -47,6 +47,7 @@ class EngineConfig:
     crawl: CrawlConfig = field(default_factory=CrawlConfig)
     disabled_rules: List[str] = field(default_factory=list)
     strict_mode: bool = False
+    psi_api_key: Optional[str] = None
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> EngineConfig:
@@ -99,7 +100,8 @@ class EngineConfig:
                 thresholds=thresholds,
                 crawl=crawl,
                 disabled_rules=list(data.get("disabled_rules", [])),
-                strict_mode=bool(data.get("strict_mode", False))
+                strict_mode=bool(data.get("strict_mode", False)),
+                psi_api_key=data.get("psi_api_key")
             )
         except Exception:
             return cls()
